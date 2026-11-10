@@ -1181,6 +1181,9 @@ function vDashboard(b,t,a,semConsulta=false){
   const andamento=count(c=>['Em execução','Em programação'].includes(c.status));
   const urbanas=count(c=>c.area==='Urbana'),rurais=count(c=>c.area==='Rural');
   const garantia=count(c=>c.status==='Aguardando Garantia LED');
+const slaConcluidos=filtrados.filter(c=>c.status==='Concluído').map(c=>v19StatusSLALinha(c)).filter(r=>r.resultado!==null);
+const slaDentro=slaConcluidos.filter(r=>r.resultado===true).length;
+const slaCumprido=slaConcluidos.length ? Math.round(slaDentro*100/slaConcluidos.length)+'% ('+slaDentro+'/'+slaConcluidos.length+')' : '—';
   const kpi=(n,v,d,col)=>'<div class="kpi"><div class="kpi-accent" style="background:'+col+'"></div><div class="kpi-label">'+n+'</div><div class="kpi-val" style="color:'+col+'">'+v+'</div><div class="kpi-sub">'+d+'</div></div>';
   const tabela=key=>{
     const m=new Map();
@@ -1198,7 +1201,7 @@ function vDashboard(b,t,a,semConsulta=false){
     +'<div class="kpi2">🏙 Urbanos: <strong>'+urbanas+'</strong></div>'
     +'<div class="kpi2">🌾 Rurais: <strong>'+rurais+'</strong></div>'
     +'<div class="kpi2">⚡ Garantia LED: <strong>'+garantia+'</strong></div>'
-    +'<div class="kpi2">🎯 SLA cumprido: <strong>—</strong></div>'
+    +'<div class="kpi2">🎯 SLA cumprido: <strong>'+slaCumprido+'</strong></div>'
     +'</div><div class="row21">'
     +'<div class="card"><div class="card-title">Chamados por cidade</div>'+tabela(c=>c.cidade)+'</div>'
     +'<div class="card"><div class="card-title">Chamados por status</div>'+tabela(c=>c.status)+'</div>'
