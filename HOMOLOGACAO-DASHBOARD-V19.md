@@ -61,3 +61,10 @@ O percentual de 100% se refere **somente a uma conclusão avaliável**, e não a
 - **Correção isolada implementada na branch:** somente `v19-dashboard.js` foi modificado, em regras CSS condicionais a tela de até 680 px e à presença dos gráficos do dashboard. Menu compacto por ícones, KPIs em duas colunas, gráficos em uma, topo quebrando linhas, sem alterar regras de negócio.
 - **Pendente:** recarregar a prévia do Codespaces depois de `git pull --ff-only` e revalidar visualmente em 400 px, especialmente filtros, cartões e gráficos. Não fazer merge antes do teste.
 - Nenhum teste funcional 219–230 precisa ser repetido se não houver regressão direta; validar apenas o comportamento mobile afetado.
+
+## Etapa 235 — Novo problema de responsividade na lista de Chamados
+- **Teste mobile 400px:** atalho `Concluídos` navegou corretamente para cinco chamados da Empresa Alfa B, mas a lista ficou estreita, pois a regra de menu compacto estava limitada ao dashboard.
+- **Correção em branch isolada:** `index.html`, CSS condicionado à presença de `#tbody-ch` em viewport até 680px. Menu compacto, cabeçalho e aviso de filtro responsivos, formulário empilhado.
+- Fechamento explícito de `.fbar` após seus filtros, com tabela encapsulada em região `.v19-ch-table-scroll` rolável horizontalmente. Nenhuma lógica de filtros ou RPC foi alterada.
+- **Pendente:** `git pull` no Codespaces e teste visual no modo 400px da lista e da rolagem da tabela. O teste anterior da etapa 235 não foi aprovado visualmente.
+- Sem integração à `main` antes da confirmação.
