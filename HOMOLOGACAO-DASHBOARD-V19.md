@@ -42,3 +42,16 @@ O percentual de 100% se refere **somente a uma conclusão avaliável**, e não a
 - **Falta** testar o comportamento visual no navegador real e reconfirmar os valores pelo Supabase antes de liberar a nova versão no GitHub Pages.
 
 **Critério de liberação:** integração somente após conferir os resultados acima. O commit na branch de desenvolvimento não publica esta versão no GitHub Pages atualmente configurado para main.
+
+## Melhoria adicional — atalhos nos indicadores (10/11/2026)
+
+- Os quatro cartões principais são botões acessíveis que abrem **Chamados**.
+- **Total** transfere o período e o município, sem restringir status.
+- **Em programação / execução** filtra somente esses dois estados; não mistura chamados em `Recebido`.
+- **Concluídos** filtra exatamente `status = Concluído`.
+- **Em atraso (SLA)** utiliza o cálculo `v19StatusSLA` para localizar chamados abertos vencidos, não um status textual persistido.
+- O banner de Chamados mostra a origem e o período. Os valores de cidade/status são pré-selecionados no formulário. **Limpar** restaura a lista geral sem filtros.
+- Nenhum acesso ao banco, RPC ou operação de escrita foi acrescentado ao dashboard.
+- Testes preliminares simulados passaram: todos 14, concluídos 8, programação/execução 0, atrasados 5; janela de 30 dias excluiu 1 registro anterior.
+- **Pendente:** confirmar no Codespaces os quatro cliques, contagens, banner, botão Limpar, filtro de mês e o caso de período vazio. Verificar novamente o isolamento por perfil.
+- **Fora de escopo neste pacote:** tabela `chamado_fotos` e bucket `chamado-fotos` ausentes no Supabase V19. Esta correção deverá ser conduzida separadamente.
