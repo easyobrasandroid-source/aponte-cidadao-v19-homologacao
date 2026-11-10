@@ -55,3 +55,9 @@ O percentual de 100% se refere **somente a uma conclusão avaliável**, e não a
 - Testes preliminares simulados passaram: todos 14, concluídos 8, programação/execução 0, atrasados 5; janela de 30 dias excluiu 1 registro anterior.
 - **Pendente:** confirmar no Codespaces os quatro cliques, contagens, banner, botão Limpar, filtro de mês e o caso de período vazio. Verificar novamente o isolamento por perfil.
 - **Fora de escopo neste pacote:** tabela `chamado_fotos` e bucket `chamado-fotos` ausentes no Supabase V19. Esta correção deverá ser conduzida separadamente.
+
+## Etapa 231 — Responsividade mobile (10/11/2026)
+- **Primeiro teste em 400 px: falhou visualmente.** Menu de 210 px e indicadores em quatro colunas cortaram os números e gráficos. O Console mostrava dados Supabase carregados, sem erro de requisição visível.
+- **Correção isolada implementada na branch:** somente `v19-dashboard.js` foi modificado, em regras CSS condicionais a tela de até 680 px e à presença dos gráficos do dashboard. Menu compacto por ícones, KPIs em duas colunas, gráficos em uma, topo quebrando linhas, sem alterar regras de negócio.
+- **Pendente:** recarregar a prévia do Codespaces depois de `git pull --ff-only` e revalidar visualmente em 400 px, especialmente filtros, cartões e gráficos. Não fazer merge antes do teste.
+- Nenhum teste funcional 219–230 precisa ser repetido se não houver regressão direta; validar apenas o comportamento mobile afetado.
