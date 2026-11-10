@@ -132,8 +132,8 @@
         tr.style.borderBottom = '1px solid #f1f5f9';
         adicionarCelula(tr, ch.protocolo);
         adicionarCelula(tr, ch.cidade);
-        adicionarCelula(tr, ch.tipo);
-        adicionarCelula(tr, ch.sla_horas == null ? 'Nao apuravel' : (ch.sla_horas / 24) + ' dias');
+        adicionarCelula(tr, ch.tipo);      
+adicionarCelula(tr, ch.sla == null ? 'Não apurável' : (ch.sla / 24) + ' dias');
         const escolha = adicionarCelula(tr, null);
         const select = elemento('select');
         select.style.cssText = 'width:100%;max-width:260px;padding:7px';
