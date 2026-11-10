@@ -1193,7 +1193,7 @@ function vDashboard(b,t,a,semConsulta=false){
     +kpi('Total de chamados',total,'No período selecionado','var(--brand)')
     +kpi('Em programação / execução',andamento,'Somente estes dois status','#D97706')
     +kpi('Concluídos',concluidos,'Status atual','var(--green)')
-    +kpi('Em atraso (SLA)','—','Apuração pendente','var(--red)')
++kpi('Em atraso (SLA)',count(c=>c.status!=='Concluído' && v19StatusSLALinha(c).estado==='Em atraso'),'Chamados abertos com prazo vencido','var(--red)')
     +'</div><div class="kpi-grid2">'
     +'<div class="kpi2">🏙 Urbanos: <strong>'+urbanas+'</strong></div>'
     +'<div class="kpi2">🌾 Rurais: <strong>'+rurais+'</strong></div>'
