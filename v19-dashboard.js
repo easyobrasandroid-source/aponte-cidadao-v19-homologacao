@@ -39,6 +39,9 @@
     const s = document.createElement('style');
     s.id = 'v19-dashboard-completo-css';
     s.textContent =
+      '.v19d-kpi-link{display:block;width:100%;text-align:left;font-family:inherit;color:inherit;cursor:pointer}' +
+      '.v19d-kpi-link:focus-visible{outline:3px solid var(--brand);outline-offset:2px}' +
+      '.v19d-kpi-link:hover .kpi-label{text-decoration:underline}' +
       '.v19d-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr);gap:14px;margin-top:12px}' +
       '.v19d-grid.equal{grid-template-columns:repeat(2,minmax(0,1fr))}' +
       '.v19d-canvas{height:230px;position:relative;min-width:0}' +
@@ -162,9 +165,12 @@
     const concluidosNaoAvaliaveis=concluidos-concluidosAvaliaveis.length;
     const parcial=DB.chamados.length>=500;
 
-    const kpi=(label,valor,sub,cor)=>'<div class="kpi"><div class="kpi-accent" style="background:'+cor+'"></div>'+
+    const kpi=(label,valor,sub,cor,filtro)=>'<button type="button" class="kpi v19d-kpi-link"'+
+      ' onclick="navChamados(&#39;'+filtro+'&#39;,&#39;'+label+'&#39;)"'+
+      ' aria-label="Ver '+valor+' chamados: '+label+'">'+
+      '<div class="kpi-accent" style="background:'+cor+'"></div>'+
       '<div class="kpi-label">'+label+'</div><div class="kpi-val" style="color:'+cor+'">'+valor+
-      '</div><div class="kpi-sub">'+sub+'</div></div>';
+      '</div><div class="kpi-sub">'+sub+' · Clique para ver</div></button>';
     const agrupar=fn=>{
       const m=new Map();
       filtrados.forEach(c=>{const k=fn(c)||'Não informado';m.set(k,(m.get(k)||0)+1);});
@@ -211,10 +217,10 @@
       'SLA calculado apenas quando há prazo e datas válidos. '+
       (parcial?'⚠️ Consulta limitada a 500 chamados: números podem estar incompletos.':'')+'</div>'+
       '<div class="kpi-grid">'+
-      kpi('Total de chamados',total,'No período selecionado','var(--brand)')+
-      kpi('Em programação / execução',andamento,'Status atual','#D97706')+
-      kpi('Concluídos',concluidos,'Status atual','var(--green)')+
-      kpi('Em atraso (SLA)',atraso,'Chamados abertos vencidos','var(--red)')+'</div>'+
+      kpi('Total de chamados',total,'No período selecionado','var(--brand)','all')+
+      kpi('Em programação / execução',andamento,'Status atual','#D97706','dash_execucao')+
+      kpi('Concluídos',concluidos,'Status atual','var(--green)','Concluído')+
+      kpi('Em atraso (SLA)',atraso,'Chamados abertos vencidos','var(--red)','dash_atraso')+'</div>'+
       '<div class="kpi-grid2">'+
       '<div class="kpi2">🏙 Urbanos: <strong>'+urbanos+'</strong></div>'+
       '<div class="kpi2">🌾 Rurais: <strong>'+rurais+'</strong></div>'+
