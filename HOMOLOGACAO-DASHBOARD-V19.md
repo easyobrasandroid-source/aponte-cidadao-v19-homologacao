@@ -68,3 +68,12 @@ O percentual de 100% se refere **somente a uma conclusão avaliável**, e não a
 - Fechamento explícito de `.fbar` após seus filtros, com tabela encapsulada em região `.v19-ch-table-scroll` rolável horizontalmente. Nenhuma lógica de filtros ou RPC foi alterada.
 - **Pendente:** `git pull` no Codespaces e teste visual no modo 400px da lista e da rolagem da tabela. O teste anterior da etapa 235 não foi aprovado visualmente.
 - Sem integração à `main` antes da confirmação.
+
+## Registro consolidado — etapas 219 a 237 (10/11/2026)
+- **Atalhos e filtros:** os quatro cartões do dashboard da Prefeitura Alfa 1, limpar filtros, filtro de outubro sem registros e filtro de novembro com oito concluídos foram confirmados por capturas do navegador.
+- **Isolamento visual:** Empresa Alfa A exibiu três concluídos e dois atrasados próprios; Empresa Alfa B, cinco concluídos próprios; o seletor da Prefeitura Alfa 1 não ofereceu Município Beta 1.
+- **Reversão de apresentação:** `?dashboard=legacy` mostrou o painel anterior com os mesmos totais da Empresa Alfa B (7, 0, 5, 2). Isso não equivale a reverter um merge.
+- **Mobile 400 px, dashboard (etapas 231–234):** corrigidos menu compacto, KPIs em duas colunas, gráficos empilhados; último campo de SLA na tabela de desempenho acessível por rolagem. Aprovado visualmente nos cenários fotografados.
+- **Mobile 400 px, Chamados (etapas 235–237):** após correção do layout da lista, filtro Concluídos da Empresa Alfa B exibiu cinco registros; filtros ficaram acessíveis; usuário confirmou a rolagem horizontal até Data/hora, Origem e botão Ver. Não se inferem testes das colunas intermediárias pela última imagem.
+- **Pendente para concluir este pacote:** regressão visual pontual da página Chamados em desktop após alteração do `index.html`, revisão final e autorização de merge. Fotos e permissões completas seguem em frentes separadas.
+- **Implantação:** PR #1 continua em Draft para `main`; versão publicada e V18 não foram modificadas.
