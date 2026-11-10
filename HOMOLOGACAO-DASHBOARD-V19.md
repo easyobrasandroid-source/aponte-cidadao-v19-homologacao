@@ -82,3 +82,8 @@ O percentual de 100% se refere **somente a uma conclusão avaliável**, e não a
 - **Aprovada visualmente:** após correção da Etapa 235–237, captura da Empresa Alfa B com filtros em linha, cabeçalho e todas as colunas da tabela visíveis, cinco concluídos, cinco botões Ver, banner de origem preservado.
 - Este teste se limita ao cenário apresentado; não implica validação mobile de outros módulos.
 - **Status:** pronto para revisão técnica pré-merge; aprovação e integração ainda pendentes. PR #1 permanece Draft na branch isolada, main da V19 e V18 sem modificações.
+
+## Etapa 239 — Regressão do painel de detalhes (10/11/2026)
+- **Aprovada no cenário testado:** Empresa Alfa B, filtro Concluídos / Últimos 30 dias; botão Ver abriu painel lateral do primeiro registro, mantendo visíveis os cinco registros filtrados e exibindo empresa, status Concluído, datas de abertura/conclusão e dados do chamado.
+- **Nota de UX fora do pacote:** `Tempo total` exibiu `0h de atendimento` para cerca de 8min26s de duração; considerar formatação em minutos quando abaixo de 1h. Não altera os cálculos do dashboard.
+- O pacote de dashboard e navegação está **aprovado nos testes funcionais/visuais executados**, com publicação dependente de autorização explícita para merge da branch de homologação. Outros módulos (fotos, usuários, permissões completas) têm homologações separadas e **não estão liberados** por este resultado.
