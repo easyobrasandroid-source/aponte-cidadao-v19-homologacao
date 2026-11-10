@@ -77,3 +77,8 @@ O percentual de 100% se refere **somente a uma conclusão avaliável**, e não a
 - **Mobile 400 px, Chamados (etapas 235–237):** após correção do layout da lista, filtro Concluídos da Empresa Alfa B exibiu cinco registros; filtros ficaram acessíveis; usuário confirmou a rolagem horizontal até Data/hora, Origem e botão Ver. Não se inferem testes das colunas intermediárias pela última imagem.
 - **Pendente para concluir este pacote:** regressão visual pontual da página Chamados em desktop após alteração do `index.html`, revisão final e autorização de merge. Fotos e permissões completas seguem em frentes separadas.
 - **Implantação:** PR #1 continua em Draft para `main`; versão publicada e V18 não foram modificadas.
+
+## Etapa 238 — Regressão desktop da tela Chamados (10/11/2026)
+- **Aprovada visualmente:** após correção da Etapa 235–237, captura da Empresa Alfa B com filtros em linha, cabeçalho e todas as colunas da tabela visíveis, cinco concluídos, cinco botões Ver, banner de origem preservado.
+- Este teste se limita ao cenário apresentado; não implica validação mobile de outros módulos.
+- **Status:** pronto para revisão técnica pré-merge; aprovação e integração ainda pendentes. PR #1 permanece Draft na branch isolada, main da V19 e V18 sem modificações.
