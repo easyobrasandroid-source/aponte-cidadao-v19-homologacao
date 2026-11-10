@@ -1188,7 +1188,7 @@ function vDashboard(b,t,a,semConsulta=false){
     if(!m.size)return '<p style="font-size:12px;color:var(--gray-500)">Sem dados para os filtros selecionados.</p>';
     return [...m].sort((a,b)=>b[1]-a[1]).map(([nome,qtd])=>'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-100)"><span style="min-width:110px;font-size:11px">'+esc(nome)+'</span><div style="flex:1;background:var(--gray-100);height:8px;border-radius:5px"><div style="width:'+Math.round(qtd/total*100)+'%;background:var(--brand);height:8px;border-radius:5px"></div></div><b style="font-size:12px">'+qtd+'</b></div>').join('');
   };
-  b.innerHTML='<div class="alerts-bar"><strong>ℹ️ Dados carregados do Supabase</strong> · Indicadores de SLA aguardam auditoria da regra de prazos. '+(DB.chamados.length>=500?'⚠️ Consulta limitada a 500 chamados.':'')+'</div>'
+  b.innerHTML='<div class="alerts-bar"><strong>ℹ️ Dados carregados do Supabase</strong> · Atrasos calculados com os prazos registrados. SLA cumprido depende de conclusões avaliáveis. '+(DB.chamados.length>=500?'⚠️ Consulta limitada a 500 chamados.':'')+'</div>'
     +'<div class="kpi-grid">'
     +kpi('Total de chamados',total,'No período selecionado','var(--brand)')
     +kpi('Em programação / execução',andamento,'Somente estes dois status','#D97706')
