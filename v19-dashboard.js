@@ -7,6 +7,8 @@
   'use strict';
   const dashboardAnterior = window.vDashboard;
   if (typeof dashboardAnterior !== 'function') return;
+  // Para comparar ou reverter sem editar codigo: adicionar ?dashboard=legacy na URL.
+  if (new URLSearchParams(window.location.search).get('dashboard') === 'legacy') return;
 
   const esc = value => String(value == null ? '' : value)
     .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -278,6 +280,14 @@
       options:{...opcoes,indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
   }
   window.v19DashboardAnterior = dashboardAnterior;
-  window.vDashboard = dashboardCompleto;
+  // Se o novo painel falhar, preservar o painel anterior na propria sessao.
+  window.vDashboard = function (b,t,a,semConsulta=false) {
+    try { return dashboardCompleto(b,t,a,semConsulta); }
+    catch (e) {
+      console.error('[V19 dashboard] erro de renderizacao; restaurando painel anterior:',e);
+      window.vDashboard=dashboardAnterior;
+      return dashboardAnterior(b,t,a,semConsulta);
+    }
+  };
   console.info('[Aponte V19] Dashboard completo de homologação carregado (somente leitura).');
 })();
