@@ -54,8 +54,15 @@
       '.v19d-overflow{overflow-x:auto}' +
       '.v19d-alert{border-left:3px solid var(--brand);padding:10px 12px;margin:8px 0;background:var(--gray-50);font-size:12px;border-radius:5px}' +
       '.v19d-muted{font-size:11px;color:var(--gray-500)}' +
-      '@media(max-width:970px){.v19d-grid,.v19d-grid.equal{grid-template-columns:minmax(0,1fr)}}';
+      '@media(max-width:970px){.v19d-grid,.v19d-grid.equal{grid-template-columns:minmax(0,1fr)}}' +
+      '@media(max-width:680px){.app-shell:has(.v19d-grid) .sidebar{width:52px}.app-shell:has(.v19d-grid) .sb-logo{padding:10px 0;justify-content:center}.app-shell:has(.v19d-grid) .sb-logo>div:last-child,.app-shell:has(.v19d-grid) .sb-user>div:last-child{display:none}.app-shell:has(.v19d-grid) .sb-user{justify-content:center;padding:8px 0}.app-shell:has(.v19d-grid) .sbi{font-size:0;padding:12px 0;justify-content:center}.app-shell:has(.v19d-grid) .sbi .ico{font-size:19px;width:auto}.app-shell:has(.v19d-grid) .sbi .sbadge,.app-shell:has(.v19d-grid) .sb-lbl{display:none}.app-shell:has(.v19d-grid) .sb-footer{padding:8px 0}.app-shell:has(.v19d-grid) .sb-logout{font-size:0;justify-content:center}.app-shell:has(.v19d-grid) .sb-logout:before{content:"⇥";font-size:20px}.app-shell:has(.v19d-grid) .int-main{min-width:0}.app-shell:has(.v19d-grid) .topbar{height:auto;min-height:52px;align-items:flex-start;gap:8px;flex-wrap:wrap;padding:10px 9px}.app-shell:has(.v19d-grid) .topbar-title{font-size:14px}.app-shell:has(.v19d-grid) .topbar-right{width:100%;min-width:0;display:flex;flex-wrap:wrap;gap:5px}.app-shell:has(.v19d-grid) .topbar-right select,.app-shell:has(.v19d-grid) .topbar-right input{min-width:0;max-width:100%;font-size:12px}.app-shell:has(.v19d-grid) .body{padding:8px;min-width:0}.app-shell:has(.v19d-grid) .alerts-bar{font-size:11px;padding:8px 10px;margin-bottom:10px}.app-shell:has(.v19d-grid) .kpi-grid,.app-shell:has(.v19d-grid) .kpi-grid2{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}.app-shell:has(.v19d-grid) .kpi{padding:12px 9px;min-width:0;min-height:104px}.app-shell:has(.v19d-grid) .kpi-val{font-size:24px}.app-shell:has(.v19d-grid) .kpi-label{font-size:9px}.app-shell:has(.v19d-grid) .kpi-sub{font-size:10px}.app-shell:has(.v19d-grid) .kpi2{min-width:0;padding:10px 8px;font-size:11px;gap:5px;flex-wrap:wrap}.app-shell:has(.v19d-grid) .v19d-grid,.app-shell:has(.v19d-grid) .v19d-grid.equal{grid-template-columns:minmax(0,1fr);gap:8px;margin-top:8px}.app-shell:has(.v19d-grid) .v19d-grid>.card{min-width:0;padding:12px}.app-shell:has(.v19d-grid) .v19d-canvas{height:220px}.app-shell:has(.v19d-grid) .v19d-table{font-size:11px}}';
     document.head.appendChild(s);
+    // Em layout compacto os labels continuam disponiveis em title/tecnologia assistiva.
+    document.querySelectorAll('#pg-app .sidebar .sbi').forEach(el=>{
+      if(!el.title)el.title=el.textContent.trim().replace(/\\s+/g,' ');
+    });
+    const sair=document.querySelector('#pg-app .sb-logout');
+    if(sair&&!sair.title)sair.title='Sair';
   }
 
   function limparGraficos(){
