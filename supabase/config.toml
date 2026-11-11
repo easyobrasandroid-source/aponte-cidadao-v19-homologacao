@@ -1,0 +1,6 @@
+# Aponte Cidadão V19 — API pública de homologação.
+# Desabilita apenas a exigência de JWT na borda; a função exige Turnstile,
+# limitação no banco e credenciais de serviço somente no servidor.
+# O próprio handler permanece DESATIVADO sem PORTAL_INTAKE_ENABLED=true.
+[functions.v19-abrir-chamado]
+verify_jwt = false
