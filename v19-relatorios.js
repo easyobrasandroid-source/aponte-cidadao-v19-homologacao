@@ -193,12 +193,16 @@
       const doc='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Aponte V19 '+esc(label[tipo])+
         '</title><style>body{font:12px Arial;margin:24px;color:#1f2937}h1{color:#1251a3}'+
         'table{border-collapse:collapse;width:100%}th,td{border:1px solid #d1d5db;padding:5px;text-align:left}'+
-        'th{background:#1251a3;color:#fff}tr:nth-child(even){background:#f3f4f6}'+
-        '@page{size:A4 landscape;margin:10mm}p{font-size:11px}</style></head><body>'+
+        'th{background:#e7eef9;color:#173b66;font-weight:700;vertical-align:top}tr:nth-child(even){background:#f3f4f6}'+
+        'thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}'+
+        '@page{size:A4 landscape;margin:10mm}p{font-size:11px}'+
+        '@media print{th{color:#173b66!important;background:#e7eef9!important}'+
+        'thead,tbody{print-color-adjust:exact;-webkit-print-color-adjust:exact}'+
+        '.print-hint{display:none}}</style></head><body>'+
         '<h1>Aponte Cidadão V19 · '+esc(label[tipo])+'</h1>'+
         '<p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+' · '+dados.length+
         ' registros filtrados · Perfil: '+esc(CU?.perfil||'')+'</p>'+note+table+
-        '<p>Use Ctrl+P para imprimir ou salvar como PDF.</p></body></html>';
+        '<p class="print-hint">Use Ctrl+P para imprimir ou salvar como PDF.</p></body></html>';
       win.document.open();win.document.write(doc);win.document.close();win.focus();
     }catch(e){showToast(esc(e.message),'erro');}
   };
