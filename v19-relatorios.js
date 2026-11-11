@@ -86,7 +86,8 @@
         'Aberto em':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
         'Concluído em':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
         'Prazo registrado (dias corridos)':dias(c._slaHoras),
-        'Tempo observado (dias corridos)':a.tempo==null?'Não apurável':Number((a.tempo/24).toFixed(2)),
+        'Tempo observado (dias corridos)':a.tempo==null?'Não apurável':Number((a.tempo/24).toFixed(4)),
+        'Tempo observado (horas)':a.tempo==null?'Não apurável':Number(a.tempo.toFixed(2)),
         'Resultado estimado':a.estado};
     });
     return dados.map(c=>({
@@ -121,6 +122,7 @@
         'Prazo registrado (dias corridos)':36,
         'Situação SLA (dias corridos)':37,
         'Resultado estimado':36,'Tempo observado (dias corridos)':37,
+        'Tempo observado (horas)':28,
         'Material':34,'Unidade':15,'Contratado':17,'Disponível':17,
         'Estoque mínimo':19,'Preço unitário':19,'Saídas líquidas registradas':30,
         'Histórico':60
@@ -137,16 +139,31 @@
       }
       XLSX.utils.book_append_sheet(wb,ws,label[tipo]);
       if(tipo==='sla'){
-        const avaliados=dados.map(statusSLA).filter(a=>a.resultado!==null);
+        // Só conclusões com prazo e datas suficientes entram na taxa de SLA.
+        // Chamados abertos (inclusive vencidos) não são conclusões não apuráveis.
+        const concluidos=dados.filter(c=>c.status==='Concluído');
+        const abertos=dados.filter(c=>c.status!=='Concluído');
+        const avaliados=concluidos.map(statusSLA).filter(a=>a.resultado!==null);
         const noPrazo=avaliados.filter(a=>a.resultado===true).length;
-        const resumo=[{'Indicador':'Chamados filtrados','Valor':dados.length},
-          {'Indicador':'Com prazo e datas suficientes','Valor':avaliados.length},
-          {'Indicador':'Dentro do prazo estimado (dias corridos)','Valor':noPrazo},
-          {'Indicador':'Fora do prazo estimado (dias corridos)','Valor':avaliados.length-noPrazo},
-          {'Indicador':'Não apuráveis / pausados','Valor':dados.length-avaliados.length},
-          {'Indicador':'Cumprimento estimado entre apuráveis','Valor':
-            avaliados.length?(100*noPrazo/avaliados.length).toFixed(1)+'%':'Não apurável'},
-          {'Indicador':'Nota','Valor':'Estimativa por dias corridos (1 dia = 24 horas); sábados, domingos e feriados são contados. Pausas sem histórico de duração tornam o SLA não apurável.'}];
+        const abertosComEstado=abertos.map(statusSLA);
+        const abertosVencidos=abertosComEstado.filter(a=>a.estado==='Em atraso').length;
+        const abertosNoPrazo=abertosComEstado.filter(a=>a.estado==='Em andamento no prazo').length;
+        const abertosSemResultado=abertos.length-abertosVencidos-abertosNoPrazo;
+        const resumo=[
+          {'Indicador':'Chamados filtrados','Valor':dados.length},
+          {'Indicador':'Concluídos','Valor':concluidos.length},
+          {'Indicador':'Concluídos com SLA avaliável','Valor':avaliados.length},
+          {'Indicador':'Concluídos dentro do prazo','Valor':noPrazo},
+          {'Indicador':'Concluídos fora do prazo','Valor':avaliados.length-noPrazo},
+          {'Indicador':'Concluídos sem SLA avaliável','Valor':concluidos.length-avaliados.length},
+          {'Indicador':'Chamados ainda não concluídos','Valor':abertos.length},
+          {'Indicador':'Não concluídos em atraso','Valor':abertosVencidos},
+          {'Indicador':'Não concluídos dentro do prazo','Valor':abertosNoPrazo},
+          {'Indicador':'Não concluídos com SLA não apurável','Valor':abertosSemResultado},
+          {'Indicador':'Cumprimento de SLA entre conclusões avaliáveis','Valor':
+            avaliados.length?(100*noPrazo/avaliados.length).toFixed(1)+'% ('+noPrazo+'/'+avaliados.length+')':'Não apurável (0 conclusões avaliáveis)'},
+          {'Indicador':'Nota','Valor':'Estimativa por dias corridos (1 dia = 24 horas). Taxa calculada somente entre conclusões avaliáveis, nunca entre todos os chamados. Valores de tempo em horas e dias são arredondados apenas para exibição. Pausas sem histórico verificável impedem avaliar o SLA.'}
+        ];
         const wr=XLSX.utils.json_to_sheet(resumo);
         XLSX.utils.book_append_sheet(wb,wr,'Metodologia');
       }
