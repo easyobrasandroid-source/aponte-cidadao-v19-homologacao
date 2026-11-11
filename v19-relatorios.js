@@ -191,7 +191,8 @@
         note='<div class="sla-summary"><b>Resumo dos filtros:</b> '+
           dados.length+' chamados; '+abertos.length+' não concluídos ('+
           vencidos+' vencidos pelo SLA); '+concluidos.length+
-          ' concluídos. Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>';
+          (concluidos.length===1?' concluído.':' concluídos.')+
+          ' Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>';
         const campo=(rotulo,valor)=>'<div class="sla-field"><b>'+esc(rotulo)+'</b><span>'+
           esc(valor===null||valor===undefined||valor===''?'—':valor)+'</span></div>';
         conteudo='<div class="sla-cards">'+dados.map(c=>{
