@@ -190,7 +190,7 @@
         const vencidos=abertos.filter(c=>statusSLA(c).estado==='Em atraso').length;
         note='<div class="sla-summary"><b>Resumo dos filtros:</b> '+
           dados.length+(dados.length===1?' chamado; ':' chamados; ')+
-          abertos.length+' não concluídos ('+
+          abertos.length+(abertos.length===1?' não concluído (':' não concluídos (')+
           vencidos+(vencidos===1?' vencido pelo SLA); ':' vencidos pelo SLA); ')+concluidos.length+
           (concluidos.length===1?' concluído.':' concluídos.')+
           ' Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>';
