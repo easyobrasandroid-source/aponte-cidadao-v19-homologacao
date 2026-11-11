@@ -240,9 +240,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const bytes = new Uint8Array(await req.arrayBuffer());
-    if (bytes.byteLength > MAX_BODY_BYTES) {
+    // Limite antes de alocar o corpo inteiro. Nunca confiar apenas no
+    // Content-Length, que pode estar ausente ou ser informado incorretamente.
+    const advertisedSize = Number(req.headers.get("content-length") ?? 0);
+    if (advertisedSize > MAX_BODY_BYTES) {
       return reply(413, { ok: false, erro: "REQUISICAO_MUITO_GRANDE" }, origin);
+    }
+    if (!req.body) return reply(400, { ok: false, erro: "DADOS_INVALIDOS" }, origin);
+    const reader = req.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return reply(413, { ok: false, erro: "REQUISICAO_MUITO_GRANDE" }, origin);
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
     }
 
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
