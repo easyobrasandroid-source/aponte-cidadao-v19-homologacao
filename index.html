@@ -3043,6 +3043,16 @@ function vRelatorios(b,t,a){
     const co=ch.filter(c=>c.status==='Concluído').length;
     const pct=ch.length?Math.round((co/ch.length)*100):0;
     const crit=mats.filter(m=>m.disp<(m.min||0)||(m.disp/m.cont)*100<20).length;
+    // O indicador deve refletir o filtro de estoque aplicado; não rotular
+    // zero materiais críticos como "0 materiais OK".
+    const rotuloEstoque=RF.matStatus==='critico'?'Materiais críticos':
+      RF.matStatus==='atencao'?'Materiais em atenção':
+      RF.matStatus==='normal'?'Materiais normais':
+      'Materiais ('+crit+' crítico'+(crit===1?'':'s')+')';
+    const corEstoque=crit>0?'var(--red)':
+      RF.matStatus==='atencao'&&mats.length>0?'var(--amber)':'var(--green)';
+    const fundoEstoque=crit>0?'var(--red-light)':
+      RF.matStatus==='atencao'&&mats.length>0?'var(--amber-light)':'var(--green-light)';
     const ativos=Object.values(RF).filter(v=>v!=='').length;
 
     // Badge
@@ -3067,9 +3077,9 @@ function vRelatorios(b,t,a){
           <div style="font-size:22px;font-weight:800;color:var(--green)">${co}</div>
           <div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase">Concluídos (${pct}% do total)</div>
         </div>
-        <div style="background:${crit>0?'var(--red-light)':'var(--green-light)'};border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:${crit>0?'var(--red)':'var(--green)'}">${mats.length}</div>
-          <div style="font-size:9px;font-weight:700;color:${crit>0?'var(--red)':'var(--green)'};text-transform:uppercase">${crit>0?crit+' crítico(s)':'Materiais ok'}</div>
+        <div style="background:${fundoEstoque};border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:${corEstoque}">${mats.length}</div>
+          <div style="font-size:9px;font-weight:700;color:${corEstoque};text-transform:uppercase">${rotuloEstoque}</div>
         </div>
       </div>
       ${ch.length===0?'<div style="text-align:center;padding:12px;color:var(--amber);font-size:12px;font-weight:600">⚠ Nenhum chamado encontrado para os filtros selecionados.</div>':''}`;
