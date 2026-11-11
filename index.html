@@ -3039,7 +3039,10 @@ function vRelatorios(b,t,a){
     const ch=window._rfFiltrarChamados();
     const mats=window._rfFiltrarEstoque();
     _exportChamados=ch; _exportMats=mats;
-    const at=ch.filter(c=>['Em atraso','Concluído fora do prazo'].includes(window.v19StatusSLA?.(c).estado)).length;
+    // Indicador de atraso = somente chamados ainda abertos com prazo vencido.
+    // Concluídos fora do prazo permanecem no histórico e no filtro de SLA,
+    // mas não são pendências abertas. Mesma regra do Dashboard.
+    const at=ch.filter(c=>c.status!=='Concluído' && window.v19StatusSLA?.(c)?.estado==='Em atraso').length;
     const co=ch.filter(c=>c.status==='Concluído').length;
     const pct=ch.length?Math.round((co/ch.length)*100):0;
     const crit=mats.filter(m=>m.disp<(m.min||0)||(m.disp/m.cont)*100<20).length;
