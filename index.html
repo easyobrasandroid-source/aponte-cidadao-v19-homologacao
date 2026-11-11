@@ -315,7 +315,7 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="page" id="pg-portal">
 <div class="pub-page">
   <div class="pub-header">
-    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">CIS Caparaó</div><div class="pub-brand-sub">Iluminação pública do Vale do Caparaó</div></div></div>
+    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div><div class="pub-brand-sub">Portal público em homologação</div></div></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="goPage('pg-consulta')">🔍 Consultar protocolo</button>
       <button class="btn btn-primary" onclick="goPage('pg-login')">Entrar</button>
@@ -336,7 +336,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="gps-btn" onclick="captureGPS('geocode-status-pub')"><span>📍</span>Usar minha localização atual (GPS)</div>
         <div id="geocode-status-pub" class="geocode-status"></div>
         <div class="frow frow2" style="margin-bottom:10px">
-          <div class="field"><label>Cidade</label><select id="pub-cidade"><option>Espera Feliz</option><option>Caparaó</option><option>Alto Caparaó</option><option>Carangola</option><option>Manhuaçu</option><option>Divino</option></select></div>
+          <div class="field"><label>Cidade</label><select id="pub-cidade" disabled><option value="">Nenhum município disponível</option></select></div>
           <div class="field"><label>Bairro</label><input type="text" id="pub-bairro" placeholder="Nome do bairro"></div>
         </div>
         <div class="frow frow32">
@@ -351,6 +351,7 @@ tbody tr:last-child td{border-bottom:none;}
           <div class="field"><label>Área</label><select id="pub-area"><option>Urbana</option><option>Rural</option></select></div>
         </div>
         <div class="field" style="margin-top:10px"><label>Ponto de referência</label><input type="text" id="pub-ref" placeholder="Ex: em frente à farmácia..."></div>
+        <div id="pub-cidades-status" role="status" style="font-size:12px;color:var(--gray-500);margin-top:12px">Portal público em homologação. Abertura de chamados indisponível.</div>
       </div>
       <div class="form-section">
         <div class="form-sec-title"><span class="form-sec-num">3</span>Tipo de problema</div>
@@ -371,7 +372,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="form-sec-title"><span class="form-sec-num">4</span>Foto (opcional)</div>
         <div style="border:1.5px dashed var(--gray-300);border-radius:var(--radius-sm);padding:16px;text-align:center;color:var(--gray-400)"><div style="font-size:24px;margin-bottom:6px">📷</div><div style="font-size:12px">📷 Tirar foto &nbsp;|&nbsp; 📁 Escolher arquivo</div></div>
       </div>
-      <div class="form-footer"><span style="font-size:11px;color:var(--gray-400)">🔒 Dados protegidos</span><button class="btn btn-save" onclick="submeterChamado()">Enviar solicitação →</button></div>
+      <div class="form-footer"><span style="font-size:11px;color:var(--gray-400)">🔒 Dados protegidos</span><button class="btn btn-save" type="button" disabled title="Abertura pública ainda não homologada">Abertura em homologação</button></div>
     </div>
   </div>
 </div>
@@ -755,16 +756,47 @@ async function carregarCidades(){
 }
 function cidadeIdPorNome(nome){ if(!_cidadesMap||!nome) return null; return _cidadesMap[nome.trim().toLowerCase()]||null; }
 function getCidadesCache(){ return DB.cidades||[]; }
-// Auxiliar legado do portal; NÃO chamar antes da autenticação.
- // Uma RPC pública de municípios autorizados será homologada separadamente.
+// O portal público consulta SOMENTE a RPC anônima e recebe o consórcio via URL.
+// O JWT de qualquer sessão administrativa NUNCA é enviado nesta requisição.
 async function carregarCidadesPortal(){
+  const sel=document.getElementById('pub-cidade');
+  const aviso=document.getElementById('pub-cidades-status');
+  if(!sel)return;
+  sel.replaceChildren(new Option('Nenhum município disponível',''));
+  sel.disabled=true;
+  const id=new URLSearchParams(location.search).get('consorcio_id');
+  const valido=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||'');
+  if(!valido){
+    if(aviso)aviso.textContent='Portal em homologação: link do consórcio não informado.';
+    return;
+  }
+  if(aviso)aviso.textContent='Verificando municípios disponíveis para o consórcio…';
   try{
-    const rows = await carregarCidades();
-    const sel = document.getElementById('pub-cidade');
-    if(sel && Array.isArray(rows) && rows.length){
-      sel.innerHTML = rows.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+    const resposta=await fetch(SUPA_URL+'/rest/v1/rpc/v19_listar_municipios_portal',{
+      method:'POST',credentials:'omit',cache:'no-store',
+      headers:{apikey:SUPA_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({p_consorcio_id:id})
+    });
+    if(!resposta.ok)throw new Error('Consulta de municípios falhou (HTTP '+resposta.status+').');
+    const rows=await resposta.json();
+    if(!Array.isArray(rows))throw new Error('Resposta inválida do catálogo.');
+    if(!rows.length){
+      if(aviso)aviso.textContent='Portal indisponível: não há municípios habilitados neste consórcio.';
+      return;
     }
-  }catch(e){ console.warn('[Portal] cidades:', e.message); }
+    sel.replaceChildren(new Option('Selecione o município',''));
+    for(const c of rows){
+      if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(c.cidade_id||''))continue;
+      sel.add(new Option(String(c.municipio||'')+' / '+String(c.uf||''),c.cidade_id));
+    }
+    sel.disabled=sel.options.length<=1;
+    if(aviso)aviso.textContent='Municípios retornados pela RPC. A abertura de chamados segue em homologação.';
+  }catch(e){
+    sel.replaceChildren(new Option('Nenhum município disponível',''));
+    sel.disabled=true;
+    if(aviso)aviso.textContent='Não foi possível carregar os municípios.';
+    console.warn('[Portal] municípios:',e.message);
+  }
 }
 
 // ═══ MÓDULO ESTOQUE — materiais + saldo ═══
@@ -1036,7 +1068,13 @@ let NAV_FILTERS={status:'',cidade:'',periodo:'',area:'',label:''}; // Filtros de
 const stm={'Em execução':'tag-exec','Recebido':'tag-blue','Em programação':'tag-prog','Aguard. material':'tag-mat','Em atraso':'tag-atraso','Concluído':'tag-conc','Novo':'tag-novo','Aguardando Garantia LED':'tag-garantia'};
 
 // ═══ NAVEGAÇÃO ═══
-function goPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  // Executar apenas quando o usuário abre o portal, não no bootstrap da aplicação.
+  if(id==='pg-portal')carregarCidadesPortal().catch(e=>console.warn('[Portal] municípios:',e.message));
+}
 
 // ═══ LOGIN ═══
 async function doLogin(){
@@ -4723,6 +4761,9 @@ function gerarProto(){
   return 'INT'+n.toISOString().replace(/[-:TZ.]/g,'').slice(0,14)+'-'+suf;
 }
 async function submeterChamado(){
+  // Defesa em profundidade: não enviar chamados com a RPC pública ainda não homologada.
+  alert('Abertura pública ainda em homologação. Nenhum chamado foi enviado.');
+  return;
   const nome=document.getElementById('pub-nome')?.value?.trim(),tel=document.getElementById('pub-tel')?.value?.trim();
   if(!nome||!tel){alert('Por favor, informe seu nome e telefone.');return;}
   const cidade=document.getElementById('pub-cidade')?.value||'Espera Feliz';
