@@ -94,12 +94,12 @@
           const body=await r.text().catch(()=>'');
           throw new Error('Falha no envio ao Storage (HTTP '+r.status+'). '+body.slice(0,140));
         }
-        const registered=await sbFetch('chamado_fotos?select=id','POST',{
-          chamado_id:protocolo,storage_path:storagePath,tipo,
-          usuario_nome:CU?.nome||'Sistema',usuario_id:CU?.id||null
+        // Registra metadados pela RPC autenticada: não liberar POST direto em tabelas.
+        const registered=await sbFetch('rpc/v19_registrar_foto','POST',{
+          p_chamado_id:protocolo,p_storage_path:storagePath,p_tipo:tipo
         });
-        if(!Array.isArray(registered) || registered.length!==1)
-          throw new Error('Foto enviada, mas o registro no banco não foi confirmado.');
+        if(!validUUID(registered))
+          throw new Error('Arquivo enviado, mas a RPC não confirmou o registro. Não reenvie antes de conferir o Storage.');
         showToast('✅ Foto salva no Supabase.','ok');
         if(CC?._supaId===protocolo)await renderFotosChamado();
       }catch(e){console.error('[V19] foto:',e);noticeError(e);}
