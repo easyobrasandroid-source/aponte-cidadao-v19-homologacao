@@ -3,6 +3,21 @@
   'use strict';
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   const fmtData=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
+  // Datas de planilha devem ser células do tipo data, não texto pt-BR.
+  // Usar o horário de Brasília independentemente do fuso do navegador.
+  function dataExcel(valor){
+    if(!valor)return null;
+    const d=new Date(valor);
+    if(!Number.isFinite(d.getTime()))return null;
+    const partes=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
+      timeZone:'America/Sao_Paulo',year:'numeric',month:'numeric',day:'numeric',
+      hour:'numeric',minute:'numeric',second:'numeric',hourCycle:'h23'
+    }).formatToParts(d).map(x=>[x.type,x.value]));
+    return new Date(
+      Number(partes.year), Number(partes.month)-1, Number(partes.day),
+      Number(partes.hour), Number(partes.minute), Number(partes.second)
+    );
+  }
   const num=v=>Number.isFinite(Number(v))?Number(v):0;
   const money=v=>'R$ '+num(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   // A estrutura legado armazena prazos em horas. Exibir em dias corridos,
@@ -57,7 +72,7 @@
     if(!Array.isArray(_exportChamados))throw new Error('Clique em Buscar para aplicar os filtros de chamados.');
     return _exportChamados.slice();
   }
-  function colunas(tipo,dados){
+  function colunas(tipo,dados,paraExcel=false){
     if(tipo==='estoque')return dados.map(m=>({
       'Material':m.n,'Unidade':m.u,'Contratado':num(m.cont),
       'Disponível':num(m.disp),'Estoque mínimo':num(m.min),
@@ -67,8 +82,9 @@
     if(tipo==='sla')return dados.map(c=>{
       const a=statusSLA(c);
       return {'Protocolo':c.protocolo,'Cidade':c.cidade,'Problema':c.tipo,
-        'Empresa':c.empresa,'Status':c.status,'Aberto em':fmtData(c.created_at),
-        'Concluído em':fmtData(c.completed_at),
+        'Empresa':c.empresa,'Status':c.status,
+        'Aberto em':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
+        'Concluído em':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
         'Prazo registrado (dias corridos)':dias(c._slaHoras),
         'Tempo observado (dias corridos)':a.tempo==null?'Não apurável':Number((a.tempo/24).toFixed(2)),
         'Resultado estimado':a.estado};
@@ -76,7 +92,8 @@
     return dados.map(c=>({
       'Protocolo':c.protocolo,'Cidade':c.cidade,'Bairro':c.bairro,
       'Endereço':c.endereco,'Tipo':c.tipo,'Status':c.status,'Empresa':c.empresa,
-      'Data abertura':fmtData(c.created_at),'Data conclusão':fmtData(c.completed_at),
+      'Data abertura':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
+      'Data conclusão':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
       'Área':c.area,'Origem':c.origem,'Prazo registrado (dias corridos)':dias(c._slaHoras),
       'Situação SLA (dias corridos)':statusSLA(c).estado
     }));
@@ -91,8 +108,33 @@
       const dados=source(tipo);
       if(!dados.length)throw new Error('Nenhum registro para os filtros selecionados.');
       const wb=XLSX.utils.book_new();
-      const rows=colunas(tipo,dados);
-      const ws=XLSX.utils.json_to_sheet(rows);
+      const rows=colunas(tipo,dados,true);
+      const ws=XLSX.utils.json_to_sheet(rows,{cellDates:true});
+      const headers=Object.keys(rows[0]);
+      // Habilitar filtros nativos e definir larguras legíveis; não modificar
+      // os dados de origem nem aplicar correções silenciosas em registros.
+      ws['!autofilter']={ref:ws['!ref']};
+      const larguras={
+        'Protocolo':43,'Cidade':24,'Bairro':34,'Endereço':38,'Tipo':41,
+        'Status':19,'Empresa':35,'Data abertura':23,'Data conclusão':23,
+        'Aberto em':23,'Concluído em':23,'Área':12,'Origem':18,
+        'Prazo registrado (dias corridos)':36,
+        'Situação SLA (dias corridos)':37,
+        'Resultado estimado':36,'Tempo observado (dias corridos)':37,
+        'Material':34,'Unidade':15,'Contratado':17,'Disponível':17,
+        'Estoque mínimo':19,'Preço unitário':19,'Saídas líquidas registradas':30,
+        'Histórico':60
+      };
+      ws['!cols']=headers.map(h=>({wch:larguras[h]||24}));
+      for(const nome of ['Data abertura','Data conclusão','Aberto em','Concluído em']){
+        const col=headers.indexOf(nome);
+        if(col<0)continue;
+        for(let linha=1;linha<=rows.length;linha++){
+          const endereco=XLSX.utils.encode_cell({r:linha,c:col});
+          const celula=ws[endereco];
+          if(celula?.t==='d')celula.z='dd/mm/yyyy hh:mm:ss';
+        }
+      }
       XLSX.utils.book_append_sheet(wb,ws,label[tipo]);
       if(tipo==='sla'){
         const avaliados=dados.map(statusSLA).filter(a=>a.resultado!==null);
