@@ -1142,17 +1142,24 @@ async function doLogout(){
   // Recarrega para zerar também o estado em memória (DB, CC, CU) e voltar ao login limpo.
   location.reload();
 }
+function atualizarBadgeChamados(){
+  const badge=document.getElementById('sb-badge');
+  if(!badge)return;
+  const qtd=Array.isArray(DB?.chamados)?DB.chamados.length:0;
+  badge.textContent=String(qtd);
+  badge.title='Total de chamados carregados e autorizados para o perfil';
+  badge.setAttribute('aria-label',qtd+' chamados disponíveis');
+}
 function setupUI(u){
   document.getElementById('sb-av').textContent=u.av;document.getElementById('sb-av').style.background=u.cor;
   document.getElementById('sb-name').textContent=u.nome;
   const pl={master:'Admin Master',consorcio:'Consórcio',prefeitura:'Prefeitura',empresa:'Empresa',garantia:'Garantia LED'};
   document.getElementById('sb-role').textContent=pl[u.perfil]||u.perfil;
   document.getElementById('sb-cons').textContent=u.org;
-  // Perfil garantia: badge mostra chamados em garantia aguardando
-  const badgeCnt = u.perfil==='garantia'
-    ? DB.chamados.filter(c=>c.status==='Aguardando Garantia LED').length
-    : DB.chamados.filter(c=>c.status==='Em atraso').length;
-  document.getElementById('sb-badge').textContent=badgeCnt;
+  // O indicador ao lado de "Chamados" representa o total da listagem
+  // autorizada pelo RLS (não a quantidade de registros com status literal
+  // "Em atraso"; os atrasos reais são calculados no dashboard pelo SLA).
+  atualizarBadgeChamados();
   if(u.perfil==='empresa'||u.perfil==='garantia')document.getElementById('sb-usuarios').style.display='none';
   else document.getElementById('sb-usuarios').style.display='flex';
   // O menu acompanha as permissões já aplicadas pela tela e pela RPC no backend.
@@ -1346,6 +1353,7 @@ async function carregarChamadosDoBanco(){
     sbNormalized.forEach(c=>{c._originalPayload=montarLinhaChamado(c);});
     // SUBSTITUI integralmente (sem mesclar registros locais não autorizados).
     DB.chamados = sbNormalized;
+    atualizarBadgeChamados();
     console.log('[Supabase] ✅ lista carregada do banco:', DB.chamados.length, 'chamados');
     return true;
   }catch(e){ console.warn('[Supabase] sincronizar:', e.message); return false; }
@@ -2073,8 +2081,7 @@ function uploadFotoChamado(tipo){
 function refreshChamadosView(){
   // Atualiza apenas as linhas da tabela (não reconstrói a tela toda)
   if(window._refreshTbody) window._refreshTbody();
-  const badge=document.getElementById('sb-badge');
-  if(badge) badge.textContent=DB.chamados.filter(x=>x.status==='Em atraso').length;
+  atualizarBadgeChamados();
 }
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');document.body.style.overflow='';}
 function showDTab(id,el){document.querySelectorAll('.dw-tc').forEach(t=>t.classList.remove('on'));document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));document.getElementById('dw-tc-'+id).classList.add('on');if(el)el.classList.add('on');if(id==='materiais'&&typeof renderMateriaisChamado==='function')renderMateriaisChamado();}
@@ -2174,7 +2181,7 @@ async function confirmarGarantia(){
   if(!ok){ Object.assign(CC,snap); DB.historico[CC.id].pop(); showToast('❌ Falha ao gravar a Garantia no banco. Nada foi alterado.','erro'); return; }
   await sbSaveHistorico(CC.protocolo, DB.historico[CC.id]||[]);
   saveDB(DB);
-  document.getElementById('sb-badge').textContent=DB.chamados.filter(x=>x.status==='Em atraso').length;
+  atualizarBadgeChamados();
   closeModalGarantia();
   abrirDrawer(CC.id);
   refreshChamadosView();
