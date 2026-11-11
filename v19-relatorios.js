@@ -189,7 +189,8 @@
         const concluidos=dados.filter(c=>c.status==='Concluído');
         const vencidos=abertos.filter(c=>statusSLA(c).estado==='Em atraso').length;
         note='<div class="sla-summary"><b>Resumo dos filtros:</b> '+
-          dados.length+' chamados; '+abertos.length+' não concluídos ('+
+          dados.length+(dados.length===1?' chamado; ':' chamados; ')+
+          abertos.length+' não concluídos ('+
           vencidos+' vencidos pelo SLA); '+concluidos.length+
           (concluidos.length===1?' concluído.':' concluídos.')+
           ' Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>';
@@ -269,7 +270,8 @@
         '.print-hint{display:none}}</style></head><body>'+
         '<h1>Aponte Cidadão V19 · '+esc(label[tipo])+'</h1>'+
         '<p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+' · '+dados.length+
-        ' registros filtrados · Perfil: '+esc(CU?.perfil||'')+'</p>'+note+conteudo+
+        (dados.length===1?' registro filtrado · Perfil: ':' registros filtrados · Perfil: ')+
+        esc(CU?.perfil||'')+'</p>'+note+conteudo+
         '<p class="print-hint">Use Ctrl+P para imprimir ou salvar como PDF.</p></body></html>';
       win.document.open();win.document.write(doc);win.document.close();win.focus();
     }catch(e){showToast(esc(e.message),'erro');}
