@@ -181,10 +181,40 @@
       const headers=Object.keys(columns[0]);
       const table='<table><thead><tr>'+headers.map(k=>'<th>'+esc(k)+'</th>').join('')+'</tr></thead><tbody>'+
         columns.map(x=>'<tr>'+headers.map(k=>'<td>'+esc(x[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
-      let note='';
-      if(tipo==='sla')note='<p>Metodologia: estimativa em dias corridos (1 dia = 24 horas), incluindo fins de semana e feriados, a partir da abertura e conclusão. '+
-        'Registros sem prazo, com dados inválidos ou SLA pausado são não apuráveis; '+
-        'não substitui a validação dos prazos previstos no contrato.</p>';
+      let note='',conteudo=table;
+      if(tipo==='sla'){
+        // A tabela de 11 colunas ficava ilegível no A4. Exibir cada chamado
+        // em uma ficha com todos os campos e sem quebra no meio da ficha.
+        const concluidos=dados.filter(c=>c.status==='Concluído');
+        const avaliaveis=concluidos.filter(c=>statusSLA(c).resultado!==null);
+        const dentroPrazo=avaliaveis.filter(c=>statusSLA(c).resultado===true).length;
+        const abertos=dados.filter(c=>c.status!=='Concluído');
+        const vencidos=abertos.filter(c=>statusSLA(c).estado==='Em atraso').length;
+        const percentual=avaliaveis.length?(100*dentroPrazo/avaliaveis.length).toFixed(1)+'% ('+dentroPrazo+'/'+avaliaveis.length+')':'Não apurável (0 avaliáveis)';
+        note='<p>Metodologia: dias corridos (1 dia = 24 horas), incluindo finais de semana e feriados. '+
+          'O SLA de conclusão só é avaliável quando existem prazo e datas suficientes. '+
+          'Os prazos contratuais devem ser conferidos em separado.</p>'+
+          '<div class="sla-summary"><b>Resumo dos filtros:</b> '+dados.length+' chamados; '+
+          abertos.length+' não concluídos ('+vencidos+' vencidos); '+
+          concluidos.length+' concluídos ('+(concluidos.length-avaliaveis.length)+' sem SLA avaliável); '+
+          'cumprimento entre conclusões avaliáveis: <b>'+percentual+'</b>.</div>';
+        const campo=(rotulo,valor)=>'<div class="sla-field"><b>'+esc(rotulo)+'</b><span>'+
+          esc(valor===null||valor===undefined||valor===''?'—':valor)+'</span></div>';
+        conteudo='<div class="sla-cards">'+dados.map(c=>{
+          const a=statusSLA(c);
+          const duracao=a.tempo===null?'Não apurável':
+            Number(a.tempo.toFixed(2))+' h / '+Number((a.tempo/24).toFixed(4))+' dias';
+          return '<section class="sla-card"><div class="sla-card-head">'+
+            '<strong>'+esc(c.protocolo)+'</strong><span>'+esc(c.status)+'</span></div>'+
+            '<div class="sla-grid">'+
+            campo('Cidade',c.cidade)+campo('Empresa responsável',c.empresa)+
+            campo('Problema',c.tipo)+campo('Resultado estimado',a.estado)+
+            campo('Aberto em',fmtData(c.created_at))+campo('Concluído em',fmtData(c.completed_at))+
+            campo('Prazo (dias corridos)',dias(c._slaHoras))+
+            campo('Tempo observado',duracao)+
+            '</div></section>';
+        }).join('')+'</div>';
+      }
       if(tipo==='estoque')note='<p>O relatório apresenta saldo atual e saídas líquidas registradas. '+
         'Não pressupõe que contratado menos disponível seja consumo. Movimentos anteriores '+
         'ao registro de histórico podem estar ausentes.</p>';
@@ -196,12 +226,22 @@
         'th{background:#e7eef9;color:#173b66;font-weight:700;vertical-align:top}tr:nth-child(even){background:#f3f4f6}'+
         'thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}'+
         '@page{size:A4 landscape;margin:10mm}p{font-size:11px}'+
+        '.sla-summary{background:#edf3fc;border:1px solid #cbd7e9;padding:9px 12px;'+
+        'border-radius:6px;margin-bottom:12px;font-size:11px;line-height:1.45}'+
+        '.sla-card{border:1px solid #cbd5e1;border-radius:6px;padding:8px 11px;margin-bottom:9px;'+
+        'break-inside:avoid;page-break-inside:avoid}'+
+        '.sla-card-head{display:flex;justify-content:space-between;gap:15px;'+
+        'border-bottom:1px solid #dce5f0;padding-bottom:5px;margin-bottom:7px;'+
+        'color:#153d75;font-size:11px;overflow-wrap:anywhere}'+
+        '.sla-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 15px}'+
+        '.sla-field{min-width:0;font-size:11px;overflow-wrap:anywhere}'+
+        '.sla-field b{display:block;color:#54657e;font-size:9px;margin-bottom:2px}'+
         '@media print{th{color:#173b66!important;background:#e7eef9!important}'+
         'thead,tbody{print-color-adjust:exact;-webkit-print-color-adjust:exact}'+
         '.print-hint{display:none}}</style></head><body>'+
         '<h1>Aponte Cidadão V19 · '+esc(label[tipo])+'</h1>'+
         '<p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+' · '+dados.length+
-        ' registros filtrados · Perfil: '+esc(CU?.perfil||'')+'</p>'+note+table+
+        ' registros filtrados · Perfil: '+esc(CU?.perfil||'')+'</p>'+note+conteudo+
         '<p class="print-hint">Use Ctrl+P para imprimir ou salvar como PDF.</p></body></html>';
       win.document.open();win.document.write(doc);win.document.close();win.focus();
     }catch(e){showToast(esc(e.message),'erro');}
