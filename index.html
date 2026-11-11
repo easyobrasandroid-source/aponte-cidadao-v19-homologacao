@@ -1145,10 +1145,16 @@ async function doLogout(){
 function atualizarBadgeChamados(){
   const badge=document.getElementById('sb-badge');
   if(!badge)return;
-  const qtd=Array.isArray(DB?.chamados)?DB.chamados.length:0;
+  // O marcador lateral destaca somente chamados recebidos que ainda
+  // não avançaram no fluxo operacional. Atribuição automática na abertura
+  // não conta como ação humana; abrir/visualizar a ficha NÃO é rastreado
+  // atualmente e não deve ser confundido com a mudança de status.
+  const qtd=Array.isArray(DB?.chamados)
+    ? DB.chamados.filter(c=>c.status==='Recebido').length
+    : 0;
   badge.textContent=String(qtd);
-  badge.title='Total de chamados carregados e autorizados para o perfil';
-  badge.setAttribute('aria-label',qtd+' chamados disponíveis');
+  badge.title='Chamados recebidos aguardando início do atendimento (não indica leitura)';
+  badge.setAttribute('aria-label',qtd+' chamados recebidos aguardando atendimento');
 }
 function setupUI(u){
   document.getElementById('sb-av').textContent=u.av;document.getElementById('sb-av').style.background=u.cor;
@@ -1156,9 +1162,8 @@ function setupUI(u){
   const pl={master:'Admin Master',consorcio:'Consórcio',prefeitura:'Prefeitura',empresa:'Empresa',garantia:'Garantia LED'};
   document.getElementById('sb-role').textContent=pl[u.perfil]||u.perfil;
   document.getElementById('sb-cons').textContent=u.org;
-  // O indicador ao lado de "Chamados" representa o total da listagem
-  // autorizada pelo RLS (não a quantidade de registros com status literal
-  // "Em atraso"; os atrasos reais são calculados no dashboard pelo SLA).
+  // O indicador "Chamados" representa o estoque de recebidos ainda não
+  // avançados, e não o total histórico ou a quantidade de atrasados.
   atualizarBadgeChamados();
   if(u.perfil==='empresa'||u.perfil==='garantia')document.getElementById('sb-usuarios').style.display='none';
   else document.getElementById('sb-usuarios').style.display='flex';
