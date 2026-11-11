@@ -609,13 +609,9 @@ function sbErroTexto(status, corpo){
   return 'Falha na operação (HTTP '+status+').';
 }
 
-// Testar conexão ao inicializar (só se configurado — nunca chama produção por engano)
-let _supaOnline = false;
-if(SUPA_CONFIGURADO){
-  fetch(SUPA_URL + '/rest/v1/chamados?limit=1', {headers: sbHeaders()})
-    .then(r => { _supaOnline = r.ok; console.log('[Supabase] conexão:', r.ok ? '✅ online' : '❌ erro '+r.status); })
-    .catch(e => console.warn('[Supabase] offline:', e.message));
-}
+// Não fazer teste de conectividade consultando chamados antes de autenticar.
+// A consulta inicial anônima retorna HTTP 401 com RLS/permissões corretas.
+// Conectividade é comprovada pelas operações reais após login/renovação da sessão.
 
 // ═══ AUTENTICAÇÃO REAL (Supabase Auth / GoTrue) ═══
 async function sbLogin(email, senha){
@@ -759,7 +755,8 @@ async function carregarCidades(){
 }
 function cidadeIdPorNome(nome){ if(!_cidadesMap||!nome) return null; return _cidadesMap[nome.trim().toLowerCase()]||null; }
 function getCidadesCache(){ return DB.cidades||[]; }
-// Preenche o dropdown do PORTAL PÚBLICO com as cidades REAIS do banco (anon pode ler cidades).
+// Auxiliar legado do portal; NÃO chamar antes da autenticação.
+ // Uma RPC pública de municípios autorizados será homologada separadamente.
 async function carregarCidadesPortal(){
   try{
     const rows = await carregarCidades();
@@ -4806,7 +4803,9 @@ window.addEventListener('DOMContentLoaded', ()=>{
     if(e){ e.textContent='⚙️ Configure a URL e a anon key do projeto de HOMOLOGAÇÃO no topo do arquivo (CONFIG) antes de usar.'; e.style.display='block'; }
     return;
   }
-  carregarCidadesPortal();   // dropdown do portal público com cidades reais (anon)
+  // Portal público pendente de RPC própria de municípios.
+  // Não consultar public.cidades como anon: o RLS protege o catálogo.
+  // O catálogo administrativo é carregado somente após autenticação.
   (async ()=>{
     // ── Restaurar sessão (Supabase Auth é a fonte de verdade) considerando AUTO-REFRESH ──
     if(SB_SESSION && SB_SESSION.user){
