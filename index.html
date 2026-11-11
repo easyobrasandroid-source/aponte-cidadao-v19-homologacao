@@ -3240,226 +3240,285 @@ let _exportChamados=null, _exportMats=null;
 // ═══ IMPRESSÃO ═══
 function vImpressao(b,t,a){
   t.textContent='Impressão / PDF';
-
-  // Estado: só permite PDF/Imprimir após Buscar
-  let resultadosBusca = null;
-  let layoutCols = 2;
-
-  const cidades=[...new Set(DB.chamados.map(c=>c.cidade))].sort();
-
-  function filtrarImp(){
-    const fcd=document.getElementById('imp-cidade')?.value||'';
-    const fst=document.getElementById('imp-status')?.value||'';
-    const fdi=document.getElementById('imp-dtIni')?.value||'';
-    const fdf=document.getElementById('imp-dtFim')?.value||'';
-    let r=[...DB.chamados];
-    if(fcd&&fcd!=='Todas') r=r.filter(c=>c.cidade===fcd);
-    if(fst==='pendentes')  r=r.filter(c=>c.status!=='Concluído'&&c.status!=='Cancelado');
-    else if(fst==='concluidos') r=r.filter(c=>c.status==='Concluído');
-    else if(fst==='atraso') r=r.filter(c=>c.status==='Em atraso');
-    else if(fst==='garantia') r=r.filter(c=>c.status==='Aguardando Garantia LED');
-    if(fdi) r=r.filter(c=>c.created_at&&new Date(c.created_at)>=new Date(fdi));
-    if(fdf) r=r.filter(c=>c.created_at&&new Date(c.created_at)<=new Date(fdf+'T23:59:59'));
-    return r;
-  }
-
-  function cardHTML(c){
-    const stCor={'Em execução':'#D97706','Em programação':'#B45309','Em atraso':'#B91C1C','Recebido':'#1D4ED8','Concluído':'#065F46','Novo':'#6B7280'}[c.status]||'#6B7280';
-    const stBg={'Em execução':'#FEF3C7','Em programação':'#FEF3C7','Em atraso':'#FEE2E2','Recebido':'#DBEAFE','Concluído':'#D1FAE5','Novo':'#F3F4F6'}[c.status]||'#F3F4F6';
-    const dt=c.created_at?new Date(c.created_at).toLocaleDateString('pt-BR'):c.data;
-    return`<div style="border:1px solid #D1D5DB;border-radius:8px;padding:12px;background:#fff">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #F3F4F6">
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#1251A3">${c.protocolo}</div><div style="font-size:10px;color:#6B7280;margin-top:1px">${dt}</div></div>
-        <span style="background:${stBg};color:${stCor};font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">${c.status}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">
-        ${[['CIDADE',c.cidade],['BAIRRO',c.bairro],['ENDEREÇO',c.endereco],['PROBLEMA',c.tipo],['QTD.',c.qtd+' lâmpada(s)'],['EMPRESA',c.empresa]].map(([l,v])=>`<div><div style="font-size:8px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:11px;font-weight:500;color:#1F2937">${v||'—'}</div></div>`).join('')}
-      </div>
-      <div style="border-top:1px dashed #D1D5DB;padding-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="font-size:9px;color:#9CA3AF">Executor: <span style="display:inline-block;width:110px;border-bottom:1px solid #D1D5DB">&nbsp;</span></div>
-        <div style="font-size:9px;color:#9CA3AF">Data: ____/____/______</div>
-      </div>
-    </div>`;
-  }
-
-  function atualizarBotoesExport(){
-    const temDados = resultadosBusca !== null;
-    const btnPDF=document.getElementById('btn-imp-pdf');
-    const btnPrint=document.getElementById('btn-imp-print');
-    if(btnPDF){ btnPDF.disabled=!temDados; btnPDF.style.opacity=temDados?'1':'0.45'; }
-    if(btnPrint){ btnPrint.disabled=!temDados; btnPrint.style.opacity=temDados?'1':'0.45'; }
-  }
-
-  function executarBusca(){
-    const btn=document.getElementById('btn-imp-buscar');
-    if(btn){ btn.textContent='🔄 Buscando...'; btn.disabled=true; }
-    const feedback=document.getElementById('imp-feedback');
-    const prev=document.getElementById('imp-preview');
-    const cnt=document.getElementById('imp-count');
-    if(feedback){ feedback.style.display='block'; feedback.style.background='var(--brand-light)'; feedback.style.color='var(--brand)'; feedback.innerHTML='⏳ Carregando chamados...'; }
-    if(prev) prev.innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--gray-400);font-size:12px">Carregando...</div>';
-
-    setTimeout(()=>{
-      const lista = filtrarImp();
-      resultadosBusca = lista;
-
-      if(lista.length===0){
-        if(feedback){ feedback.style.background='#FEF3C7'; feedback.style.color='#B45309'; feedback.innerHTML='⚠ Nenhum chamado encontrado para os filtros selecionados. Tente ajustar os filtros.'; }
-        if(prev) prev.innerHTML='<div style="text-align:center;padding:2rem;color:var(--amber);font-size:13px;font-weight:600">⚠ Nenhum chamado encontrado.</div>';
-        if(cnt) cnt.textContent='PRÉ-VISUALIZAÇÃO — 0 CHAMADOS ENCONTRADOS';
-      } else {
-        if(feedback){ feedback.style.background='var(--green-light)'; feedback.style.color='var(--green)'; feedback.innerHTML=`✅ <strong>${lista.length} chamado${lista.length!==1?'s':''} encontrado${lista.length!==1?'s':''}.</strong> Pronto para gerar PDF ou imprimir.`; }
-        if(cnt) cnt.textContent=`PRÉ-VISUALIZAÇÃO — ${lista.length} CHAMADO${lista.length!==1?'S':''} ENCONTRADO${lista.length!==1?'S':''}`;
-        const cols=layoutCols===1?'1fr':layoutCols===2?'1fr 1fr':'1fr 1fr 1fr';
-        if(prev) prev.innerHTML=`<div style="display:grid;grid-template-columns:${cols};gap:10px">${lista.map(cardHTML).join('')}</div>`;
-      }
-
-      if(btn){ btn.textContent='🔍 Buscar'; btn.disabled=false; }
-      atualizarBotoesExport();
-    }, 350);
-  }
-
-  function limparFiltros(){
-    ['imp-cidade','imp-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    document.getElementById('imp-dtIni').value='';
-    document.getElementById('imp-dtFim').value='';
-    resultadosBusca=null;
-    const feedback=document.getElementById('imp-feedback');
-    const prev=document.getElementById('imp-preview');
-    const cnt=document.getElementById('imp-count');
-    if(feedback){feedback.style.display='none';}
-    if(prev) prev.innerHTML='<div style="text-align:center;padding:2rem;color:var(--gray-400);font-size:12px">Clique em <strong>🔍 Buscar</strong> para carregar os chamados.</div>';
-    if(cnt) cnt.textContent='PRÉ-VISUALIZAÇÃO';
-    atualizarBotoesExport();
-  }
-
-  window.executarImpressao=function(modo){
-    if(!resultadosBusca){
-      showToast('⚠ Realize uma busca antes de gerar o relatório.','aviso');
-      return;
-    }
-    if(resultadosBusca.length===0){
-      showToast('⚠ Nenhum chamado encontrado. Ajuste os filtros e busque novamente.','aviso');
-      return;
-    }
-    const btn=modo==='pdf'?document.getElementById('btn-imp-pdf'):document.getElementById('btn-imp-print');
-    if(btn){btn.textContent='⏳ Preparando...';btn.disabled=true;}
-    setTimeout(()=>{
-      const lista=resultadosBusca;
-      const cols=layoutCols===1?'1fr':layoutCols===2?'1fr 1fr':'1fr 1fr 1fr';
-      const dtFiltros=[];
-      const fcd=document.getElementById('imp-cidade')?.value||'';
-      const fst=document.getElementById('imp-status')?.value||'';
-      const fdi=document.getElementById('imp-dtIni')?.value||'';
-      const fdf=document.getElementById('imp-dtFim')?.value||'';
-      if(fcd&&fcd!=='Todas') dtFiltros.push('Cidade: '+fcd);
-      if(fst) dtFiltros.push('Status: '+fst);
-      if(fdi) dtFiltros.push('De: '+new Date(fdi).toLocaleDateString('pt-BR'));
-      if(fdf) dtFiltros.push('Até: '+new Date(fdf+'T12:00:00').toLocaleDateString('pt-BR'));
-      const filtrosStr=dtFiltros.length?dtFiltros.join(' · '):'Todos os chamados (sem filtros)';
-      const html=`<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><title>Impressão — Aponte Cidadão</title>
-<style>
-@page{size:A4;margin:14mm 12mm}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;background:#fff}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1251A3;padding-bottom:8px;margin-bottom:10px}
-.logo{font-size:16px;font-weight:800;color:#1251A3}.logo-sub{font-size:9px;color:#6B7280;margin-top:2px}
-.meta{text-align:right;font-size:9px;color:#6B7280}.meta strong{color:#374151}
-.filtros{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:5px;padding:6px 10px;margin-bottom:10px;font-size:9px;color:#1E40AF}
-.grid{display:grid;grid-template-columns:${cols};gap:8px}
-.card{border:1px solid #D1D5DB;border-radius:6px;padding:10px;break-inside:avoid}
-.card-header{display:flex;justify-content:space-between;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid #F3F4F6}
-.proto{font-family:monospace;font-size:10px;font-weight:700;color:#1251A3}
-.dt{font-size:9px;color:#9CA3AF;margin-top:1px}
-.badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px}
-.dados{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px}
-.campo .lbl{font-size:7px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.campo .val{font-size:10px;font-weight:500;color:#1F2937}
-.assinatura{border-top:1px dashed #D1D5DB;padding-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.ass{font-size:8px;color:#9CA3AF}.espaco{display:inline-block;width:90px;border-bottom:1px solid #9CA3AF}
-.footer{margin-top:12px;border-top:1px solid #E5E7EB;padding-top:6px;display:flex;justify-content:space-between;font-size:8px;color:#9CA3AF}
-.btn-print{display:block;margin:14px auto 0;padding:10px 28px;background:#1251A3;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
-@media print{.btn-print{display:none}}
-</style></head><body>
-<div class="header">
-  <div><div class="logo">🔆 Aponte Cidadão</div><div class="logo-sub">Sistema de Gestão de Iluminação Pública — CIS Caparaó</div></div>
-  <div class="meta"><div><strong>Gerado por:</strong> ${CU?.nome||'Sistema'}</div><div><strong>Em:</strong> ${new Date().toLocaleString('pt-BR')}</div><div><strong>Total:</strong> ${lista.length} chamado${lista.length!==1?'s':''}</div></div>
-</div>
-<div class="filtros">🔍 <strong>Filtros aplicados:</strong> ${filtrosStr}</div>
-<div class="grid">
-${lista.map(c=>{
-  const stCor={'Em execução':'#D97706','Em programação':'#B45309','Em atraso':'#B91C1C','Recebido':'#1D4ED8','Concluído':'#065F46','Novo':'#6B7280'}[c.status]||'#6B7280';
-  const stBg={'Em execução':'#FEF3C7','Em programação':'#FEF3C7','Em atraso':'#FEE2E2','Recebido':'#DBEAFE','Concluído':'#D1FAE5','Novo':'#F3F4F6'}[c.status]||'#F3F4F6';
-  const dt=c.created_at?new Date(c.created_at).toLocaleDateString('pt-BR'):c.data;
-  return`<div class="card"><div class="card-header"><div><div class="proto">${c.protocolo}</div><div class="dt">${dt}</div></div><span class="badge" style="background:${stBg};color:${stCor}">${c.status}</span></div><div class="dados">${[['Cidade',c.cidade],['Bairro',c.bairro],['Endereço',c.endereco],['Problema',c.tipo],['Qtd.',c.qtd+' lamp.'],['Empresa',c.empresa]].map(([l,v])=>`<div class="campo"><div class="lbl">${l}</div><div class="val">${v||'—'}</div></div>`).join('')}</div><div class="assinatura"><div class="ass">Executor: <span class="espaco">&nbsp;</span></div><div class="ass">Data: ____/____/______</div></div></div>`;
-}).join('')}
-</div>
-<div class="footer"><span>Aponte Cidadão © ${new Date().getFullYear()}</span><span>Gerado em ${new Date().toLocaleString('pt-BR')}</span></div>
-<button class="btn-print" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button>
-</body></html>`;
-      const w=window.open('','_blank','width=920,height=780');
-      if(!w){showToast('❌ Popup bloqueado! Permita popups para este site.','erro');if(btn){btn.textContent=modo==='pdf'?'📄 PDF':'🖨 Imprimir';btn.disabled=false;}return;}
-      w.document.write(html);w.document.close();
-      if(modo==='print') w.onload=()=>setTimeout(()=>w.print(),400);
-      showToast(modo==='pdf'?'✅ Janela aberta — Ctrl+P para salvar como PDF':'✅ Diálogo de impressão aberto!','ok');
-      if(btn){btn.textContent=modo==='pdf'?'📄 PDF':'🖨 Imprimir';btn.disabled=false;atualizarBotoesExport();}
-    },300);
+  const estado={resultados:null,porFolha:1,buscando:false};
+  const esc=valor=>String(valor??'').replace(/[&<>"']/g,
+    ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const dtBR=valor=>{
+    const d=new Date(valor||'');
+    return Number.isFinite(d.getTime())?d.toLocaleDateString('pt-BR'):'—';
+  };
+  const cores={
+    'Em execução':['#D97706','#FEF3C7'],
+    'Em programação':['#B45309','#FEF3C7'],
+    'Em atraso':['#B91C1C','#FEE2E2'],
+    'Recebido':['#1D4ED8','#DBEAFE'],
+    'Concluído':['#065F46','#D1FAE5'],
+    'Aguardando Garantia LED':['#6D28D9','#EDE9FE']
+  };
+  const pageCount=lista=>Math.ceil(lista.length/estado.porFolha);
+  const distribuir=lista=>{
+    const paginas=[];
+    for(let i=0;i<lista.length;i+=estado.porFolha)
+      paginas.push(lista.slice(i,i+estado.porFolha));
+    return paginas;
   };
 
-  // ── RENDER ──
-  a.innerHTML=`
-    <button class="btn btn-ghost" id="btn-imp-pdf" onclick="executarImpressao('pdf')" disabled style="opacity:.45">📄 PDF</button>
-    <button class="btn btn-save" id="btn-imp-print" onclick="executarImpressao('print')" disabled style="opacity:.45">🖨 Imprimir</button>`;
+  function cardHTML(c){
+    const [cor,fundo]=cores[c.status]||['#6B7280','#F3F4F6'];
+    const campos=[
+      ['Cidade',c.cidade],['Bairro',c.bairro],['Endereço',c.endereco],
+      ['Problema',c.tipo],['Quantidade',String(c.qtd??1)+' lâmpada(s)'],
+      ['Empresa responsável',c.empresa]
+    ];
+    return '<article class="imp-card">'+
+      '<div class="imp-card-head"><div><strong>'+esc(c.protocolo)+'</strong>'+
+      '<div class="imp-date">'+esc(dtBR(c.created_at||c.data))+'</div></div>'+
+      '<span class="imp-status" style="color:'+cor+';background:'+fundo+'">'+esc(c.status||'—')+'</span></div>'+
+      '<div class="imp-fields">'+campos.map(([nome,valor])=>
+        '<div><small>'+esc(nome)+'</small><div>'+esc(valor||'—')+'</div></div>').join('')+'</div>'+
+      '<div class="imp-sign"><div>Executor: ____________________</div>'+
+      '<div>Data: ____/____/______</div></div></article>';
+  }
+  function atualizarBotoes(){
+    const disponivel=Array.isArray(estado.resultados)&&estado.resultados.length>0;
+    for(const id of ['btn-imp-pdf','btn-imp-print']){
+      const btn=document.getElementById(id);
+      if(btn){btn.disabled=!disponivel;btn.style.opacity=disponivel?'1':'.45';}
+    }
+  }
+  function renderPreview(){
+    const prev=document.getElementById('imp-preview');
+    const cnt=document.getElementById('imp-count');
+    if(!prev)return;
+    if(estado.resultados===null){
+      if(cnt)cnt.textContent='PRÉ-VISUALIZAÇÃO';
+      prev.innerHTML='<div class="imp-empty">Selecione os filtros e clique em Buscar para carregar os chamados.</div>';
+      return;
+    }
+    const lista=estado.resultados;
+    if(cnt)cnt.textContent='PRÉ-VISUALIZAÇÃO — '+lista.length+' CHAMADO(S) — '+pageCount(lista)+' PÁGINA(S)';
+    if(!lista.length){
+      prev.innerHTML='<div class="imp-empty">Nenhum chamado encontrado para os filtros selecionados.</div>';
+      return;
+    }
+    prev.innerHTML=distribuir(lista).map((grupo,i)=>
+      '<div class="imp-preview-sheet"><div class="imp-sheet-label">Folha '+(i+1)+' de '+pageCount(lista)+
+      ' · '+estado.porFolha+' por folha</div>'+
+      '<div class="imp-preview-cards">'+grupo.map(cardHTML).join('')+'</div></div>'
+    ).join('');
+  }
+  function atualizarOpcoesCidade(){
+    const sel=document.getElementById('imp-cidade');
+    if(!sel)return;
+    const valorAnterior=sel.value;
+    const cidades=[...new Set((DB.chamados||[]).map(c=>c.cidade).filter(Boolean))]
+      .sort((x,y)=>x.localeCompare(y,'pt-BR'));
+    sel.innerHTML='<option value="Todas">Todas</option>'+
+      cidades.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+    if(cidades.includes(valorAnterior))sel.value=valorAnterior;
+  }
+  function filtrarImp(){
+    const cidade=document.getElementById('imp-cidade')?.value||'Todas';
+    const status=document.getElementById('imp-status')?.value||'';
+    const ini=document.getElementById('imp-dtIni')?.value||'';
+    const fim=document.getElementById('imp-dtFim')?.value||'';
+    const inicio=ini?new Date(ini+'T00:00:00').getTime():null;
+    const final=fim?new Date(fim+'T23:59:59.999').getTime():null;
+    return (DB.chamados||[]).filter(c=>{
+      if(cidade!=='Todas'&&c.cidade!==cidade)return false;
+      if(status==='pendentes'&&['Concluído','Cancelado'].includes(c.status))return false;
+      if(status==='concluidos'&&c.status!=='Concluído')return false;
+      if(status==='garantia'&&c.status!=='Aguardando Garantia LED')return false;
+      if(status==='atraso'&&(c.status==='Concluído'||
+        typeof v19StatusSLALinha!=='function'||
+        v19StatusSLALinha(c).estado!=='Em atraso'))return false;
+      const data=new Date(c.created_at||'').getTime();
+      if(inicio!==null&&(!Number.isFinite(data)||data<inicio))return false;
+      if(final!==null&&(!Number.isFinite(data)||data>final))return false;
+      return true;
+    });
+  }
+  async function buscar(){
+    if(estado.buscando)return;
+    const dtIni=document.getElementById('imp-dtIni')?.value||'';
+    const dtFim=document.getElementById('imp-dtFim')?.value||'';
+    if(dtIni&&dtFim&&dtIni>dtFim){
+      showToast('A data inicial não pode ser posterior à final.','erro');return;
+    }
+    estado.buscando=true;
+    estado.resultados=null;
+    atualizarBotoes();
+    const btn=document.getElementById('btn-imp-buscar');
+    const feedback=document.getElementById('imp-feedback');
+    if(btn){btn.disabled=true;btn.textContent='Buscando...';}
+    if(feedback){feedback.style.display='block';feedback.textContent='Consultando chamados no Supabase...';}
+    try{
+      const ok=await carregarChamadosDoBanco();
+      if(!ok)throw new Error('Não foi possível sincronizar a listagem com o servidor.');
+      if(!document.getElementById('imp-preview'))return;
+      atualizarOpcoesCidade();
+      estado.resultados=filtrarImp();
+      if(feedback){
+        feedback.textContent=estado.resultados.length
+          ? estado.resultados.length+' chamado(s) encontrado(s). Escolha o layout e imprima ou salve como PDF.'
+          : 'Nenhum chamado encontrado para os filtros selecionados.';
+      }
+      renderPreview();
+    }catch(e){
+      estado.resultados=null;
+      if(feedback)feedback.textContent='Falha ao consultar chamados. Tente novamente.';
+      renderPreview();
+      console.error('[V19] Impressão / PDF:',e.message);
+      showToast('Falha ao carregar chamados para impressão.','erro');
+    }finally{
+      estado.buscando=false;
+      if(btn){btn.disabled=false;btn.textContent='🔍 Buscar';}
+      atualizarBotoes();
+    }
+  }
+  function limpar(){
+    for(const id of ['imp-cidade','imp-status','imp-dtIni','imp-dtFim']){
+      const campo=document.getElementById(id);
+      if(campo)campo.value=id==='imp-cidade'?'Todas':'';
+    }
+    estado.resultados=null;
+    const feedback=document.getElementById('imp-feedback');
+    if(feedback){feedback.textContent='';feedback.style.display='none';}
+    renderPreview();
+    atualizarBotoes();
+  }
+  function selecionarLayout(n){
+    if(![1,2,3].includes(n))return;
+    estado.porFolha=n;
+    for(const numero of [1,2,3]){
+      const btn=document.getElementById('imp-layout-'+numero);
+      if(btn){
+        const ativo=numero===n;
+        btn.style.borderColor=ativo?'var(--brand)':'var(--gray-200)';
+        btn.style.background=ativo?'var(--brand-light)':'#fff';
+        btn.setAttribute('aria-pressed',String(ativo));
+      }
+    }
+    renderPreview();
+  }
+  // Eventos inline precisam de funções globais: funções locais não são
+  // alcançáveis pelo HTML gerado dinamicamente.
+  window.v19ImpBuscar=buscar;
+  window.v19ImpLimpar=limpar;
+  window.v19ImpLayout=selecionarLayout;
+  window.executarImpressao=function(modo){
+    if(!['print','pdf'].includes(modo))return;
+    const lista=estado.resultados;
+    if(!Array.isArray(lista)||!lista.length){
+      showToast('Clique em Buscar e selecione chamados antes de imprimir.','aviso');return;
+    }
 
-  b.innerHTML=`
-  <div class="card" style="margin-bottom:1rem">
-    <div style="font-size:12px;font-weight:700;margin-bottom:12px;color:var(--gray-700)">Filtros</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto auto;gap:10px;align-items:end;margin-bottom:14px">
-      <div class="field">
-        <label>Cidade</label>
-        <select id="imp-cidade">
-          <option value="Todas">Todas</option>
-          ${cidades.map(c=>`<option>${c}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Status</label>
-        <select id="imp-status">
-          <option value="">Todos</option>
-          <option value="pendentes">Pendentes</option>
-          <option value="concluidos">Concluídos</option>
-          <option value="atraso">Em atraso</option>
-          <option value="garantia">⚡ Garantia LED</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Data início</label>
-        <input type="date" id="imp-dtIni">
-      </div>
-      <div class="field">
-        <label>Data fim</label>
-        <input type="date" id="imp-dtFim">
-      </div>
-      <button id="btn-imp-buscar" class="btn btn-primary" style="height:36px;white-space:nowrap;padding:0 18px;font-size:12px" onclick="executarBusca()">🔍 Buscar</button>
-      <button class="btn btn-ghost" style="height:36px;white-space:nowrap;padding:0 12px;font-size:12px" onclick="limparFiltros()">✕ Limpar</button>
-    </div>
-    <!-- Feedback -->
-    <div id="imp-feedback" style="display:none;padding:9px 12px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;margin-top:4px"></div>
-    <!-- Layout -->
-    <div style="font-size:12px;font-weight:700;margin-top:14px;margin-bottom:8px;color:var(--gray-700)">Layout de impressão</div>
-    <div style="display:flex;gap:10px">
-      ${[['1 por folha',1,'▬'],['2 por folha',2,'▬▬'],['3 por folha',3,'▬▬▬']].map(([lbl,cols])=>`
-      <div id="layout-${cols}" style="flex:1;border:2px solid ${cols===2?'var(--brand)':'var(--gray-200)'};border-radius:var(--radius-sm);padding:12px;text-align:center;cursor:pointer;background:${cols===2?'var(--brand-light)':'#fff'};transition:all .12s"
-        onclick="document.querySelectorAll('[id^=layout-]').forEach(el=>{el.style.borderColor='var(--gray-200)';el.style.background='#fff'});this.style.borderColor='var(--brand)';this.style.background='var(--brand-light)';layoutCols=${cols};if(resultadosBusca){const cols2=${cols}===1?'1fr':${cols}===2?'1fr 1fr':'1fr 1fr 1fr';document.getElementById('imp-preview').innerHTML='<div style=\\'display:grid;grid-template-columns:'+cols2+';gap:10px\\'>'+(resultadosBusca.map(c=>cardHTML(c)).join(''))+'</div>';}">
-        <div style="font-size:12px;font-weight:700">${lbl}</div>
-      </div>`).join('')}
-    </div>
-  </div>
-  <div class="card">
-    <div style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px" id="imp-count">PRÉ-VISUALIZAÇÃO</div>
-    <div id="imp-preview"><div style="text-align:center;padding:2rem;color:var(--gray-400);font-size:12px">Selecione os filtros e clique em <strong>🔍 Buscar</strong> para carregar os chamados.</div></div>
-  </div>`;
+    // Abrir imediatamente no clique evita que o bloqueador de pop-ups
+    // rejeite a janela (a implementação anterior abria dentro de setTimeout).
+    const janela=window.open('','_blank','width=920,height=780');
+    if(!janela){
+      showToast('O navegador bloqueou a janela. Permita pop-ups para este site.','erro');
+      return;
+    }
+    const data=new Date().toLocaleString('pt-BR');
+    const rotulo=esc(CU?.org||'Organização');
+    const usuario=esc(CU?.nome||'Usuário');
+    const cidade=esc(document.getElementById('imp-cidade')?.value||'Todas');
+    const status=esc(document.getElementById('imp-status')?.selectedOptions?.[0]?.textContent||'Todos');
+    const ini=esc(document.getElementById('imp-dtIni')?.value||'—');
+    const fim=esc(document.getElementById('imp-dtFim')?.value||'—');
+    const paginas=distribuir(lista);
+    const folhas=paginas.map((grupo,indice)=>
+      '<section class="sheet">'+
+      '<div class="print-header"><div><h1>🔆 Aponte Cidadão</h1><p>'+rotulo+'</p></div>'+
+      '<div class="print-meta">Gerado por: '+usuario+'<div>Data: '+esc(data)+'</div>'+
+      '<div>Total de chamados: '+lista.length+'</div></div></div>'+
+      '<div class="print-filters">Cidade: '+cidade+' · Status: '+status+
+      ' · Início: '+ini+' · Fim: '+fim+'</div>'+
+      '<div class="print-cards" style="grid-template-rows:repeat('+estado.porFolha+',minmax(0,1fr))">'+
+      grupo.map(cardHTML).join('')+'</div>'+
+      '<footer>Aponte Cidadão — '+esc(data)+'<span>Folha '+(indice+1)+' de '+paginas.length+'</span></footer>'+
+      '</section>').join('');
+
+    const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">'+
+      '<title>Chamados — Aponte Cidadão</title><style>'+
+      '@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;margin:0;background:#eef2f7}'+
+      '.sheet{background:#fff;width:186mm;height:267mm;margin:12px auto;padding:0;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid}'+
+      '.sheet:not(:last-of-type){break-after:page;page-break-after:always}'+
+      '.print-header{display:flex;justify-content:space-between;border-bottom:2px solid #1251A3;padding-bottom:8px;margin-bottom:8px}'+
+      '.print-header h1{font-size:18px;margin:0;color:#1251A3}'+
+      '.print-header p{margin:3px 0;font-size:10px;color:#64748b}'+
+      '.print-meta{font-size:9px;line-height:1.5;text-align:right}'+
+      '.print-filters{font-size:9px;padding:8px;background:#eff6ff;margin-bottom:10px;color:#1e40af}'+
+      '.print-cards{flex:1;min-height:0;display:grid;grid-template-columns:1fr;gap:5mm}'+
+      '.imp-card{border:1px solid #cbd5e1;border-radius:5px;padding:10px;min-height:0;break-inside:avoid;overflow-wrap:anywhere}'+
+      '.imp-card-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #e5e7eb;padding-bottom:7px;margin-bottom:8px;font-size:11px}'+
+      '.imp-card-head strong{font-family:monospace;color:#1251A3}'+
+      '.imp-date{font-size:9px;color:#64748b;margin-top:2px}'+
+      '.imp-status{padding:3px 8px;border-radius:12px;font-weight:bold;font-size:9px}'+
+      '.imp-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;font-size:11px}'+
+      '.imp-fields small{display:block;font-weight:bold;text-transform:uppercase;font-size:8px;color:#64748b;margin-bottom:2px}'+
+      '.imp-sign{border-top:1px dashed #cbd5e1;display:flex;justify-content:space-between;font-size:9px;color:#64748b;padding-top:8px;margin-top:12px}'+
+      'footer{margin-top:9px;padding-top:5px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8px;color:#64748b}'+
+      '.toolbar{text-align:center;padding:14px;position:sticky;top:0;background:#e2e8f0}'+
+      '.toolbar button{cursor:pointer;background:#1251A3;border:0;color:#fff;padding:10px 18px;border-radius:6px}'+
+      '@media print{body{background:#fff}.toolbar{display:none}.sheet{width:auto;height:267mm;margin:0;box-shadow:none}'+
+      '.sheet:not(:last-of-type){break-after:page;page-break-after:always}}'+
+      '</style></head><body>'+
+      '<div class="toolbar"><button type="button" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button></div>'+
+      folhas+'</body></html>';
+
+    if(modo==='print'){
+      janela.addEventListener('load',()=>janela.print(),{once:true});
+    }
+    janela.document.open();
+    janela.document.write(html);
+    janela.document.close();
+    janela.focus();
+    showToast(modo==='pdf'
+      ? 'Prévia aberta. Clique em Imprimir / Salvar como PDF na nova janela.'
+      : 'Relatório preparado para impressão.','ok');
+  };
+
+  a.innerHTML='<button type="button" class="btn btn-ghost" id="btn-imp-pdf" onclick="executarImpressao(\'pdf\')" disabled style="opacity:.45">📄 Salvar PDF</button>'+
+    '<button type="button" class="btn btn-save" id="btn-imp-print" onclick="executarImpressao(\'print\')" disabled style="opacity:.45">🖨 Imprimir</button>';
+  b.innerHTML='<style>'+
+    '.imp-preview-sheet{max-width:760px;margin:0 auto 16px;border:1px solid #cbd5e1;border-radius:7px;padding:16px;background:#fff}'+
+    '.imp-sheet-label{text-transform:uppercase;font-size:10px;font-weight:bold;color:#64748b;margin-bottom:12px}'+
+    '.imp-preview-cards{display:grid;grid-template-columns:1fr;gap:12px}'+
+    '.imp-card{border:1px solid #cbd5e1;border-radius:6px;padding:12px;background:#fff;overflow-wrap:anywhere}'+
+    '.imp-card-head{display:flex;justify-content:space-between;margin-bottom:10px;border-bottom:1px solid #e2e8f0;padding-bottom:7px}'+
+    '.imp-card-head strong{font-size:11px;color:#1251A3;font-family:monospace}'+
+    '.imp-date{font-size:9px;color:#64748b}.imp-status{font-size:10px;border-radius:12px;padding:3px 8px;font-weight:bold}'+
+    '.imp-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px}'+
+    '.imp-fields small{display:block;color:#64748b;font-size:9px;font-weight:bold;text-transform:uppercase}'+
+    '.imp-sign{display:flex;justify-content:space-between;border-top:1px dashed #cbd5e1;margin-top:10px;padding-top:9px;font-size:10px;color:#64748b}'+
+    '.imp-empty{text-align:center;padding:2rem;color:var(--gray-500);font-size:12px}'+
+    '</style>'+
+    '<div class="card" style="margin-bottom:1rem"><div style="font-size:12px;font-weight:700;margin-bottom:12px">Filtros</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto auto;gap:10px;align-items:end;margin-bottom:14px">'+
+    '<div class="field"><label>Cidade</label><select id="imp-cidade"><option value="Todas">Todas</option></select></div>'+
+    '<div class="field"><label>Status</label><select id="imp-status"><option value="">Todos</option>'+
+    '<option value="pendentes">Pendentes</option><option value="concluidos">Concluídos</option>'+
+    '<option value="atraso">Em atraso (SLA)</option><option value="garantia">Garantia LED</option></select></div>'+
+    '<div class="field"><label>Data início</label><input type="date" id="imp-dtIni"></div>'+
+    '<div class="field"><label>Data fim</label><input type="date" id="imp-dtFim"></div>'+
+    '<button type="button" id="btn-imp-buscar" class="btn btn-primary" onclick="v19ImpBuscar()">🔍 Buscar</button>'+
+    '<button type="button" class="btn btn-ghost" onclick="v19ImpLimpar()">✕ Limpar</button></div>'+
+    '<div id="imp-feedback" role="status" style="display:none;padding:9px 12px;font-size:12px;background:var(--brand-light);border-radius:6px"></div>'+
+    '<div style="font-size:12px;font-weight:700;margin:14px 0 8px">Chamados por folha A4</div>'+
+    '<div style="display:flex;gap:10px">'+
+    [1,2,3].map(n=>
+      '<button type="button" class="btn" id="imp-layout-'+n+'" onclick="v19ImpLayout('+n+
+      ')" aria-pressed="'+(n===1)+'" style="flex:1;justify-content:center;border:2px solid '+
+      (n===1?'var(--brand)':'var(--gray-200)')+';background:'+
+      (n===1?'var(--brand-light)':'#fff')+'">'+n+' por folha</button>'
+    ).join('')+'</div></div>'+
+    '<div class="card"><div id="imp-count" style="font-size:11px;font-weight:700;color:var(--gray-500);margin-bottom:10px">PRÉ-VISUALIZAÇÃO</div>'+
+    '<div id="imp-preview"></div></div>';
+  atualizarOpcoesCidade();
+  renderPreview();
+  atualizarBotoes();
 }
 
 // ═══ USUÁRIOS ═══
