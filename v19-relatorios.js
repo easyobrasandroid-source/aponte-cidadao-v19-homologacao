@@ -159,16 +159,24 @@
       window._rfBuscar=function(){
         buscarAntes();
         const data=Array.isArray(_exportChamados)?_exportChamados:[];
-        const count=data.map(statusSLA);
-        const overdue=count.filter(x=>x.estado==='Em atraso'||x.estado==='Concluído fora do prazo').length;
-        const anal=count.filter(x=>x.resultado!==null);
+        // "Resultado" do SLA só é avaliável após a conclusão. Chamados
+        // abertos (mesmo vencidos) NÃO são "conclusões não apuráveis".
+        const naoConcluidos=data.filter(c=>c.status!=='Concluído');
+        const concluidos=data.filter(c=>c.status==='Concluído');
+        const abertosVencidos=naoConcluidos.filter(c=>statusSLA(c).estado==='Em atraso').length;
+        const concluidosAvaliaveis=concluidos.filter(c=>statusSLA(c).resultado!==null).length;
+        const concluidosNaoApuraveis=concluidos.length-concluidosAvaliaveis;
         const sla=document.getElementById('rf-preview');
         if(sla){
-          sla.insertAdjacentHTML('beforeend',
-            '<p style="font-size:11px;color:var(--gray-600);margin-top:8px">'+
-            'Prazo estimado por dias corridos: '+overdue+' fora do prazo; '+
-            (count.length-anal.length)+' não apurável(is) / pausado(s). '+
-            'O percentual de conclusão exibido acima não é taxa de SLA.</p>');
+          const resumoSLA=document.createElement('p');
+          resumoSLA.style.cssText='font-size:11px;color:var(--gray-600);margin-top:8px';
+          resumoSLA.textContent='SLA em dias corridos: '+abertosVencidos+
+            ' chamados não concluídos vencidos; '+naoConcluidos.length+
+            ' ainda não concluídos; '+concluidosAvaliaveis+' de '+concluidos.length+
+            ' conclusões avaliáveis; '+concluidosNaoApuraveis+
+            ' conclusões sem dados suficientes para avaliar o SLA. '+
+            'O percentual de concluídos acima não é a taxa de cumprimento do SLA.';
+          sla.appendChild(resumoSLA);
         }
       };
       window._rfBuscar();
