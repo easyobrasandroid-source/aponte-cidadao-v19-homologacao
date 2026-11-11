@@ -182,6 +182,33 @@
       const table='<table><thead><tr>'+headers.map(k=>'<th>'+esc(k)+'</th>').join('')+'</tr></thead><tbody>'+
         columns.map(x=>'<tr>'+headers.map(k=>'<td>'+esc(x[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
       let note='',conteudo=table;
+      if(tipo==='chamados'){
+        // A tabela de 13 colunas quebrava nomes, protocolos e endereços.
+        // Fichas em A4 preservam todos os campos da planilha e evitam cortes.
+        const abertos=dados.filter(c=>c.status!=='Concluído');
+        const concluidos=dados.filter(c=>c.status==='Concluído');
+        const vencidos=abertos.filter(c=>statusSLA(c).estado==='Em atraso').length;
+        note='<div class="sla-summary"><b>Resumo dos filtros:</b> '+
+          dados.length+' chamados; '+abertos.length+' não concluídos ('+
+          vencidos+' vencidos pelo SLA); '+concluidos.length+
+          ' concluídos. Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>';
+        const campo=(rotulo,valor)=>'<div class="sla-field"><b>'+esc(rotulo)+'</b><span>'+
+          esc(valor===null||valor===undefined||valor===''?'—':valor)+'</span></div>';
+        conteudo='<div class="sla-cards">'+dados.map(c=>{
+          const situacao=statusSLA(c).estado;
+          return '<section class="sla-card"><div class="sla-card-head">'+
+            '<strong>'+esc(c.protocolo)+'</strong><span>'+esc(c.status)+'</span></div>'+
+            '<div class="sla-grid">'+
+            campo('Cidade',c.cidade)+campo('Bairro',c.bairro)+
+            campo('Endereço',c.endereco)+campo('Tipo de chamado',c.tipo)+
+            campo('Empresa responsável',c.empresa)+campo('Área',c.area)+
+            campo('Origem',c.origem)+campo('Prazo (dias corridos)',dias(c._slaHoras))+
+            campo('Data de abertura',fmtData(c.created_at))+
+            campo('Data de conclusão',fmtData(c.completed_at))+
+            campo('Situação do SLA',situacao)+
+            '</div></section>';
+        }).join('')+'</div>';
+      }
       if(tipo==='sla'){
         // A tabela de 11 colunas ficava ilegível no A4. Exibir cada chamado
         // em uma ficha com todos os campos e sem quebra no meio da ficha.
