@@ -223,9 +223,13 @@
         note='<p>Metodologia: dias corridos (1 dia = 24 horas), incluindo finais de semana e feriados. '+
           'O SLA de conclusão só é avaliável quando existem prazo e datas suficientes. '+
           'Os prazos contratuais devem ser conferidos em separado.</p>'+
-          '<div class="sla-summary"><b>Resumo dos filtros:</b> '+dados.length+' chamados; '+
-          abertos.length+' não concluídos ('+vencidos+' vencidos); '+
-          concluidos.length+' concluídos ('+(concluidos.length-avaliaveis.length)+' sem SLA avaliável); '+
+          '<div class="sla-summary"><b>Resumo dos filtros:</b> '+
+          dados.length+(dados.length===1?' chamado; ':' chamados; ')+
+          abertos.length+(abertos.length===1?' não concluído (':' não concluídos (')+
+          vencidos+(vencidos===1?' vencido); ':' vencidos); ')+
+          concluidos.length+(concluidos.length===1?' concluído (':' concluídos (')+
+          (concluidos.length-avaliaveis.length)+
+          (concluidos.length-avaliaveis.length===1?' sem SLA avaliável); ':' sem SLA avaliável); ')+
           'cumprimento entre conclusões avaliáveis: <b>'+percentual+'</b>.</div>';
         const campo=(rotulo,valor)=>'<div class="sla-field"><b>'+esc(rotulo)+'</b><span>'+
           esc(valor===null||valor===undefined||valor===''?'—':valor)+'</span></div>';
