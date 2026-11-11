@@ -14,7 +14,19 @@
     });
     const body=await resposta.json().catch(()=>({}));
     if(!resposta.ok || !body.signedURL)throw new Error('Não foi possível abrir a foto privada (HTTP '+resposta.status+').');
-    return new URL(body.signedURL, SUPA_URL).href;
+    // O Supabase Storage devolve /object/sign/...; a URL pública exige /storage/v1.
+    // Aceita também o formato completo já normalizado, sem duplicar o prefixo.
+    const signedUrl = new URL(body.signedURL, SUPA_URL);
+    if (signedUrl.origin !== new URL(SUPA_URL).origin) {
+      throw new Error('Origem da URL assinada não corresponde ao Supabase configurado.');
+    }
+    if (signedUrl.pathname.startsWith('/object/sign/')) {
+      signedUrl.pathname = '/storage/v1' + signedUrl.pathname;
+    }
+    if (!signedUrl.pathname.startsWith('/storage/v1/object/sign/chamado-fotos/')) {
+      throw new Error('Caminho assinado de fotografia inválido.');
+    }
+    return signedUrl.href;
   }
 
   async function renderFotosChamado() {
