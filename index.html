@@ -297,7 +297,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="sbi" id="sb-empresas" onclick="showView('empresas',this)"><span class="ico">🏢</span> Empresas</div>
       <div class="sbi" id="sb-equipes" onclick="showView('equipes',this)"><span class="ico">👷</span> Equipes</div>
       <div class="sbi" onclick="showView('sla',this)"><span class="ico">⏱</span> SLA</div>
-      <div class="sbi" onclick="showView('configportal',this)"><span class="ico">⚙️</span> Config. portal</div>
+      <div class="sbi" id="sb-configportal" onclick="showView('configportal',this)"><span class="ico">⚙️</span> Config. portal</div>
     </div>
     <div class="sb-footer"><div class="sb-logout" onclick="doLogout()">🚪 Sair</div></div>
   </nav>
@@ -1120,6 +1120,10 @@ function setupUI(u){
   document.getElementById('sb-badge').textContent=badgeCnt;
   if(u.perfil==='empresa'||u.perfil==='garantia')document.getElementById('sb-usuarios').style.display='none';
   else document.getElementById('sb-usuarios').style.display='flex';
+  // O menu acompanha as permissões já aplicadas pela tela e pela RPC no backend.
+  // Master e Gestor Consórcio podem configurar; demais perfis não veem o atalho.
+  document.getElementById('sb-configportal').style.display=
+    ['master','consorcio'].includes(u.perfil)?'flex':'none';
 }
 
 // ═══ VIEWS ═══
