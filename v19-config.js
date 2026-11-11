@@ -49,28 +49,29 @@ window.vConfigPortal=async function(b,t,a,consId){
       'select=*&consorcio_id=eq.'+encodeURIComponent(chosen)+'&limit=1');
     if(!Array.isArray(rows))throw new Error('A tabela portal_configuracoes não está disponível. Aplique o pacote V19 em homologação.');
     if(t.textContent!=='Configurações do portal público'||!b.isConnected)return;
-    portalRow=rows[0]||{consorcio_id:chosen,portal_ativo:true,abertura_portal_ativo:true,
-      consulta_protocolo_ativo:true,gps_obrigatorio:false,mostrar_empresa:false,
+    portalRow=rows[0]||{consorcio_id:chosen,portal_ativo:false,abertura_portal_ativo:false,
+      consulta_protocolo_ativo:false,gps_obrigatorio:false,mostrar_empresa:false,
       notificacao_whatsapp:false,telefone_contato:'',whatsapp_contato:'',prazo_medio_texto:''};
-    const check=(id,field,label)=>'<label style="display:flex;align-items:center;gap:9px;font-size:13px;padding:8px 0">'+
-      '<input type="checkbox" id="'+id+'" '+(portalRow[field]?'checked':'')+'> '+esc(label)+'</label>';
+    const check=(id,field,label,bloqueado=false)=>'<label style="display:flex;align-items:center;gap:9px;font-size:13px;padding:8px 0">'+
+      '<input type="checkbox" id="'+id+'" '+(portalRow[field]?'checked':'')+
+      (bloqueado?' disabled title="Ativação pendente de homologação"':'')+'> '+esc(label)+
+      (bloqueado?' <span style="font-size:11px;color:var(--gray-500)">(em homologação)</span>':'')+'</label>';
     b.innerHTML='<div class="card" style="max-width:760px">'+
       '<div style="margin-bottom:18px">'+escolha(chosen,'v19MudarConsPortal')+'</div>'+
       '<h3 style="font-size:15px;margin-bottom:8px">Serviços do portal cidadão</h3>'+
-      check('v19-portal-ativo','portal_ativo','Portal público ativo')+
-      check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados')+
-      check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo')+
+      check('v19-portal-ativo','portal_ativo','Portal público ativo',true)+
+      check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados',true)+
+      check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo',true)+
       check('v19-portal-gps','gps_obrigatorio','GPS obrigatório para abertura')+
       check('v19-portal-empresa','mostrar_empresa','Exibir a empresa responsável')+
-      check('v19-portal-whatsapp','notificacao_whatsapp','Notificações por WhatsApp (integração pendente)')+
+      check('v19-portal-whatsapp','notificacao_whatsapp','Notificações por WhatsApp (integração pendente)',true)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">'+
         '<label>Telefone de contato<input id="v19-portal-telefone" style="width:100%" maxlength="40" value="'+esc(portalRow.telefone_contato||'')+'"></label>'+
         '<label>WhatsApp de contato<input id="v19-portal-numero" style="width:100%" maxlength="40" value="'+esc(portalRow.whatsapp_contato||'')+'"></label>'+
       '</div><label style="display:block;margin-top:14px">Prazo médio (texto público)<input id="v19-portal-prazo" '+
       'style="display:block;width:100%" maxlength="150" value="'+esc(portalRow.prazo_medio_texto||'')+'"></label>'+
-      '<p style="font-size:11px;color:var(--gray-500);margin:14px 0">Salvar altera a configuração no banco. '+
-      'O endereço público do portal deve ser publicado e testado separadamente. '+
-      'Marcar notificações por WhatsApp não envia mensagens sem uma integração configurada.</p>'+
+      '<p style="font-size:11px;color:var(--gray-500);margin:14px 0">Salvar grava somente os campos permitidos pela RPC no Supabase V19. '+
+      'Ativação do portal, abertura de chamados, consulta pública e notificações WhatsApp permanecem bloqueadas até homologação.</p>'+
       '<button class="btn btn-save" id="v19-portal-salvar" onclick="v19SalvarPortal()">💾 Salvar configurações</button></div>';
   }catch(e){b.innerHTML='<div class="card" style="color:var(--red)">'+esc(e.message)+'</div>';}
 };
@@ -81,21 +82,35 @@ window.v19SalvarPortal=async function(){
   if(btn?.disabled)return;
   const g=id=>!!document.getElementById(id)?.checked;
   const v=id=>document.getElementById(id)?.value?.trim()||null;
-  const data={consorcio_id:selectedCons,portal_ativo:g('v19-portal-ativo'),
-    abertura_portal_ativo:g('v19-portal-abertura'),
-    consulta_protocolo_ativo:g('v19-portal-consulta'),gps_obrigatorio:g('v19-portal-gps'),
-    mostrar_empresa:g('v19-portal-empresa'),notificacao_whatsapp:g('v19-portal-whatsapp'),
-    telefone_contato:v('v19-portal-telefone'),whatsapp_contato:v('v19-portal-numero'),
-    prazo_medio_texto:v('v19-portal-prazo'),updated_at:new Date().toISOString()};
+  const payload={
+    p_consorcio_id:selectedCons,
+    p_portal_ativo:g('v19-portal-ativo'),
+    p_abertura_portal_ativo:g('v19-portal-abertura'),
+    p_consulta_protocolo_ativo:g('v19-portal-consulta'),
+    p_gps_obrigatorio:g('v19-portal-gps'),
+    p_mostrar_empresa:g('v19-portal-empresa'),
+    p_notificacao_whatsapp:g('v19-portal-whatsapp'),
+    p_telefone_contato:v('v19-portal-telefone'),
+    p_whatsapp_contato:v('v19-portal-numero'),
+    p_prazo_medio_texto:v('v19-portal-prazo')
+  };
   btn.disabled=true;btn.textContent='Salvando…';
   try{
-    const path=portalRow&&portalRow.updated_at?
-      'portal_configuracoes?consorcio_id=eq.'+encodeURIComponent(selectedCons)+'&select=consorcio_id':
-      'portal_configuracoes?select=consorcio_id';
-    const resp=await sbFetch(path,portalRow?.updated_at?'PATCH':'POST',data);
-    if(!Array.isArray(resp)||resp.length!==1||resp[0].consorcio_id!==selectedCons)
-      throw new Error('O Supabase não confirmou a gravação da configuração.');
-    portalRow={...data};
+    // Não usar INSERT/PATCH direto: validações e isolamento pertencem à RPC homologada.
+    const resp=await sbFetch('rpc/v19_salvar_config_portal','POST',payload);
+    if(resp?.ok!==true || resp.consorcio_id!==selectedCons)
+      throw new Error('A RPC não confirmou o salvamento da configuração.');
+    portalRow={
+      consorcio_id:selectedCons,
+      portal_ativo:false,abertura_portal_ativo:false,consulta_protocolo_ativo:false,
+      gps_obrigatorio:payload.p_gps_obrigatorio,
+      mostrar_empresa:payload.p_mostrar_empresa,
+      notificacao_whatsapp:false,
+      telefone_contato:payload.p_telefone_contato,
+      whatsapp_contato:payload.p_whatsapp_contato,
+      prazo_medio_texto:payload.p_prazo_medio_texto,
+      updated_at:new Date().toISOString()
+    };
     showToast('✅ Configurações confirmadas no banco.','ok');
   }catch(e){showToast(esc(e.message),'erro');}
   finally{btn.disabled=false;btn.textContent='💾 Salvar configurações';}
