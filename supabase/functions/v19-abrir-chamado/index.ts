@@ -183,7 +183,7 @@ function payloadFrom(input: JsonRecord): JsonRecord | null {
         "Lâmpada com defeito", "Poste danificado", "Outro",
       ].includes(type) ||
       (area !== "Urbana" && area !== "Rural") ||
-      !Number.isInteger(amount) || (amount as number) < 1 || (amount as number) > 999 ||
+      typeof amount !== "number" || !Number.isInteger(amount) || amount < 1 || amount > 999 ||
       [bairro, endereco, referencia, observacoes].some((x) => x === null ? false : typeof x !== "string") ||
       (bairro?.length ?? 0) > 160 ||
       (endereco?.length ?? 0) > 300 ||
