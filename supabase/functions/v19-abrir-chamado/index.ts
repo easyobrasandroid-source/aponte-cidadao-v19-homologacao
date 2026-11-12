@@ -272,6 +272,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return reply(400, { ok: false, erro: "DADOS_INVALIDOS" }, origin);
     }
     const body = parsed as JsonRecord;
+
+    // Catálogo público por consórcio: usa SOMENTE a RPC já autorizada para
+    // visitantes, que respeita os flags de ativação do portal no banco.
+    // Não exige Turnstile porque não cria chamados nem expõe dados pessoais.
+    if (body.acao === "listar_municipios") {
+      const consortiumId = uuid(body.consorcio_id);
+      if (!consortiumId) return reply(400, { ok: false, erro: "CONSORCIO_INVALIDO" }, origin);
+      const response = await fetch(
+        supabaseUrl.replace(/\/+$/, "") + "/rest/v1/rpc/v19_listar_municipios_portal",
+        {
+          method: "POST",
+          headers: {
+            apikey: serviceRoleKey,
+            authorization: "Bearer " + serviceRoleKey,
+            "content-type": "application/json",
+            "cache-control": "no-store",
+          },
+          body: JSON.stringify({ p_consorcio_id: consortiumId }),
+        },
+      );
+      if (!response.ok) {
+        return reply(503, { ok: false, erro: "CATALOGO_INDISPONIVEL" }, origin);
+      }
+      const rows: unknown = await response.json().catch(() => null);
+      if (!Array.isArray(rows)) {
+        return reply(503, { ok: false, erro: "CATALOGO_INDISPONIVEL" }, origin);
+      }
+      const municipios = rows
+        .filter((r): r is JsonRecord =>
+          r !== null && typeof r === "object" && !Array.isArray(r) &&
+          uuid((r as JsonRecord).cidade_id) !== null &&
+          typeof (r as JsonRecord).municipio === "string")
+        .slice(0, 500)
+        .map((r) => ({
+          cidade_id: r.cidade_id,
+          municipio: r.municipio,
+          uf: typeof r.uf === "string" ? r.uf : "",
+        }));
+      return reply(200, { ok: true, municipios }, origin);
+    }
+
     const turnstileToken = asText(body.turnstile_token);
     if (!turnstileToken || turnstileToken.length > 2048) {
       return reply(400, { ok: false, erro: "VERIFICACAO_HUMANA_OBRIGATORIA" }, origin);
