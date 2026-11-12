@@ -492,7 +492,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
       if (!anonKey) return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
       const response = await fetch(
-        supabaseUrl.replace(/\\/+$/, "") + "/rest/v1/rpc/consultar_protocolo",
+        supabaseUrl.replace(/\/+$/, "") + "/rest/v1/rpc/consultar_protocolo",
         {
           method: "POST",
           headers: {
