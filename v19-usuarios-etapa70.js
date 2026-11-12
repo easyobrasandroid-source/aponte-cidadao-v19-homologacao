@@ -1,10 +1,8 @@
 /*
  * APONTE CIDADÃO V19 — ETAPA 70
- * Interface integrada: consulta de usuários + verificação da Edge Function,
- * catálogos reais de vínculos e prévia de cadastro/edição.
- * IMPORTANTE: ESTA ETAPA NUNCA ENVIA REQUISIÇÕES DE GRAVAÇÃO.
- * Não altera usuarios, auth.users, auditoria ou qualquer outro objeto.
- * V18 e branch main NÃO devem carregar este arquivo.
+ * Gerenciamento real de usuarios V19 via Edge Function com Auth, RLS e RPC auditada.
+ * O cadastro e convite ficam disponíveis somente quando o servidor autorizar escritas.
+ * A V18 permanece intocada.
  */
 (function () {
   'use strict';
@@ -128,154 +126,198 @@
     root.textContent = msg;
     root.style.cssText = `padding:9px 11px;border-radius:7px;font-size:12px;line-height:1.6;background:${warning?'#fff7ed':'#f0fdf4'};color:${warning?'#9a3412':'#166534'};border:1px solid ${warning?'#fed7aa':'#bbf7d0'}`;
   }
-  function showPreview(outlet, user, catalog, currentList) {
-    outlet.textContent = '';
-    const editar = !!user;
-    const root = el('section', outlet, null, CSS.card + ';margin-top:12px');
-    el('h3', root, editar ? 'Prévia de edição — não salva' : 'Prévia de cadastro — não envia convite', 'font-size:15px;margin:0 0 8px');
-    el('p', root, 'Esta etapa permite conferir os campos e vínculos. Nenhuma solicitação de criação, edição ou desativação será enviada ao servidor.', CSS.muted + ';margin-bottom:13px');
-    const form = el('form', root);
-    form.noValidate = true;
-    const fields = grid(form);
-    const nome = fieldForm(fields, 'Nome *', 'text', 'nome', user?.nome || '', true);
-    const email = fieldForm(fields, 'E-mail *', 'email', 'email', user?.email || '', true);
-    email.readOnly = editar; // Banco exige e-mail imutável na edição.
-    if (editar) email.title = 'E-mail não pode ser alterado pela operação de edição';
-    const roles = CU.perfil === 'master' ? Object.keys(PERFIS) : PERFIS_CONSORCIO;
-    const perfil = fieldSelect(fields, 'Perfil *', roles.map(id => ({id, nome: PERFIS[id]})), user?.perfil || '', 'Selecione o perfil');
-    const consorcios = CU.perfil === 'consorcio'
-      ? [{id: CU.consorcio_id, nome: (catalog.consorcios.find(c => c.id === CU.consorcio_id)?.nome || CU.org || 'Consórcio atual')}]
-      : catalog.consorcios.filter(c => isActive(c));
-    const cons = fieldSelect(fields, 'Consórcio *', consorcios, user?.consorcio_id || (CU.perfil==='consorcio'?CU.consorcio_id:''), 'Selecione o consórcio');
-    if (CU.perfil === 'consorcio') cons.disabled = true;
-    const cidade = fieldSelect(fields, 'Município da prefeitura *', [], user?.cidade_id || '', 'Selecione o município');
-    const empresa = fieldSelect(fields, 'Empresa executora *', [], user?.empresa_id || '', 'Selecione a empresa');
-    const telefone = fieldForm(fields, 'Telefone (opcional)', 'tel', 'telefone', user?.telefone || '', false);
-    const cargo = fieldForm(fields, 'Cargo (opcional)', 'text', 'cargo', user?.cargo || '', false);
-    const help = el('p', form, null, CSS.muted + ';margin:10px 0');
-    const result = el('p', form);
-    const buttons = el('div', form, null, 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px');
-    const validate = el('button', buttons, 'Validar preenchimento (não salva)', CSS.button + ';background:#eff6ff');
-    validate.type = 'submit';
-    const close = el('button', buttons, 'Fechar prévia', CSS.button);
-    close.type = 'button';
-    close.addEventListener('click', () => { outlet.textContent = ''; });
-    function recalc() {
-      const role = perfil.value;
-      const consId = cons.value;
-      const cityOld = cidade.value || (user?.cidade_id || '');
-      const empOld = empresa.value || (user?.empresa_id || '');
-      loadOptions(cidade, catalog.cidades.filter(c => c.consorcio_id === consId && isActive(c)), cityOld, 'Selecione o município');
-      loadOptions(empresa, catalog.empresas.filter(e => e.consorcio_id === consId && isActive(e)), empOld, 'Selecione a empresa');
-      cidade.parentElement.hidden = role !== 'prefeitura';
-      empresa.parentElement.hidden = role !== 'empresa';
-      cons.parentElement.hidden = role === 'master';
-      const warnings = [];
-      if (role === 'prefeitura' && catalog.cidadesFalhou)
-        warnings.push('O catálogo de municípios não pôde ser consultado: existe uma pendência de permissão de leitura no Supabase.');
-      if (role === 'empresa' && catalog.empresasFalhou)
-        warnings.push('O catálogo de empresas não pôde ser consultado: revisar a permissão de leitura.');
-      if (role !== 'master' && !consId)
-        warnings.push('Selecione um consórcio real antes de prosseguir.');
-      help.textContent = warnings.length ? warnings.join(' ') : 'Vínculos mostrados a partir dos catálogos consultáveis no Supabase V19.';
-      help.style.color = warnings.length ? '#b45309' : '#64748b';
+
+  // Todas as gravações passam pela Edge Function autenticada; nunca pela REST direto.
+  async function operar(acao, payload) {
+    if (!session()) throw new Error('Sessão V19 expirada. Entre novamente.');
+    let r, data;
+    try {
+      r = await fetch(PROJECT_URL+'/functions/v1/v19-usuarios',{
+        method:'POST', cache:'no-store',
+        headers:{'Authorization':'Bearer '+SB_SESSION.access_token,'apikey':SUPA_KEY,
+          'Content-Type':'application/json'},
+        body:JSON.stringify({acao,...payload})
+      });
+      data = await r.json();
+    } catch (_) { throw new Error('Não foi possível conectar ao serviço de usuários.'); }
+    if (!r.ok || data?.ok!==true) {
+      const errorCode=String(data?.codigo||'ERRO_INTERNO');
+      const errors={
+        GRAVACAO_DESABILITADA_HOMOLOGACAO:'A escrita ainda está bloqueada na Edge Function V19.',
+        REDIRECT_CONVITE_NAO_CONFIGURADO:'Redirecionamento do convite não configurado no Supabase V19.',
+        REGISTRO_DUPLICADO:'E-mail já cadastrado.',
+        EMAIL_JA_EXISTE_NO_AUTH:'Este e-mail já tem uma conta de autenticação.',
+        CONVITE_NAO_ENVIADO:'Convite não enviado. Nenhum acesso foi liberado.',
+        VINCULO_PENDENTE_RECONCILIACAO:'Convite pode ter sido enviado, mas o vínculo ficou pendente. Não reenviar até conciliar.',
+        CONVITE_FALHOU_RESERVA_PENDENTE:'Reserva pendente após falha. Não reenviar sem conciliar.',
+        AUTOALTERACAO_BLOQUEADA:'Não é permitido alterar a própria conta.',
+        ALVO_FORA_ESCOPO:'Usuário pertence a outro consórcio ou empresa.',
+        PERFIL_NAO_AUTORIZADO:'Seu perfil não tem permissão para esta operação.',
+        CONVITE_PENDENTE_NAO_EDITAVEL:'Convite pendente não pode ser editado.',
+        STATUS_DE_CONVITE_PENDENTE_IMUTAVEL:'Convite pendente não pode ter status alterado.'
+      };
+      throw new Error(errors[errorCode]||('Operação negada pelo servidor: '+errorCode));
     }
-    perfil.addEventListener('change', () => {cidade.value='';empresa.value='';recalc();});
-    cons.addEventListener('change', () => {cidade.value='';empresa.value='';recalc();});
-    recalc();
-    form.addEventListener('submit', event => {
-      event.preventDefault();
-      const role = perfil.value, consId = role==='master' ? null : cons.value;
-      const nomeVal = nome.value.trim(), emailVal = email.value.trim().toLowerCase();
-      let error = '';
-      if (!nomeVal || nomeVal.length > 250) error = 'Informe um nome válido.';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal) || emailVal.length > 320) error = 'Informe um e-mail válido.';
-      else if (!roles.includes(role)) error = 'Perfil não permitido para este administrador.';
-      else if (role !== 'master' && !consId) error = 'Consórcio obrigatório.';
-      else if (CU.perfil==='consorcio' && consId !== CU.consorcio_id) error = 'O consórcio deve ser o da sua sessão.';
-      else if (role === 'prefeitura' && !cidade.value) error = 'Município obrigatório. Confira o catálogo do banco.';
-      else if (role === 'empresa' && !empresa.value) error = 'Empresa obrigatória. Confira o catálogo do banco.';
-      else if (telefone.value.trim().length > 50 || cargo.value.trim().length > 160) error = 'Telefone ou cargo maior que o permitido.';
-      else if (!editar && currentList.some(u=>String(u.email).toLowerCase()===emailVal)) error = 'Este e-mail já aparece nos usuários visíveis.';
-      if (error) safeMsg(result, error + ' Nenhuma solicitação foi enviada.', true);
-      else safeMsg(result, 'Campos conferidos SOMENTE neste navegador. Não foi criado ou editado nenhum usuário, e nenhum convite foi enviado.', false);
-    });
+    if (data.auditoria_confirmada!==true) throw new Error('Auditoria não confirmada. Verifique antes de tentar novamente.');
+    return data;
   }
 
-  function renderUsers(body, title, actions, rows, catalog, status, seq) {
-    if (seq !== stato.seq || !body.isConnected || title.textContent !== 'Usuários — V19 | etapa 70') return;
-    actions.textContent=''; body.textContent='';
-    const main = el('div', body, null, CSS.card);
-    el('div', main, 'Etapa 70 — cadastros reais em consulta, formulário de prévia sem gravação. O backend de usuários continua bloqueado para escrita.', CSS.note);
-    const note = el('p', main, null, CSS.muted + ';margin-top:10px');
-    note.textContent = `Edge Function: ${status.code} (HTTP ${status.status}). ` +
-      (status.code==='ACESSO_ADMIN_CONFIRMADO' ? 'Sessão administrativa reconhecida. ' : 'Permissão administrativa não confirmada. ') +
-      (status.backendWrites ? 'ATENÇÃO: servidor relata gravações habilitadas, mas esta página mantém todas as escritas desativadas.' : 'Gravações desabilitadas no servidor.');
-    if (status.backendWrites) note.style.color='#b91c1c';
-    const warning = [];
-    if (catalog.consorciosFalhou) warning.push('consórcios');
-    if (catalog.empresasFalhou) warning.push('empresas');
-    if (catalog.cidadesFalhou) warning.push('municípios');
-    if (warning.length) el('p', main, 'Catálogos não disponíveis para leitura: '+warning.join(', ')+'. Não será possível validar alguns vínculos até corrigir as permissões.', 'font-size:12px;color:#9a3412;padding:8px 0');
-    const row = el('div', main, null, 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0');
-    const search = document.createElement('input');
-    search.type='search'; search.placeholder='Buscar por nome ou e-mail'; search.style.cssText=CSS.input+';max-width:330px'; row.appendChild(search);
-    const preview = el('button', row, '+ Prévia de cadastro', CSS.button);
-    preview.type='button';
-    const count = el('span', row, null, CSS.muted);
-    const tableWrap = el('div', main, null, 'overflow-x:auto');
-    const table = el('table', tableWrap, null, 'min-width:820px;width:100%;border-collapse:collapse');
-    const th = el('thead', table), head = el('tr', th);
-    ['Nome','E-mail','Perfil','Organização','Situação','Ações de homologação'].forEach(x => {
-      el('th', head, x, 'font-size:11px;padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;color:#64748b');
+  function formulario(outlet,user,catalog,rows,habilitado,recarregar) {
+    outlet.textContent='';
+    const editando=!!user, root=el('section',outlet,null,CSS.card+';margin-top:14px');
+    el('h3',root,editando?'Editar usuário':'Cadastrar e enviar convite','font-size:16px;margin:0 0 8px');
+    el('p',root,'Cadastro real no Supabase V19. A senha é definida apenas pelo destinatário do e-mail.',CSS.muted);
+    const form=el('form',root), fields=grid(form);
+    const nome=fieldForm(fields,'Nome *','text','nome',user?.nome||'',true);
+    const email=fieldForm(fields,'E-mail *','email','email',user?.email||'',true);
+    email.readOnly=editando;
+    const roles=CU.perfil==='master'?Object.keys(PERFIS):PERFIS_CONSORCIO;
+    const perfil=fieldSelect(fields,'Perfil *',roles.map(id=>({id,nome:PERFIS[id]})),user?.perfil||'','Escolha o perfil');
+    const consList=CU.perfil==='consorcio'
+      ?[{id:CU.consorcio_id,nome:catalog.consorcios.find(c=>c.id===CU.consorcio_id)?.nome||CU.org||'Consórcio'}]
+      :catalog.consorcios.filter(isActive);
+    const cons=fieldSelect(fields,'Consórcio *',consList,
+      user?.consorcio_id||(CU.perfil==='consorcio'?CU.consorcio_id:''),'Escolha o consórcio');
+    if(CU.perfil==='consorcio')cons.disabled=true;
+    const cidade=fieldSelect(fields,'Município da prefeitura *',[],user?.cidade_id||'','Escolha o município');
+    const empresa=fieldSelect(fields,'Empresa executora *',[],user?.empresa_id||'','Escolha a empresa');
+    const telefone=fieldForm(fields,'Telefone','tel','telefone',user?.telefone||'',false);
+    const cpf=fieldForm(fields,'CPF','text','cpf',user?.cpf||'',false);cpf.maxLength=25;
+    const cargo=fieldForm(fields,'Cargo','text','cargo',user?.cargo||'',false);
+    const aviso=el('p',form,null,CSS.muted+';margin-top:10px');
+    const resultado=el('p',form);
+    const botoes=el('div',form,null,'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap');
+    const salvar=el('button',botoes,editando?'Salvar alterações':'Cadastrar e enviar convite',
+      CSS.button+';background:#1251a3;color:white');
+    salvar.type='submit';salvar.disabled=!habilitado;
+    const cancelar=el('button',botoes,'Cancelar',CSS.button);cancelar.type='button';
+    cancelar.addEventListener('click',()=>{outlet.textContent='';});
+    function ajustar() {
+      const role=perfil.value,cid=cons.value;
+      const oldCity=cidade.value||(user?.cidade_id||''),oldEmp=empresa.value||(user?.empresa_id||'');
+      loadOptions(cidade,catalog.cidades.filter(c=>c.consorcio_id===cid&&isActive(c)),oldCity,'Escolha o município');
+      loadOptions(empresa,catalog.empresas.filter(e=>e.consorcio_id===cid&&isActive(e)),oldEmp,'Escolha a empresa');
+      cons.parentElement.hidden=role==='master';
+      cidade.parentElement.hidden=role!=='prefeitura';
+      empresa.parentElement.hidden=role!=='empresa';
+      aviso.textContent='Vínculos selecionados dos cadastros reais do Supabase V19.';
+    }
+    perfil.addEventListener('change',()=>{cidade.value='';empresa.value='';ajustar();});
+    cons.addEventListener('change',()=>{cidade.value='';empresa.value='';ajustar();});ajustar();
+    if(!habilitado)safeMsg(resultado,'Gravação ainda desabilitada na Edge Function V19.',true);
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();if(!habilitado)return;
+      const role=perfil.value, consId=role==='master'?null:cons.value;
+      const data={nome:nome.value.trim(),email:email.value.trim().toLowerCase(),perfil:role,
+        consorcio_id:consId,cidade_id:role==='prefeitura'?(cidade.value||null):null,
+        empresa_id:role==='empresa'?(empresa.value||null):null,
+        telefone:telefone.value.trim()||null,cpf:cpf.value.trim()||null,cargo:cargo.value.trim()||null};
+      let msg='';
+      if(!data.nome)msg='Nome obrigatório.';
+      else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))msg='E-mail inválido.';
+      else if(!roles.includes(role))msg='Perfil não permitido.';
+      else if(role!=='master'&&!consId)msg='Consórcio obrigatório.';
+      else if(CU.perfil==='consorcio'&&consId!==CU.consorcio_id)msg='Consórcio fora de seu escopo.';
+      else if(role==='empresa'&&!data.empresa_id)msg='Empresa obrigatória.';
+      else if(role==='prefeitura'&&!data.cidade_id)msg='Município obrigatório.';
+      else if(!editando&&rows.some(u=>u.email?.toLowerCase()===data.email))msg='E-mail já cadastrado.';
+      if(msg){safeMsg(resultado,msg,true);return;}
+      if(!window.confirm(editando?'Confirmar alterações do usuário?':
+        'Confirmar cadastro e envio de convite REAL por e-mail?'))return;
+      salvar.disabled=true;cancelar.disabled=true;
+      safeMsg(resultado,'Enviando solicitação ao Supabase V19…',false);
+      try {
+        await operar(editando?'editar':'criar',editando?{usuario_id:user.id,usuario:data}:{usuario:data});
+        window.alert(editando?'Usuário atualizado com auditoria.':'Usuário cadastrado; convite enviado por e-mail.');
+        recarregar();
+      }catch(error){safeMsg(resultado,error.message||'Falha na operação.',true);}
+      finally{salvar.disabled=!habilitado;cancelar.disabled=false;}
     });
-    const tbody = el('tbody', table);
-    const outlet = el('div', main);
-    preview.addEventListener('click', () => showPreview(outlet, null, catalog, rows));
-    function draw() {
-      const q=search.value.toLocaleLowerCase('pt-BR').trim();
-      const filtered=rows.filter(u=>(u.nome+' '+u.email).toLocaleLowerCase('pt-BR').includes(q));
-      tbody.textContent='';
-      for (const u of filtered) {
-        const tr=el('tr',tbody);
-        [u.nome||'—',u.email||'—',PERFIS[u.perfil]||u.perfil||'—',labelOrg(u,catalog)].forEach(v =>
-          el('td',tr,v,'padding:10px;border-bottom:1px solid #e5e7eb;font-size:12px'));
-        const statuscell = el('td', tr, '', 'padding:10px;border-bottom:1px solid #e5e7eb');
-        pill(statuscell,u.status||'sem status',u.status!=='ativo');
-        if (u.v19_convite_pendente) pill(statuscell,'Convite pendente',true);
-        if (!u.auth_user_id) pill(statuscell,'Sem Auth',true);
-        const actioncell = el('td',tr,null,'padding:8px;border-bottom:1px solid #e5e7eb');
-        const edit = el('button',actioncell,'Prévia de edição',CSS.button);
-        edit.type='button';
-        edit.disabled = CU.perfil==='consorcio' && (u.perfil==='master'||u.perfil==='consorcio');
-        edit.addEventListener('click', () => {
-          if (!edit.disabled) {showPreview(outlet,u,catalog,rows);outlet.scrollIntoView({behavior:'smooth',block:'nearest'});}
+    outlet.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+
+  function renderUsers(body,title,actions,rows,catalog,status,seq) {
+    if(seq!==stato.seq||!body.isConnected||title.textContent!=='Usuários — V19')return;
+    actions.textContent='';body.textContent='';
+    const main=el('div',body,null,CSS.card);
+    el('div',main,status.backendWrites
+      ?'Gerenciamento ativo. Cadastros, convites e alterações passam pela Edge Function e auditoria.'
+      :'Consulta ativa. Escrita da Edge Function ainda não habilitada no Supabase V19.',CSS.note);
+    el('p',main,'Edge Function: '+status.code+' (HTTP '+status.status+').',CSS.muted+';margin-top:10px');
+    const falta=['consorcios','empresas','cidades'].filter(k=>catalog[k+'Falhou']);
+    if(falta.length)el('p',main,'Catálogos indisponíveis: '+falta.join(', '),'font-size:12px;color:#b45309');
+    const row=el('div',main,null,'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0');
+    const search=document.createElement('input');search.type='search';search.placeholder='Buscar por nome ou e-mail';
+    search.style.cssText=CSS.input+';max-width:330px';row.appendChild(search);
+    const add=el('button',row,'+ Cadastrar e convidar',CSS.button+';background:#eff6ff');
+    add.type='button';add.disabled=!status.backendWrites;
+    const total=el('span',row,null,CSS.muted);
+    const wrap=el('div',main,null,'overflow-x:auto');
+    const table=el('table',wrap,null,'min-width:850px;width:100%;border-collapse:collapse');
+    const head=el('tr',el('thead',table));
+    ['Nome','E-mail','Perfil','Organização','Situação','Ações'].forEach(x=>
+      el('th',head,x,'font-size:11px;padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;color:#64748b'));
+    const bodyRows=el('tbody',table),outlet=el('div',main);
+    const reload=()=>window.vUsuarios(body,title,actions);
+    add.addEventListener('click',()=>formulario(outlet,null,catalog,rows,status.backendWrites,reload));
+    function draw(){
+      bodyRows.textContent='';
+      const term=search.value.trim().toLocaleLowerCase('pt-BR');
+      const filtered=rows.filter(u=>((u.nome||'')+' '+(u.email||'')).toLocaleLowerCase('pt-BR').includes(term));
+      for(const u of filtered){
+        const tr=el('tr',bodyRows);
+        [u.nome||'—',u.email||'—',PERFIS[u.perfil]||u.perfil,labelOrg(u,catalog)].forEach(x=>
+          el('td',tr,x,'padding:10px;border-bottom:1px solid #e5e7eb;font-size:12px'));
+        const cell=el('td',tr,null,'padding:10px;border-bottom:1px solid #e5e7eb');
+        pill(cell,u.status||'sem status',u.status!=='ativo');
+        if(u.v19_convite_pendente)pill(cell,'Convite pendente',true);
+        if(!u.auth_user_id)pill(cell,'Sem Auth',true);
+        const actions=el('td',tr,null,'padding:8px;border-bottom:1px solid #e5e7eb');
+        const roleAllowed=CU.perfil==='master'||(u.consorcio_id===CU.consorcio_id&&
+          !['master','consorcio'].includes(u.perfil));
+        const allowed=!!status.backendWrites&&roleAllowed&&!!u.auth_user_id&&
+          !u.v19_convite_pendente&&u.auth_user_id!==SB_SESSION?.user?.id;
+        const edit=el('button',actions,'Editar',CSS.button+';margin-right:6px');
+        edit.type='button';edit.disabled=!allowed;
+        edit.addEventListener('click',()=>formulario(outlet,u,catalog,rows,status.backendWrites,reload));
+        const next=u.status==='ativo'?'inativo':'ativo';
+        const toggle=el('button',actions,next==='ativo'?'Ativar':'Desativar',CSS.button);
+        toggle.type='button';toggle.disabled=!allowed||!['ativo','inativo'].includes(u.status);
+        toggle.addEventListener('click',async()=>{
+          if(!window.confirm((next==='ativo'?'Ativar':'Desativar')+' o acesso de '+u.nome+'?'))return;
+          toggle.disabled=true;edit.disabled=true;
+          try{
+            await operar('alterar_status',{usuario_id:u.id,status:next});
+            window.alert('Situação alterada com auditoria.');reload();
+          }catch(error){
+            window.alert(error.message||'Falha ao atualizar.');
+            toggle.disabled=false;edit.disabled=false;
+          }
         });
       }
-      if (!filtered.length) {
-        const tr=el('tr',tbody); const td=el('td',tr,'Nenhum usuário visível para esta pesquisa.',CSS.muted+';padding:13px');td.colSpan=6;
-      }
-      count.textContent=`${filtered.length} usuário(s) exibido(s); dados lidos do Supabase V19`;
+      if(!filtered.length){const tr=el('tr',bodyRows);
+        const td=el('td',tr,'Nenhum usuário encontrado nesta pesquisa.',CSS.muted+';padding:13px');
+        td.colSpan=6;}
+      total.textContent=filtered.length+' usuário(s) exibido(s) do Supabase V19';
     }
-    search.addEventListener('input',draw);
-    draw();
-    el('p',main,'Nenhum botão desta etapa envia dados para salvar. Convites, edição de contas e ativação/desativação serão testados separadamente após liberação controlada.',CSS.muted+';margin-top:14px');
+    search.addEventListener('input',draw);draw();
+    el('p',main,'Convites e mudanças usam exclusivamente a Edge Function e a RPC auditada. Senhas nunca são definidas pelo administrador.',CSS.muted+';margin-top:14px');
   }
   window.vUsuarios = async function (body, title, actions) {
     const seq = ++stato.seq;
-    title.textContent = 'Usuários — V19 | etapa 70';
+    title.textContent = 'Usuários — V19';
     actions.textContent='';
     if (!admin()) {card(body,'Acesso restrito','Somente Master ou Gestor de Consórcio podem consultar esta administração.',true);return;}
     if (!session()) {card(body,'Sessão ausente ou projeto incorreto','Faça login novamente na V19 de homologação.',true);return;}
-    card(body,'Carregando usuários da V19…','Consultas reais ao banco; nenhuma operação de escrita será realizada.');
+    card(body,'Carregando usuários da V19…','Consultando registros reais e permissões.');
     const [users,cons,emp,city,status] = await Promise.all([
-      sbSelect('usuarios','select=id,auth_user_id,consorcio_id,cidade_id,empresa_id,nome,email,perfil,org,status,telefone,cargo,v19_convite_pendente&order=nome.asc'),
+      sbSelect('usuarios','select=id,auth_user_id,consorcio_id,cidade_id,empresa_id,nome,email,perfil,org,status,telefone,cpf,cargo,v19_convite_pendente&order=nome.asc'),
       sbSelect('consorcios','select=id,nome,status&order=nome.asc'),
       sbSelect('empresas','select=id,nome,consorcio_id,status&order=nome.asc'),
       sbSelect('cidades','select=id,nome,consorcio_id,status&order=nome.asc'),
       accessStatus()
     ]);
-    if (seq!==stato.seq || title.textContent!=='Usuários — V19 | etapa 70') return;
+    if (seq!==stato.seq || title.textContent!=='Usuários — V19') return;
     if (status.status!==200 || status.code!=='ACESSO_ADMIN_CONFIRMADO' || status.role!==CU.perfil) {
       card(body,'Não foi possível confirmar o acesso administrativo','O serviço v19-usuarios não confirmou a autorização desta sessão. Nenhum cadastro foi modificado.',true);
       return;
