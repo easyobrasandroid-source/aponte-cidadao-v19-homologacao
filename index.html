@@ -370,7 +370,21 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
       <div class="form-section" style="padding:1rem 1.5rem">
         <div class="form-sec-title"><span class="form-sec-num">4</span>Foto (opcional)</div>
-        <div style="border:1.5px dashed var(--gray-300);border-radius:var(--radius-sm);padding:16px;text-align:center;color:var(--gray-400)"><div style="font-size:24px;margin-bottom:6px">📷</div><div style="font-size:12px">📷 Tirar foto &nbsp;|&nbsp; 📁 Escolher arquivo</div></div>
+        <div style="border:1.5px dashed var(--gray-300);border-radius:var(--radius-sm);padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px" aria-hidden="true">📷</div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            <label for="pub-foto-camera" class="btn btn-ghost" style="cursor:pointer;font-size:12px">📷 Tirar foto</label>
+            <label for="pub-foto-arquivo" class="btn btn-ghost" style="cursor:pointer;font-size:12px">📁 Escolher arquivo</label>
+          </div>
+          <input id="pub-foto-camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none" onchange="v19SelecionarFotoPublica(this)">
+          <input id="pub-foto-arquivo" type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="v19SelecionarFotoPublica(this)">
+          <div id="pub-foto-preview" style="display:none;margin-top:12px">
+            <img id="pub-foto-imagem" alt="Prévia local da fotografia selecionada" style="display:block;width:auto;max-width:100%;max-height:180px;margin:0 auto 8px;border-radius:6px">
+            <div id="pub-foto-nome" style="font-size:11px;color:var(--gray-600);overflow-wrap:anywhere"></div>
+            <button type="button" class="btn btn-ghost" onclick="v19RemoverFotoPublica()" style="margin-top:6px;font-size:11px">Remover foto</button>
+          </div>
+          <div id="pub-foto-aviso" role="status" style="font-size:11px;color:var(--gray-500);margin-top:8px">JPG, PNG ou WEBP, até 2 MB. Seleção de foto em homologação; o envio seguro ainda será integrado.</div>
+        </div>
       </div>
       <div class="form-section" style="padding:1rem 1.5rem">
         <div style="font-size:12px;font-weight:700;margin-bottom:8px">Verificação de segurança</div>
@@ -4876,11 +4890,45 @@ function gerarProto(){
 // Site key é pública. A Secret Key e a service role são EXCLUSIVAS do Supabase.
 const V19_PORTAL_SITE_KEY='0x4AAAAAAF9_2hStCdR1FVKj';
 let v19PortalWidgetId=null, v19PortalToken='', v19PortalEnviando=false, v19PortalPendente=null;
+let v19PortalFoto=null, v19PortalFotoUrl=null;
+function v19RemoverFotoPublica(){
+  v19PortalFoto=null;
+  if(v19PortalFotoUrl){URL.revokeObjectURL(v19PortalFotoUrl);v19PortalFotoUrl=null;}
+  ['pub-foto-arquivo','pub-foto-camera'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const box=document.getElementById('pub-foto-preview');
+  const img=document.getElementById('pub-foto-imagem');
+  const aviso=document.getElementById('pub-foto-aviso');
+  if(box)box.style.display='none';
+  if(img)img.removeAttribute('src');
+  if(aviso)aviso.textContent='JPG, PNG ou WEBP, até 2 MB. Seleção de foto em homologação; o envio seguro ainda será integrado.';
+  v19AtualizarBotaoPortal();
+}
+function v19SelecionarFotoPublica(input){
+  const file=input?.files?.[0];
+  if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size<=0||file.size>2*1024*1024){
+    input.value='';
+    alert('Escolha uma imagem JPG, PNG ou WEBP de até 2 MB.');
+    return;
+  }
+  if(v19PortalFotoUrl)URL.revokeObjectURL(v19PortalFotoUrl);
+  v19PortalFoto=file;
+  v19PortalFotoUrl=URL.createObjectURL(file);
+  const preview=document.getElementById('pub-foto-preview');
+  const img=document.getElementById('pub-foto-imagem');
+  const nome=document.getElementById('pub-foto-nome');
+  const aviso=document.getElementById('pub-foto-aviso');
+  if(img)img.src=v19PortalFotoUrl;
+  if(nome)nome.textContent=file.name+' ('+Math.ceil(file.size/1024)+' KB)';
+  if(preview)preview.style.display='block';
+  if(aviso)aviso.textContent='Foto selecionada apenas para prévia. O envio seguro ainda não está ativo. Para registrar o chamado sem foto, clique em Remover foto.';
+  v19AtualizarBotaoPortal();
+}
 function v19AtualizarBotaoPortal(){
   const botao=document.getElementById('v19-pub-enviar');
   const cidade=document.getElementById('pub-cidade');
   if(!botao)return;
-  botao.disabled=v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
+  botao.disabled=v19PortalEnviando||!!v19PortalFoto||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
   botao.textContent=v19PortalEnviando?'Registrando...':'Registrar chamado →';
 }
 function v19InitTurnstile(){
@@ -4930,6 +4978,7 @@ function v19ReiniciarTurnstile(){
 }
 async function submeterChamado(){
   if(v19PortalEnviando)return;
+  if(v19PortalFoto){alert('O envio público de fotografias ainda está em homologação. Remova a foto para registrar sem anexo.');return;}
   const valor=id=>document.getElementById(id)?.value?.trim()||'';
   const consorcioId=new URLSearchParams(location.search).get('consorcio_id')||'';
   const uuidRx=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
