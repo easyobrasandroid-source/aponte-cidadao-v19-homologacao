@@ -239,6 +239,25 @@ tbody tr:last-child td{border-bottom:none;}
 .app-shell:has(#tbody-ch) .v19-ch-table-scroll{overflow-x:auto}
 .app-shell:has(#tbody-ch) .v19-ch-table-scroll>table{min-width:1110px}
 }
+
+/* V19 Etapa 484 — portal publico mobile; escopo restrito ao portal. */
+@media (max-width: 480px) {
+  #pg-portal .pub-header { height: auto; min-height: 60px; padding: 10px 12px; gap: 8px; }
+  #pg-portal .pub-brand { min-width: 0; flex: 1 1 auto; }
+  #pg-portal .pub-brand > div:last-child { min-width: 0; }
+  #pg-portal .pub-brand-name { font-size: 13px; }
+  #pg-portal .pub-brand-sub { font-size: 10px; line-height: 1.3; }
+  #pg-portal .pub-header .btn { font-size: 11px; padding: 8px 9px; flex-shrink: 0; }
+  #pg-portal .pub-body { width: 100%; max-width: 100%; padding: 20px 12px 28px; }
+  #pg-portal .form-section { padding: 16px; }
+  #pg-portal .frow2, #pg-portal .frow32 { grid-template-columns: minmax(0, 1fr); }
+  #pg-portal .frow, #pg-portal .field { min-width: 0; }
+  #pg-portal .field input, #pg-portal .field select, #pg-portal .field textarea {
+    width: 100%; min-width: 0; max-width: 100%;
+  }
+  #pg-portal .form-footer { flex-wrap: wrap; gap: 10px; padding: 14px 16px; }
+  #pg-portal .form-footer .btn { width: 100%; justify-content: center; }
+}
 </style>
 </head>
 <body>
