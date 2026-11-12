@@ -279,13 +279,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.acao === "listar_municipios") {
       const consortiumId = uuid(body.consorcio_id);
       if (!consortiumId) return reply(400, { ok: false, erro: "CONSORCIO_INVALIDO" }, origin);
+      // Esta RPC foi concedida a anon/authenticated (NÃO a service_role).
+      // Consultamos com a chave ANÔNIMA do servidor, sem ampliar permissões.
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+      if (!anonKey) return reply(503, { ok: false, erro: "CATALOGO_NAO_CONFIGURADO" }, origin);
       const response = await fetch(
         supabaseUrl.replace(/\/+$/, "") + "/rest/v1/rpc/v19_listar_municipios_portal",
         {
           method: "POST",
           headers: {
-            apikey: serviceRoleKey,
-            authorization: "Bearer " + serviceRoleKey,
+            apikey: anonKey,
+            authorization: "Bearer " + anonKey,
             "content-type": "application/json",
             "cache-control": "no-store",
           },
@@ -293,6 +297,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         },
       );
       if (!response.ok) {
+        const info: unknown = await response.json().catch(() => null);
+        const code = info && typeof info === "object" && !Array.isArray(info)
+          ? (info as JsonRecord).code : null;
+        // Diagnóstico técnico sem expor credenciais, SQL ou dados pessoais.
+        console.error("[V19 portal] catálogo RPC indisponível", {
+          httpStatus: response.status,
+          pgCode: typeof code === "string" ? code : "desconhecido",
+        });
         return reply(503, { ok: false, erro: "CATALOGO_INDISPONIVEL" }, origin);
       }
       const rows: unknown = await response.json().catch(() => null);
