@@ -5186,6 +5186,8 @@ async function consultarProtocolo(){
 // ═══ INIT ═══
 window.addEventListener('DOMContentLoaded', ()=>{
   DB = getDB();  // sempre vazio; o banco preenche
+  // Priorizar link de convite/recuperação antes da sessão anterior.
+  if(window.v19HandleAuthCallback && window.v19HandleAuthCallback()) return;
   if(!SUPA_CONFIGURADO){
     const cid=new URLSearchParams(location.search).get('consorcio_id')||'';
     if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(cid)){
@@ -5259,6 +5261,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-designacao.js" defer></script>
 <!-- V19 etapa 70: interface integrada de usuarios, previa SEM GRAVACOES -->
 <script src="./v19-usuarios-etapa70.js" defer></script>
+<!-- Etapa 518: callback de convite/recuperação. Nenhuma escrita em public.usuarios. -->
+<script src="./v19-convite.js" defer></script>
 <!-- Dashboard completo V19: modulo opcional, somente leitura; ?dashboard=legacy reverte visualmente -->
 <script src="./v19-dashboard.js" defer></script>
 </body>
