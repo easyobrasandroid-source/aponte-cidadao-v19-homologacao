@@ -585,32 +585,14 @@ tbody tr:last-child td{border-bottom:none;}
 // NUNCA colocar service_role / segredo JWT aqui. Apenas a anon key (pública).
 //
 // HOMOLOGAÇÃO: apenas o Supabase V19 isolado; nunca apontar para produção.
-// Chave sb_publishable_ pedida ao usuário e mantida apenas nesta aba/sessão.
-// A autorização real continua dependendo do JWT Auth + RLS/RPC do banco.
-// Projeto de HOMOLOGACAO V19 exclusivo; nao utilizar credenciais V18.
+// Chave PUBLICÁVEL fornecida pelo administrador para a V19 de homologação.
+// É normal e necessário que esta chave seja visível no navegador. Nunca usar service_role.
+// Autorização: Supabase Auth (JWT) + políticas RLS/RPC. A V18 não é utilizada.
 const V19_PROJECT_REF = 'xurrhczvyqpwyjemight';
 const V19_PROJECT_URL = 'https://' + V19_PROJECT_REF + '.supabase.co';
+const V19_PUBLISHABLE_KEY = 'sb_publishable_VdxUc7PuzrEhYT4e7hjCJw_aTkx70Ln';
 function obterChavePublicaV19(){
-  const cacheKey='aponte_v19_homolog_publishable';
-  const valida=k=>/^sb_publishable_[a-zA-Z0-9_-]{12,}$/.test(k);
-  let chave='';
-  try{ chave=sessionStorage.getItem(cacheKey)||''; }catch(e){}
-  if(!valida(chave)){
-    // Visitantes do portal não precisam conhecer chaves do Supabase.
-    const portalId=new URLSearchParams(location.search).get('consorcio_id')||'';
-    if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(portalId))return '';
-    chave=String(window.prompt(
-      'Aponte Cidadão V19 (SOMENTE HOMOLOGAÇÃO)\\nCole a chave pública sb_publishable_ do projeto V19.\\nNUNCA insira sb_secret ou senha do banco.',
-      ''
-    )||'').trim();
-    if(valida(chave)){
-      try{sessionStorage.setItem(cacheKey,chave);}catch(e){}
-    }else{
-      chave='';
-      window.alert('A V19 não fará nenhuma requisição ao banco até receber a chave pública correta.');
-    }
-  }
-  return chave;
+  return V19_PUBLISHABLE_KEY;
 }
 const CONFIG = {
   API_URL: V19_PROJECT_URL,
@@ -5186,6 +5168,8 @@ async function consultarProtocolo(){
 // ═══ INIT ═══
 window.addEventListener('DOMContentLoaded', ()=>{
   DB = getDB();  // sempre vazio; o banco preenche
+  // Priorizar link de convite/recuperação antes da sessão anterior.
+  if(window.v19HandleAuthCallback && window.v19HandleAuthCallback()) return;
   if(!SUPA_CONFIGURADO){
     const cid=new URLSearchParams(location.search).get('consorcio_id')||'';
     if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(cid)){
@@ -5259,6 +5243,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-designacao.js" defer></script>
 <!-- V19 etapa 70: interface integrada de usuarios, previa SEM GRAVACOES -->
 <script src="./v19-usuarios-etapa70.js" defer></script>
+<!-- Etapa 518: callback de convite/recuperação. Nenhuma escrita em public.usuarios. -->
+<script src="./v19-convite.js" defer></script>
 <!-- Dashboard completo V19: modulo opcional, somente leitura; ?dashboard=legacy reverte visualmente -->
 <script src="./v19-dashboard.js" defer></script>
 </body>
