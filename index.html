@@ -383,7 +383,7 @@ tbody tr:last-child td{border-bottom:none;}
             <div id="pub-foto-nome" style="font-size:11px;color:var(--gray-600);overflow-wrap:anywhere"></div>
             <button type="button" class="btn btn-ghost" onclick="v19RemoverFotoPublica()" style="margin-top:6px;font-size:11px">Remover foto</button>
           </div>
-          <div id="pub-foto-aviso" role="status" style="font-size:11px;color:var(--gray-500);margin-top:8px">JPG, PNG ou WEBP, até 2 MB. Seleção de foto em homologação; o envio seguro ainda será integrado.</div>
+          <div id="pub-foto-aviso" role="status" style="font-size:11px;color:var(--gray-500);margin-top:8px">Foto opcional: JPG, PNG ou WEBP, até 2 MB. O anexo será enviado com o chamado.</div>
         </div>
       </div>
       <div class="form-section" style="padding:1rem 1.5rem">
@@ -409,6 +409,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div style="background:var(--brand-light);border:1px solid #B3CDEE;border-radius:var(--radius);padding:1.25rem;margin-bottom:1.5rem">
         <div style="font-size:10px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.05em">Número do protocolo</div>
         <div id="proto-confirmado" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--brand);letter-spacing:2px;margin:6px 0"></div>
+        <div id="confirm-foto-status" role="status" style="display:none;font-size:12px;font-weight:600;padding:10px;margin:10px 0;border-radius:8px"></div>
         <div style="font-size:11px;color:var(--gray-400)">Guarde este número para consultar o andamento</div>
       </div>
       <div style="display:flex;gap:10px;justify-content:center">
@@ -4900,7 +4901,7 @@ function v19RemoverFotoPublica(){
   const aviso=document.getElementById('pub-foto-aviso');
   if(box)box.style.display='none';
   if(img)img.removeAttribute('src');
-  if(aviso)aviso.textContent='JPG, PNG ou WEBP, até 2 MB. Seleção de foto em homologação; o envio seguro ainda será integrado.';
+  if(aviso)aviso.textContent='Foto opcional: JPG, PNG ou WEBP, até 2 MB. O anexo será enviado com o chamado.';
   v19AtualizarBotaoPortal();
 }
 function v19SelecionarFotoPublica(input){
@@ -4921,15 +4922,15 @@ function v19SelecionarFotoPublica(input){
   if(img)img.src=v19PortalFotoUrl;
   if(nome)nome.textContent=file.name+' ('+Math.ceil(file.size/1024)+' KB)';
   if(preview)preview.style.display='block';
-  if(aviso)aviso.textContent='Foto selecionada apenas para prévia. O envio seguro ainda não está ativo. Para registrar o chamado sem foto, clique em Remover foto.';
+  if(aviso)aviso.textContent='Foto pronta para envio seguro junto com o chamado. Remova-a se quiser registrar sem anexo.';
   v19AtualizarBotaoPortal();
 }
 function v19AtualizarBotaoPortal(){
   const botao=document.getElementById('v19-pub-enviar');
   const cidade=document.getElementById('pub-cidade');
   if(!botao)return;
-  botao.disabled=v19PortalEnviando||!!v19PortalFoto||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
-  botao.textContent=v19PortalEnviando?'Registrando...':'Registrar chamado →';
+  botao.disabled=v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
+  botao.textContent=v19PortalEnviando?'Registrando e enviando anexo...':'Registrar chamado →';
 }
 function v19InitTurnstile(){
   const container=document.getElementById('v19-pub-turnstile');
@@ -4976,9 +4977,24 @@ function v19ReiniciarTurnstile(){
   }
   v19AtualizarBotaoPortal();
 }
+// Usa FileReader para codificar o arquivo local sem expor credenciais nem
+// transmitir nada antes da validação dos campos e da verificação Turnstile.
+function v19FotoPublicaBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('Não foi possível ler a fotografia. Selecione novamente.'));
+    reader.onload=()=>{
+      const data=String(reader.result||'');
+      const index=data.indexOf(',');
+      if(index<0||!data.slice(0,index).includes(';base64'))
+        return reject(new Error('Formato de fotografia inválido.'));
+      resolve({mime:file.type,base64:data.slice(index+1)});
+    };
+    reader.readAsDataURL(file);
+  });
+}
 async function submeterChamado(){
   if(v19PortalEnviando)return;
-  if(v19PortalFoto){alert('O envio público de fotografias ainda está em homologação. Remova a foto para registrar sem anexo.');return;}
   const valor=id=>document.getElementById(id)?.value?.trim()||'';
   const consorcioId=new URLSearchParams(location.search).get('consorcio_id')||'';
   const uuidRx=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -5021,18 +5037,31 @@ async function submeterChamado(){
     latitude:hasCoords?lat:null,longitude:hasCoords?lng:null,
     loc_src:hasCoords?(window._locSrc==='minimap_confirmed'?'minimap_confirmed':'gps_mobile'):'manual'
   };
-  // Se a rede falhar, uma tentativa idêntica reutiliza a chave de idempotência.
-  // Se os dados mudarem, a chave será renovada.
+  // Fotos selecionadas fazem parte da identidade da tentativa para que
+  // uma edição de arquivo não reutilize indevidamente um protocolo anterior.
+  const fotoArquivo=v19PortalFoto;
   const assinatura=JSON.stringify(dados);
-  if(!v19PortalPendente||v19PortalPendente.assinatura!==assinatura){
-    v19PortalPendente={assinatura,chave:crypto.randomUUID()};
-  }
   v19PortalEnviando=true;v19AtualizarBotaoPortal();
   try{
+    let foto=null, identidadeFoto='';
+    if(fotoArquivo){
+      if(!['image/jpeg','image/png','image/webp'].includes(fotoArquivo.type) ||
+         fotoArquivo.size<=0||fotoArquivo.size>2*1024*1024)
+        throw new Error('A foto deve ser JPG, PNG ou WEBP de até 2 MB.');
+      foto=await v19FotoPublicaBase64(fotoArquivo);
+      // SHA-256 é usado somente para deduplicação local da tentativa;
+      // o conteúdo da imagem não é armazenado no navegador.
+      const digest=await crypto.subtle.digest('SHA-256',await fotoArquivo.arrayBuffer());
+      identidadeFoto=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    }
+    const assinaturaCompleta=assinatura+'|foto:'+identidadeFoto;
+    if(!v19PortalPendente||v19PortalPendente.assinatura!==assinaturaCompleta){
+      v19PortalPendente={assinatura:assinaturaCompleta,chave:crypto.randomUUID()};
+    }
     const response=await fetch(SUPA_URL+'/functions/v1/v19-abrir-chamado',{
       method:'POST',credentials:'omit',cache:'no-store',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({...dados,chave_requisicao:v19PortalPendente.chave,turnstile_token:v19PortalToken})
+      body:JSON.stringify({...dados,chave_requisicao:v19PortalPendente.chave,turnstile_token:v19PortalToken,...(foto?{foto}:{})})
     });
     const resultado=await response.json().catch(()=>null);
     if(!response.ok||resultado?.ok!==true||!resultado.protocolo){
@@ -5044,6 +5073,19 @@ async function submeterChamado(){
     }
     v19PortalPendente=null;
     document.getElementById('proto-confirmado').textContent=String(resultado.protocolo);
+    const fotoStatus=document.getElementById('confirm-foto-status');
+    if(fotoStatus){
+      fotoStatus.style.display=fotoArquivo?'block':'none';
+      if(fotoArquivo){
+        const salva=resultado.foto_salva===true;
+        fotoStatus.style.background=salva?'#dcfce7':'#fef3c7';
+        fotoStatus.style.color=salva?'#166534':'#92400e';
+        fotoStatus.textContent=salva
+          ?'✅ Fotografia registrada com sucesso.'
+          :'⚠️ Chamado registrado, mas a foto NÃO foi salva. Guarde o protocolo e informe ao atendimento. Não abra outro chamado para reenviar a mesma ocorrência.';
+      }
+    }
+    v19RemoverFotoPublica();
     goPage('pg-confirmacao');
   }catch(e){
     alert(e?.message||'Falha ao conectar com o servidor. Tente novamente.');
