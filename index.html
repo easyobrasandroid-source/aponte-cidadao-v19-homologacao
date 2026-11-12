@@ -400,7 +400,7 @@ tbody tr:last-child td{border-bottom:none;}
 <!-- CONFIRMAÇÃO -->
 <div class="page" id="pg-confirmacao">
 <div class="pub-page">
-  <div class="pub-header"><div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">CIS Caparaó</div></div></div></div>
+  <div class="pub-header"><div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div></div></div></div>
   <div class="pub-body">
     <div class="form-card" style="text-align:center;padding:2.5rem">
       <div style="font-size:56px;margin-bottom:1rem">✅</div>
@@ -425,15 +425,15 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="page" id="pg-consulta">
 <div class="pub-page">
   <div class="pub-header">
-    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">CIS Caparaó</div></div></div>
+    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div></div></div>
     <button class="btn btn-save" onclick="goPage('pg-portal')">+ Abrir chamado</button>
   </div>
   <div style="max-width:500px;margin:0 auto;padding:2.5rem 1rem">
     <div class="form-card" style="padding:2rem">
       <div style="font-size:20px;font-weight:800;margin-bottom:4px">Consultar minha solicitação</div>
-      <div style="font-size:13px;color:var(--gray-500);margin-bottom:1.5rem">Informe o protocolo ou telefone.</div>
-      <div class="field" style="margin-bottom:10px"><label>Número do protocolo ou telefone</label><input type="text" id="consulta-input" placeholder="CIS2026..." style="font-family:'JetBrains Mono',monospace;font-size:14px"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:13px" onclick="consultarProtocolo()">Consultar</button>
+      <div style="font-size:13px;color:var(--gray-500);margin-bottom:1.5rem">Informe o número completo do protocolo recebido ao registrar o chamado.</div>
+      <div class="field" style="margin-bottom:10px"><label>Número do protocolo</label><input type="text" id="consulta-input" placeholder="V19P-..." maxlength="37" autocomplete="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;font-size:14px"></div>
+      <button id="consulta-botao" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:13px" onclick="consultarProtocolo()">Consultar</button>
       <div id="consulta-result" style="margin-top:1.25rem;display:none"></div>
     </div>
   </div>
@@ -5095,25 +5095,71 @@ async function submeterChamado(){
   }
 }
 async function consultarProtocolo(){
-  const input=(document.getElementById('consulta-input').value||'').trim();
+  const el=document.getElementById('consulta-input');
+  const input=(el?.value||'').trim().toUpperCase();
   const result=document.getElementById('consulta-result');
+  if(!result)return;
   result.style.display='block';
-  if(input.length < 6){ result.innerHTML=`<div style="padding:1rem;background:var(--amber-light);border-radius:var(--radius-sm);font-size:13px;color:var(--amber);font-weight:600">Digite o número completo do protocolo.</div>`; return; }
-  result.innerHTML=`<div style="padding:1rem;color:var(--gray-400);font-size:13px">Consultando…</div>`;
-  // Consulta SEGURA no banco (match EXATO via RPC) — não usa cache e não expõe dados sensíveis
-  let rows;
-  try{ rows = await sbFetch('rpc/consultar_protocolo','POST',{p_protocolo:input}); }
-  catch(e){ result.innerHTML=`<div style="padding:1rem;background:var(--red-light);border-radius:var(--radius-sm);font-size:13px;color:var(--red)">Não foi possível consultar agora. Tente novamente.</div>`; return; }
-  const c = Array.isArray(rows)?rows[0]:rows;
-  if(!c || !c.protocolo){ result.innerHTML=`<div style="padding:1rem;background:var(--red-light);border-radius:var(--radius-sm);font-size:13px;color:var(--red);font-weight:500">❌ Protocolo não encontrado. Verifique o número.</div>`; return; }
-  const dataFmt = c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '';
-  result.innerHTML=`<div style="border-top:1px solid var(--gray-200);padding-top:1.25rem"><div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brand)">${c.protocolo}</div>
-      <div style="font-size:16px;font-weight:700;margin-top:2px">${c.tipo||'Chamado'}</div>
-      <div style="font-size:12px;color:var(--gray-500);margin-top:2px">📍 ${c.cidade||''} · aberto em ${dataFmt}</div></div>
-    <span class="tag ${stm[c.status]||'tag-gray'}" style="font-size:12px;padding:5px 12px">${c.status||''}</span></div></div>`;
+  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+  const aviso=(msg,erro=false)=>{
+    result.textContent=msg;
+    result.style.color=erro?'var(--red)':'var(--gray-600)';
+  };
+  const consorcioId=new URLSearchParams(location.search).get('consorcio_id')||'';
+  const uuidRx=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+  if(!uuidRx.test(consorcioId)){
+    aviso('Acesse a consulta pelo link oficial do seu consórcio.',true);return;
+  }
+  if(!/^V19P-[A-F0-9]{32}$/.test(input)){
+    aviso('Digite o protocolo completo iniciado por V19P-.',true);return;
+  }
+  const botao=document.getElementById('consulta-botao');
+  if(botao?.disabled)return;
+  if(botao){botao.disabled=true;botao.textContent='Consultando…';}
+  aviso('Consultando o andamento…');
+  try{
+    // O visitante não informa chave do Supabase, nem usa sessão administrativa.
+    // A Edge aplica rate-limit e consulta uma RPC de retorno reduzido.
+    const response=await fetch(SUPA_URL+'/functions/v1/v19-abrir-chamado',{
+      method:'POST',credentials:'omit',cache:'no-store',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({acao:'consultar_protocolo',consorcio_id:consorcioId,protocolo:input})
+    });
+    const data=await response.json().catch(()=>null);
+    if(response.status===429){
+      aviso('Muitas consultas realizadas. Tente novamente mais tarde.',true);return;
+    }
+    if(!response.ok||data?.ok!==true){
+      aviso('A consulta está temporariamente indisponível. Tente novamente mais tarde.',true);return;
+    }
+    if(data.encontrado!==true||!data.chamado){
+      aviso('Protocolo não encontrado ou consulta indisponível para este consórcio.',true);return;
+    }
+    const c=data.chamado;
+    if(c.protocolo!==input||typeof c.tipo!=='string'||typeof c.status!=='string'||
+       typeof c.cidade!=='string'||typeof c.created_at!=='string'){
+      aviso('Resposta de consulta inválida. Tente novamente mais tarde.',true);return;
+    }
+    const dataObj=new Date(c.created_at);
+    const dataFmt=Number.isFinite(dataObj.getTime())?dataObj.toLocaleDateString('pt-BR'):'';
+    const classes={'Recebido':'tag-blue','Em programação':'tag-prog','Em execução':'tag-exec',
+      'Aguardando material':'tag-mat','Concluído':'tag-conc','Aguardando Garantia LED':'tag-garantia'};
+    result.style.color='';
+    result.innerHTML='<div style="border-top:1px solid var(--gray-200);padding-top:1.25rem">'+
+      '<div style="font-family:monospace;font-size:11px;color:var(--brand)">'+esc(c.protocolo)+'</div>'+
+      '<div style="font-size:16px;font-weight:700;margin-top:6px">'+esc(c.tipo)+'</div>'+
+      '<div style="font-size:12px;color:var(--gray-500);margin-top:6px">Município: '+esc(c.cidade)+
+      (dataFmt?' · Aberto em '+esc(dataFmt):'')+'</div>'+
+      '<div style="margin-top:10px"><span class="tag '+(classes[c.status]||'tag-gray')+'">'+esc(c.status)+'</span></div>'+
+      '</div>';
+  }catch(e){
+    aviso('Não foi possível conectar ao serviço de consulta. Tente novamente mais tarde.',true);
+  }finally{
+    if(botao){botao.disabled=false;botao.textContent='Consultar';}
+  }
 }
-
 // ═══ INIT ═══
 window.addEventListener('DOMContentLoaded', ()=>{
   DB = getDB();  // sempre vazio; o banco preenche
