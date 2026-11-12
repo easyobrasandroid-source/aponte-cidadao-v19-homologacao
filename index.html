@@ -558,6 +558,9 @@ function obterChavePublicaV19(){
   let chave='';
   try{ chave=sessionStorage.getItem(cacheKey)||''; }catch(e){}
   if(!valida(chave)){
+    // Visitantes do portal não precisam conhecer chaves do Supabase.
+    const portalId=new URLSearchParams(location.search).get('consorcio_id')||'';
+    if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(portalId))return '';
     chave=String(window.prompt(
       'Aponte Cidadão V19 (SOMENTE HOMOLOGAÇÃO)\\nCole a chave pública sb_publishable_ do projeto V19.\\nNUNCA insira sb_secret ou senha do banco.',
       ''
@@ -777,14 +780,17 @@ async function carregarCidadesPortal(){
   }
   if(aviso)aviso.textContent='Verificando municípios disponíveis para o consórcio…';
   try{
-    const resposta=await fetch(SUPA_URL+'/rest/v1/rpc/v19_listar_municipios_portal',{
+    // Visitante não fornece uma chave pública manualmente: catálogo via Edge.
+    const resposta=await fetch(SUPA_URL+'/functions/v1/v19-abrir-chamado',{
       method:'POST',credentials:'omit',cache:'no-store',
-      headers:{apikey:SUPA_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({p_consorcio_id:id})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({acao:'listar_municipios',consorcio_id:id})
     });
     if(!resposta.ok)throw new Error('Consulta de municípios falhou (HTTP '+resposta.status+').');
-    const rows=await resposta.json();
-    if(!Array.isArray(rows))throw new Error('Resposta inválida do catálogo.');
+    const dados=await resposta.json();
+    if(dados?.ok!==true||!Array.isArray(dados.municipios))
+      throw new Error('Resposta inválida do catálogo.');
+    const rows=dados.municipios;
     if(!rows.length){
       if(aviso)aviso.textContent='Ainda não há municípios habilitados para abertura pública neste consórcio.';
       return;
@@ -4963,7 +4969,7 @@ async function submeterChamado(){
   try{
     const response=await fetch(SUPA_URL+'/functions/v1/v19-abrir-chamado',{
       method:'POST',credentials:'omit',cache:'no-store',
-      headers:{'Content-Type':'application/json',apikey:SUPA_KEY},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({...dados,chave_requisicao:v19PortalPendente.chave,turnstile_token:v19PortalToken})
     });
     const resultado=await response.json().catch(()=>null);
@@ -5008,6 +5014,11 @@ async function consultarProtocolo(){
 window.addEventListener('DOMContentLoaded', ()=>{
   DB = getDB();  // sempre vazio; o banco preenche
   if(!SUPA_CONFIGURADO){
+    const cid=new URLSearchParams(location.search).get('consorcio_id')||'';
+    if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(cid)){
+      goPage('pg-portal');
+      return;
+    }
     goPage('pg-login');
     const e=document.getElementById('loginError');
     if(e){ e.textContent='⚙️ Configure a URL e a anon key do projeto de HOMOLOGAÇÃO no topo do arquivo (CONFIG) antes de usar.'; e.style.display='block'; }
