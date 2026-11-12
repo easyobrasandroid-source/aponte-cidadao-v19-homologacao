@@ -215,7 +215,7 @@ async function savePublicPhoto(
 ): Promise<boolean> {
   if (typeof protocol !== "string" || !/^V19P-[A-Z0-9]{20,40}$/i.test(protocol) ||
       !uuid(consortiumId) || !uuid(requestId)) return false;
-  const root = url.replace(/\\/+$/, "");
+  const root = url.replace(/\/+$/, "");
   const resp = await fetch(root + "/rest/v1/chamados?select=id,consorcio_id,origem&protocolo=eq." +
     encodeURIComponent(protocol) + "&limit=1", {
     headers: serviceHeaders(key, { "accept": "application/json" }),
