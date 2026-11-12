@@ -214,18 +214,35 @@ async function savePublicPhoto(
   photo: PublicPhoto,
 ): Promise<boolean> {
   if (typeof protocol !== "string" || !/^V19P-[A-Z0-9]{20,40}$/i.test(protocol) ||
-      !uuid(consortiumId) || !uuid(requestId)) return false;
+      !uuid(consortiumId) || !uuid(requestId)) {
+    console.warn("[V19 foto] protocolo ou identificadores invalidos");
+    return false;
+  }
   const root = url.replace(/\/+$/, "");
   const resp = await fetch(root + "/rest/v1/chamados?select=id,consorcio_id,origem&protocolo=eq." +
     encodeURIComponent(protocol) + "&limit=1", {
     headers: serviceHeaders(key, { "accept": "application/json" }),
   });
-  if (!resp.ok) return false;
+  if (!resp.ok) {
+    console.warn("[V19 foto] busca_chamado_http", { status: resp.status });
+    return false;
+  }
   const calls: unknown = await resp.json().catch(() => null);
-  if (!Array.isArray(calls) || calls.length !== 1) return false;
+  if (!Array.isArray(calls) || calls.length !== 1) {
+    console.warn("[V19 foto] busca_chamado_quantidade", {
+      quantidade: Array.isArray(calls) ? calls.length : "resposta_invalida",
+    });
+    return false;
+  }
   const call = calls[0] as JsonRecord;
   const callId = uuid(call.id);
-  if (!callId || call.consorcio_id !== consortiumId || call.origem !== "Público") return false;
+  if (!callId || call.consorcio_id !== consortiumId || call.origem !== "Público") {
+    console.warn("[V19 foto] chamado_identidade_invalida", {
+      idValido: !!callId, consorcioCorreto: call.consorcio_id === consortiumId,
+      origemPublica: call.origem === "Público",
+    });
+    return false;
+  }
 
   const path = String(consortiumId) + "/" + callId + "/" + String(requestId) + "." + photo.ext;
   const objectsUrl = root + "/storage/v1/object/chamado-fotos/" +
@@ -235,6 +252,9 @@ async function savePublicPhoto(
     const result = await fetch(metaUrl + "?select=id&storage_path=eq." +
       encodeURIComponent(path) + "&chamado_id=eq." + encodeURIComponent(callId) +
       "&limit=1", { headers: serviceHeaders(key, { "accept": "application/json" }) });
+    if (!result.ok) {
+      console.warn("[V19 foto] busca_metadado_http", { status: result.status });
+    }
     const rows: unknown = result.ok ? await result.json().catch(() => null) : null;
     return Array.isArray(rows) && rows.length === 1;
   };
@@ -251,7 +271,10 @@ async function savePublicPhoto(
   });
   // HTTP 409 indica que a mesma tentativa já enviou o objeto. Podemos
   // recuperar o metadado faltante, sem sobrescrever um objeto anterior.
-  if (!upload.ok && upload.status !== 409) return false;
+  if (!upload.ok && upload.status !== 409) {
+    console.warn("[V19 foto] envio_storage_http", { status: upload.status });
+    return false;
+  }
   if (upload.status === 409 && await findMeta()) return true;
   const register = await fetch(metaUrl, {
     method: "POST",
@@ -267,6 +290,7 @@ async function savePublicPhoto(
     }),
   });
   if (register.ok) return true;
+  console.warn("[V19 foto] registro_metadado_http", { status: register.status });
   // Se o PostgREST recebeu o INSERT mas a resposta falhou, não apagar a
   // imagem: uma nova tentativa poderá encontrar o metadado pelo mesmo path.
   return await findMeta();
