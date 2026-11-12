@@ -462,6 +462,91 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return reply(200, { ok: true, municipios }, origin);
     }
 
+    // Consulta de andamento pública: somente protocolo V19P integral, escopo
+    // do consórcio no link, rate-limit separado e dados estritamente mínimos.
+    // A RPC consulta apenas quando portal_ativo e consulta_protocolo_ativo=true.
+    // Nunca expor chamdo(s), telefone, nome, fotos ou credenciais ao visitante.
+    if (body.acao === "consultar_protocolo") {
+      const consortiumId = uuid(body.consorcio_id);
+      const protocol = asText(body.protocolo)?.trim().toUpperCase();
+      if (!consortiumId || !protocol || !/^V19P-[A-F0-9]{32}$/.test(protocol)) {
+        return reply(400, { ok: false, erro: "PROTOCOLO_INVALIDO" }, origin);
+      }
+      // Separar a cota de consultas da cota de abertura de chamados.
+      const rate = await callRpc(
+        supabaseUrl,
+        serviceRoleKey,
+        "v19_portal_consumir_limite_privado",
+        {
+          p_chave_hash: await keyedHash(pepper, "consulta:ip:" + clientAddress(req)),
+          p_janela_minutos: WINDOW_MINUTES,
+          p_max_tentativas: 20,
+        },
+      );
+      if (rate.status !== 200 || rate.data?.permitido !== true) {
+        if (rate.status === 200 && rate.data?.permitido === false) {
+          return reply(429, { ok: false, erro: "MUITAS_TENTATIVAS" }, origin);
+        }
+        return reply(503, { ok: false, erro: "CONTROLE_DE_ACESSO_INDISPONIVEL" }, origin);
+      }
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+      if (!anonKey) return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
+      const response = await fetch(
+        supabaseUrl.replace(/\\/+$/, "") + "/rest/v1/rpc/consultar_protocolo",
+        {
+          method: "POST",
+          headers: {
+            apikey: anonKey,
+            authorization: "Bearer " + anonKey,
+            "content-type": "application/json",
+            "cache-control": "no-store",
+          },
+          body: JSON.stringify({
+            p_protocolo: protocol,
+            p_consorcio_id: consortiumId,
+          }),
+        },
+      );
+      if (!response.ok) {
+        // Logar apenas status HTTP; nunca o protocolo consultado.
+        console.warn("[V19 portal] consulta de protocolo indisponivel", {
+          httpStatus: response.status,
+        });
+        return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
+      }
+      const records: unknown = await response.json().catch(() => null);
+      if (!Array.isArray(records)) {
+        return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
+      }
+      if (records.length === 0) {
+        // Resposta igual para protocolo inexistente, outro consórcio ou
+        // consulta desativada: não revelar quais contratos estão habilitados.
+        return reply(200, { ok: true, encontrado: false }, origin);
+      }
+      if (records.length !== 1 || !records[0] || typeof records[0] !== "object") {
+        return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
+      }
+      const record = records[0] as JsonRecord;
+      if (record.protocolo !== protocol ||
+          typeof record.tipo !== "string" ||
+          typeof record.status !== "string" ||
+          typeof record.cidade !== "string" ||
+          typeof record.created_at !== "string") {
+        return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
+      }
+      return reply(200, {
+        ok: true,
+        encontrado: true,
+        chamado: {
+          protocolo: record.protocolo,
+          tipo: record.tipo,
+          status: record.status,
+          cidade: record.cidade,
+          created_at: record.created_at,
+        },
+      }, origin);
+    }
+
     const turnstileToken = asText(body.turnstile_token);
     if (!turnstileToken || turnstileToken.length > 2048) {
       return reply(400, { ok: false, erro: "VERIFICACAO_HUMANA_OBRIGATORIA" }, origin);
