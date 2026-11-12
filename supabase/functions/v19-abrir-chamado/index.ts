@@ -17,7 +17,9 @@
 const ALLOWED_ORIGIN = "https://easyobrasandroid-source.github.io";
 const EXPECTED_TURNSTILE_HOSTNAME = "easyobrasandroid-source.github.io";
 const TURNSTILE_ACTION = "v19_abrir_chamado";
-const MAX_BODY_BYTES = 12_000;
+// JSON base64 de uma foto de 2 MB + campos do chamado (sem anexos: ~1 KB).
+const MAX_BODY_BYTES = 2_850_000;
+const MAX_FOTO_BYTES = 2 * 1024 * 1024;
 const MAX_REQUESTS_PER_WINDOW = 5;
 const WINDOW_MINUTES = 15;
 
@@ -157,6 +159,117 @@ async function verifyTurnstile(token: string, secret: string): Promise<boolean> 
   } finally {
     clearTimeout(timeout);
   }
+}
+
+type PublicPhoto = { data: Uint8Array; mime: string; ext: string };
+
+// A foto só pode ser anexada à solicitação recém-criada por esta Edge Function.
+// Não há permissão anônima direta para Storage nem para public.chamado_fotos.
+function photoFrom(input: unknown): PublicPhoto | null {
+  if (input == null) return null;
+  if (typeof input !== "object" || Array.isArray(input)) throw new Error("FOTO_INVALIDA");
+  const photo = input as JsonRecord;
+  const mime = asText(photo.mime);
+  const base64 = asText(photo.base64);
+  const extensions: Record<string, string> = {
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+  };
+  if (!mime || !extensions[mime] || !base64 ||
+      base64.length > Math.ceil(MAX_FOTO_BYTES / 3) * 4 ||
+      base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+    throw new Error("FOTO_INVALIDA");
+  }
+  let raw: string;
+  try { raw = atob(base64); } catch { throw new Error("FOTO_INVALIDA"); }
+  if (!raw.length || raw.length > MAX_FOTO_BYTES) throw new Error("FOTO_INVALIDA");
+  const data = Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  const jpeg = mime === "image/jpeg" &&
+    data.length > 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+  const png = mime === "image/png" && data.length > 8 &&
+    [137, 80, 78, 71, 13, 10, 26, 10].every((v, i) => data[i] === v);
+  const webp = mime === "image/webp" && data.length > 12 &&
+    String.fromCharCode(...data.subarray(0, 4)) === "RIFF" &&
+    String.fromCharCode(...data.subarray(8, 12)) === "WEBP";
+  if (!jpeg && !png && !webp) throw new Error("FOTO_INVALIDA");
+  return { data, mime, ext: extensions[mime] };
+}
+
+function serviceHeaders(key: string, extra: Record<string, string> = {}): Headers {
+  return new Headers({
+    "apikey": key,
+    "authorization": "Bearer " + key,
+    "cache-control": "no-store",
+    ...extra,
+  });
+}
+
+// Executado somente após Turnstile válido e após a RPC criar/confirmar o
+// chamado do consórcio. O caminho é determinístico pela chave idempotente.
+async function savePublicPhoto(
+  url: string,
+  key: string,
+  protocol: unknown,
+  consortiumId: unknown,
+  requestId: unknown,
+  photo: PublicPhoto,
+): Promise<boolean> {
+  if (typeof protocol !== "string" || !/^V19P-[A-Z0-9]{20,40}$/i.test(protocol) ||
+      !uuid(consortiumId) || !uuid(requestId)) return false;
+  const root = url.replace(/\\/+$/, "");
+  const resp = await fetch(root + "/rest/v1/chamados?select=id,consorcio_id,origem&protocolo=eq." +
+    encodeURIComponent(protocol) + "&limit=1", {
+    headers: serviceHeaders(key, { "accept": "application/json" }),
+  });
+  if (!resp.ok) return false;
+  const calls: unknown = await resp.json().catch(() => null);
+  if (!Array.isArray(calls) || calls.length !== 1) return false;
+  const call = calls[0] as JsonRecord;
+  const callId = uuid(call.id);
+  if (!callId || call.consorcio_id !== consortiumId || call.origem !== "Público") return false;
+
+  const path = String(consortiumId) + "/" + callId + "/" + String(requestId) + "." + photo.ext;
+  const objectsUrl = root + "/storage/v1/object/chamado-fotos/" +
+    path.split("/").map(encodeURIComponent).join("/");
+  const metaUrl = root + "/rest/v1/chamado_fotos";
+  const findMeta = async (): Promise<boolean> => {
+    const result = await fetch(metaUrl + "?select=id&storage_path=eq." +
+      encodeURIComponent(path) + "&chamado_id=eq." + encodeURIComponent(callId) +
+      "&limit=1", { headers: serviceHeaders(key, { "accept": "application/json" }) });
+    const rows: unknown = result.ok ? await result.json().catch(() => null) : null;
+    return Array.isArray(rows) && rows.length === 1;
+  };
+  // Protege contra reenvio idempotente e respostas perdidas na rede.
+  if (await findMeta()) return true;
+
+  const upload = await fetch(objectsUrl, {
+    method: "POST",
+    headers: serviceHeaders(key, {
+      "content-type": photo.mime,
+      "x-upsert": "false",
+    }),
+    body: photo.data,
+  });
+  // HTTP 409 indica que a mesma tentativa já enviou o objeto. Podemos
+  // recuperar o metadado faltante, sem sobrescrever um objeto anterior.
+  if (!upload.ok && upload.status !== 409) return false;
+  if (upload.status === 409 && await findMeta()) return true;
+  const register = await fetch(metaUrl, {
+    method: "POST",
+    headers: serviceHeaders(key, {
+      "content-type": "application/json",
+      "prefer": "return=minimal",
+    }),
+    body: JSON.stringify({
+      chamado_id: callId,
+      storage_path: path,
+      tipo: "ocorrencia",
+      usuario_nome: "Portal público",
+    }),
+  });
+  if (register.ok) return true;
+  // Se o PostgREST recebeu o INSERT mas a resposta falhou, não apagar a
+  // imagem: uma nova tentativa poderá encontrar o metadado pelo mesmo path.
+  return await findMeta();
 }
 
 function payloadFrom(input: JsonRecord): JsonRecord | null {
@@ -331,6 +444,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     const payload = payloadFrom(body);
     if (!payload) return reply(400, { ok: false, erro: "DADOS_INVALIDOS" }, origin);
+    // Validar a fotografia ANTES de criar o chamado. Uma imagem inválida
+    // nunca produz um chamado parcialmente cadastrado.
+    let foto: PublicPhoto | null;
+    try { foto = photoFrom(body.foto); }
+    catch { return reply(400, { ok: false, erro: "FOTO_INVALIDA" }, origin); }
 
     // Limites aplicados ANTES de gastar uma verificação do Turnstile.
     // Hash com HMAC evita armazenar IP e telefone em texto claro.
@@ -375,12 +493,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return reply(409, { ok: false, erro: "CHAMADO_NAO_REGISTRADO" }, origin);
     }
 
+    // Falha posterior ao cadastro NÃO deve ocultar o protocolo criado.
+    // O usuário recebe um aviso explícito de foto não salva.
+    let fotoSalva: boolean | null = null;
+    if (foto) {
+      try {
+        fotoSalva = await savePublicPhoto(
+          supabaseUrl, serviceRoleKey, created.data.protocolo,
+          payload.p_consorcio_id, payload.p_chave_requisicao, foto,
+        );
+      } catch (e) {
+        console.error("[V19 portal] Anexo não persistiu:", e instanceof Error ? e.name : "desconhecida");
+        fotoSalva = false;
+      }
+    }
     return reply(200, {
       ok: true,
       protocolo: created.data.protocolo,
       status: created.data.status,
       sla_horas: created.data.sla_horas,
       reutilizado: created.data.reutilizado === true,
+      foto_salva: fotoSalva,
     }, origin);
   } catch (error) {
     // Não registrar tokens, credenciais ou conteúdo pessoal em logs.
