@@ -1806,6 +1806,19 @@ function abrirDrawer(id){
   // Esconder também o aviso de conclusão quando as duas ações estão bloqueadas.
   const finalizarBox=document.getElementById('dw-finalizar-box');
   if(finalizarBox) finalizarBox.style.display=v19PodeConcluir(c)?'flex':'none';
+  // Duração com precisão em minutos; evita exibir 0h em conclusões rápidas.
+  function v19FormatarTempoAtendimento(inicio, fim) {
+    const duracaoMs = new Date(fim).getTime() - new Date(inicio).getTime();
+    if (!Number.isFinite(duracaoMs) || duracaoMs < 0) return 'Tempo não apurável';
+    if (duracaoMs < 60000) return 'Menos de 1 min de atendimento';
+    const totalMinutos = Math.round(duracaoMs / 60000);
+    const horas = Math.floor(totalMinutos / 60);
+    const minutos = totalMinutos % 60;
+    return (horas ? horas + 'h' : '') +
+      (horas && minutos ? ' ' : '') +
+      (minutos ? minutos + 'min' : '') +
+      ' de atendimento';
+  }
   document.getElementById('dw-dados').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
     <div><div class="card-title">Dados do chamado</div>
       <div class="drow"><span class="dlbl">Cidade</span><span class="dval">${c.cidade}</span></div>
@@ -1826,7 +1839,7 @@ function abrirDrawer(id){
     <div><div class="card-title" style="margin-top:0">Datas e prazos</div>
       <div class="drow"><span class="dlbl">Abertura</span><span class="dval">${c.created_at?new Date(c.created_at).toLocaleString('pt-BR'):(c.data+' '+(c.hora||''))}</span></div>
       ${c.completed_at?`<div class="drow"><span class="dlbl">Conclusão</span><span class="dval" style="color:var(--green)">✓ ${new Date(c.completed_at).toLocaleString('pt-BR')}</span></div>`:'<div class="drow"><span class="dlbl">Conclusão</span><span class="dval" style="color:var(--gray-400)">Pendente</span></div>'}
-      ${c.created_at&&c.completed_at?`<div class="drow"><span class="dlbl">Tempo total</span><span class="dval" style="color:var(--brand)">${Math.round((new Date(c.completed_at)-new Date(c.created_at))/36e5)}h de atendimento</span></div>`:''}
+      ${c.created_at&&c.completed_at?`<div class="drow"><span class="dlbl">Tempo total</span><span class="dval" style="color:var(--brand)">${v19FormatarTempoAtendimento(c.created_at,c.completed_at)}</span></div>`:''}
     </div></div>`;
   const hist=DB.historico[id]||[];
   document.getElementById('dw-tc-historico').innerHTML=`<div class="card-title">Timeline do chamado</div>${hist.map((h,i)=>`<div class="tl-item"><div class="tl-dot-col"><div class="tl-dot" style="background:${h.c}"></div>${i<hist.length-1?'<div class="tl-line"></div>':''}</div><div class="tl-body"><div class="tl-s">${h.s}</div><div class="tl-m">${h.m}</div>${h.o?`<div class="tl-o">${h.o}</div>`:''}</div></div>`).join('')}`;
