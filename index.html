@@ -315,7 +315,7 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="page" id="pg-portal">
 <div class="pub-page">
   <div class="pub-header">
-    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div><div class="pub-brand-sub">Portal público em homologação</div></div></div>
+    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div><div class="pub-brand-sub">Portal de solicitações de iluminação pública</div></div></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="goPage('pg-consulta')">🔍 Consultar protocolo</button>
       <button class="btn btn-primary" onclick="goPage('pg-login')">Entrar</button>
@@ -336,7 +336,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="gps-btn" onclick="captureGPS('geocode-status-pub')"><span>📍</span>Usar minha localização atual (GPS)</div>
         <div id="geocode-status-pub" class="geocode-status"></div>
         <div class="frow frow2" style="margin-bottom:10px">
-          <div class="field"><label>Cidade</label><select id="pub-cidade" disabled><option value="">Nenhum município disponível</option></select></div>
+          <div class="field"><label>Cidade</label><select id="pub-cidade" onchange="v19AtualizarBotaoPortal()" disabled><option value="">Nenhum município disponível</option></select></div>
           <div class="field"><label>Bairro</label><input type="text" id="pub-bairro" placeholder="Nome do bairro"></div>
         </div>
         <div class="frow frow32">
@@ -351,7 +351,7 @@ tbody tr:last-child td{border-bottom:none;}
           <div class="field"><label>Área</label><select id="pub-area"><option>Urbana</option><option>Rural</option></select></div>
         </div>
         <div class="field" style="margin-top:10px"><label>Ponto de referência</label><input type="text" id="pub-ref" placeholder="Ex: em frente à farmácia..."></div>
-        <div id="pub-cidades-status" role="status" style="font-size:12px;color:var(--gray-500);margin-top:12px">Portal público em homologação. Abertura de chamados indisponível.</div>
+        <div id="pub-cidades-status" role="status" style="font-size:12px;color:var(--gray-500);margin-top:12px">Selecione seu município para registrar um chamado.</div>
       </div>
       <div class="form-section">
         <div class="form-sec-title"><span class="form-sec-num">3</span>Tipo de problema</div>
@@ -372,7 +372,12 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="form-sec-title"><span class="form-sec-num">4</span>Foto (opcional)</div>
         <div style="border:1.5px dashed var(--gray-300);border-radius:var(--radius-sm);padding:16px;text-align:center;color:var(--gray-400)"><div style="font-size:24px;margin-bottom:6px">📷</div><div style="font-size:12px">📷 Tirar foto &nbsp;|&nbsp; 📁 Escolher arquivo</div></div>
       </div>
-      <div class="form-footer"><span style="font-size:11px;color:var(--gray-400)">🔒 Dados protegidos</span><button class="btn btn-save" type="button" disabled title="Abertura pública ainda não homologada">Abertura em homologação</button></div>
+      <div class="form-section" style="padding:1rem 1.5rem">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px">Verificação de segurança</div>
+        <div id="v19-pub-turnstile"></div>
+        <div id="v19-pub-verificacao" role="status" style="font-size:11px;color:var(--gray-500);margin-top:6px">Carregando verificação...</div>
+      </div>
+      <div class="form-footer"><span style="font-size:11px;color:var(--gray-400)">🔒 Seus dados serão tratados para o atendimento da solicitação.</span><button id="v19-pub-enviar" class="btn btn-save" type="button" onclick="submeterChamado()" disabled>Registrar chamado →</button></div>
     </div>
   </div>
 </div>
@@ -386,7 +391,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="form-card" style="text-align:center;padding:2.5rem">
       <div style="font-size:56px;margin-bottom:1rem">✅</div>
       <div style="font-size:22px;font-weight:800;margin-bottom:6px">Solicitação registrada!</div>
-      <div style="font-size:13px;color:var(--gray-500);margin-bottom:1.5rem">Em breve nossa equipe entrará em contato pelo WhatsApp.</div>
+      <div style="font-size:13px;color:var(--gray-500);margin-bottom:1.5rem">Seu chamado foi registrado. Guarde o protocolo para acompanhar o atendimento.</div>
       <div style="background:var(--brand-light);border:1px solid #B3CDEE;border-radius:var(--radius);padding:1.25rem;margin-bottom:1.5rem">
         <div style="font-size:10px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.05em">Número do protocolo</div>
         <div id="proto-confirmado" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--brand);letter-spacing:2px;margin:6px 0"></div>
@@ -767,7 +772,7 @@ async function carregarCidadesPortal(){
   const id=new URLSearchParams(location.search).get('consorcio_id');
   const valido=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||'');
   if(!valido){
-    if(aviso)aviso.textContent='Portal em homologação: link do consórcio não informado.';
+    if(aviso)aviso.textContent='Link do portal incompleto. Acesse pelo endereço fornecido pelo consórcio.';
     return;
   }
   if(aviso)aviso.textContent='Verificando municípios disponíveis para o consórcio…';
@@ -781,7 +786,7 @@ async function carregarCidadesPortal(){
     const rows=await resposta.json();
     if(!Array.isArray(rows))throw new Error('Resposta inválida do catálogo.');
     if(!rows.length){
-      if(aviso)aviso.textContent='Portal indisponível: não há municípios habilitados neste consórcio.';
+      if(aviso)aviso.textContent='Ainda não há municípios habilitados para abertura pública neste consórcio.';
       return;
     }
     sel.replaceChildren(new Option('Selecione o município',''));
@@ -790,7 +795,8 @@ async function carregarCidadesPortal(){
       sel.add(new Option(String(c.municipio||'')+' / '+String(c.uf||''),c.cidade_id));
     }
     sel.disabled=sel.options.length<=1;
-    if(aviso)aviso.textContent='Municípios retornados pela RPC. A abertura de chamados segue em homologação.';
+    if(aviso)aviso.textContent='Selecione um município disponível e preencha os dados para registrar o chamado.';
+    v19AtualizarBotaoPortal();
   }catch(e){
     sel.replaceChildren(new Option('Nenhum município disponível',''));
     sel.disabled=true;
@@ -1073,7 +1079,10 @@ function goPage(id){
   document.getElementById(id).classList.add('active');
   window.scrollTo(0,0);
   // Executar apenas quando o usuário abre o portal, não no bootstrap da aplicação.
-  if(id==='pg-portal')carregarCidadesPortal().catch(e=>console.warn('[Portal] municípios:',e.message));
+  if(id==='pg-portal'){
+    carregarCidadesPortal().catch(e=>console.warn('[Portal] municípios:',e.message));
+    v19InitTurnstile();
+  }
 }
 
 // ═══ LOGIN ═══
@@ -4844,60 +4853,136 @@ function gerarProto(){
   const suf=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
   return 'INT'+n.toISOString().replace(/[-:TZ.]/g,'').slice(0,14)+'-'+suf;
 }
-async function submeterChamado(){
-  // Defesa em profundidade: não enviar chamados com a RPC pública ainda não homologada.
-  alert('Abertura pública ainda em homologação. Nenhum chamado foi enviado.');
-  return;
-  const nome=document.getElementById('pub-nome')?.value?.trim(),tel=document.getElementById('pub-tel')?.value?.trim();
-  if(!nome||!tel){alert('Por favor, informe seu nome e telefone.');return;}
-  const cidade=document.getElementById('pub-cidade')?.value||'Espera Feliz';
-  const bairro=document.getElementById('pub-bairro')?.value||'';
-  const end=document.getElementById('pub-end')?.value||'Não informado';
-  const coordsCidadePub={'Espera Feliz':{lat:-20.6495,lng:-41.9163},'Caparaó':{lat:-20.5167,lng:-41.9833},'Alto Caparaó':{lat:-20.4167,lng:-41.8333},'Manhuaçu':{lat:-20.2572,lng:-42.0294},'Divino':{lat:-20.6167,lng:-42.1333},'Carangola':{lat:-20.7333,lng:-42.0333},'Caparaó Divinas':{lat:-20.5500,lng:-41.9667}};
-  let lat=null,lng=null,loc_src='manual';
-  // Prioridade 1: Geocodificação do endereço (mais preciso)
-  if(end&&end!=='Não informado'){
-    const partesPub=end.split(',');
-    try{
-      const geoC=await tentarGeocodar({rua:partesPub[0]||end,numero:partesPub[1]?.trim()||'',bairro,cidade},'geocode-status-pub');
-      if(geoC){lat=geoC.lat;lng=geoC.lng;loc_src=geoC.confianca||'address_geocoding';}
-    }catch(e){}
+// Portal público V19 — acessível sem login; toda gravação passa pela Edge Function.
+// Site key é pública. A Secret Key e a service role são EXCLUSIVAS do Supabase.
+const V19_PORTAL_SITE_KEY='0x4AAAAAAF9_2hStCdR1FVKj';
+let v19PortalWidgetId=null, v19PortalToken='', v19PortalEnviando=false, v19PortalPendente=null;
+function v19AtualizarBotaoPortal(){
+  const botao=document.getElementById('v19-pub-enviar');
+  const cidade=document.getElementById('pub-cidade');
+  if(!botao)return;
+  botao.disabled=v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
+  botao.textContent=v19PortalEnviando?'Registrando...':'Registrar chamado →';
+}
+function v19InitTurnstile(){
+  const container=document.getElementById('v19-pub-turnstile');
+  const aviso=document.getElementById('v19-pub-verificacao');
+  if(!container||!document.getElementById('pg-portal')?.classList.contains('active'))return;
+  if(v19PortalWidgetId!==null)return;
+  if(!window.turnstile || typeof window.turnstile.render!=='function'){
+    if(aviso)aviso.textContent='Aguardando carregamento da proteção contra robôs...';
+    return;
   }
-  // Prioridade 2: GPS capturado (se geocodificação falhou)
-  if(!lat&&window._gpsLat&&window._gpsLng){lat=window._gpsLat;lng=window._gpsLng;loc_src='gps_mobile';}
-  window._gpsLat=null;window._gpsLng=null;
-  // Prioridade 3: Fallback por cidade (garante pin no mapa sempre)
-  if(!lat&&coordsCidadePub[cidade]){
-    lat=coordsCidadePub[cidade].lat+((Math.random()-0.5)*0.008);
-    lng=coordsCidadePub[cidade].lng+((Math.random()-0.5)*0.008);
-    loc_src='city_approx';
-  }
-  // Abertura 100% pelo SERVIDOR (RPC): consórcio pela cidade, status/origem/protocolo no banco.
-  // Resolve o cidade_id pelo nome (catálogo do banco — anon pode ler cidades).
-  if(!_cidadesMap){ try{ await carregarCidades(); }catch(e){} }
-  const cidadeId = cidadeIdPorNome(cidade);
-  if(!cidadeId){ alert('Selecione uma cidade válida para abrir o chamado.'); return; }
-  let resp;
   try{
-    resp = await sbFetch('rpc/abrir_chamado_publico','POST',{
-      p_cidade_id: cidadeId, p_tipo: pubProb,
-      p_bairro: bairro, p_endereco: end, p_referencia: document.getElementById('pub-ref')?.value||null,
-      p_area: document.getElementById('pub-area')?.value||'Urbana',
-      p_qtd: parseInt(document.getElementById('pub-qtd')?.value||'1'),
-      p_solicitante_nome: nome, p_solicitante_tel: tel,
-      p_latitude: lat, p_longitude: lng, p_loc_src: loc_src
+    v19PortalWidgetId=window.turnstile.render('#v19-pub-turnstile',{
+      sitekey:V19_PORTAL_SITE_KEY,action:'v19_abrir_chamado',theme:'auto',
+      callback:function(token){
+        v19PortalToken=token;
+        if(aviso)aviso.textContent='Verificação concluída. Você pode registrar o chamado.';
+        v19AtualizarBotaoPortal();
+      },
+      'expired-callback':function(){
+        v19PortalToken='';
+        if(aviso)aviso.textContent='A verificação expirou. Aguarde a renovação.';
+        v19AtualizarBotaoPortal();
+      },
+      'error-callback':function(){
+        v19PortalToken='';
+        if(aviso)aviso.textContent='Não foi possível verificar o acesso. Recarregue a página.';
+        v19AtualizarBotaoPortal();
+      }
     });
+    if(v19PortalWidgetId===undefined||v19PortalWidgetId===null){
+      v19PortalWidgetId=null;
+      if(aviso)aviso.textContent='Não foi possível carregar a verificação. Atualize a página.';
+    }
   }catch(e){
-    alert('Não foi possível registrar seu chamado agora (falha de conexão com o servidor). Por favor, tente novamente em instantes.');
-    return;
+    v19PortalWidgetId=null;
+    if(aviso)aviso.textContent='Não foi possível iniciar a verificação. Atualize a página.';
+    console.warn('[Portal] Turnstile:',e?.message||'erro');
   }
-  const confirmado=Array.isArray(resp)?resp[0]:resp;
-  if(!confirmado||confirmado.ok!==true||!confirmado.protocolo){
-    alert('O servidor não confirmou a abertura do chamado. Verifique a lista antes de tentar novamente.');
-    return;
+}
+function v19ReiniciarTurnstile(){
+  v19PortalToken='';
+  if(window.turnstile&&v19PortalWidgetId!==null){
+    try{window.turnstile.reset(v19PortalWidgetId);}catch(e){console.warn('[Portal] reset:',e?.message||'erro');}
   }
-  document.getElementById('proto-confirmado').textContent=confirmado.protocolo;
-  goPage('pg-confirmacao');
+  v19AtualizarBotaoPortal();
+}
+async function submeterChamado(){
+  if(v19PortalEnviando)return;
+  const valor=id=>document.getElementById(id)?.value?.trim()||'';
+  const consorcioId=new URLSearchParams(location.search).get('consorcio_id')||'';
+  const uuidRx=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+  const cidadeEl=document.getElementById('pub-cidade');
+  const cidadeId=cidadeEl?.value||'';
+  if(!uuidRx.test(consorcioId)||!uuidRx.test(cidadeId)||cidadeEl.disabled){
+    alert('Selecione um município habilitado para abertura pública.');return;
+  }
+  const nome=valor('pub-nome'),telefone=valor('pub-tel').replace(/\D/g,'');
+  if(nome.length<2||nome.length>120||telefone.length<10||telefone.length>13){
+    alert('Informe seu nome e um telefone válido com DDD.');return;
+  }
+  let quantidade=Number(valor('pub-qtd'));
+  let obsExtra='';
+  if(valor('pub-qtd')==='Mais de 5'){
+    quantidade=6;obsExtra='Quantidade declarada: mais de 5 (valor mínimo de referência: 6).';
+  }else if(valor('pub-qtd')==='Não sei'){
+    alert('Para este cadastro, selecione uma quantidade estimada de lâmpadas.');return;
+  }
+  if(!Number.isInteger(quantidade)||quantidade<1||quantidade>999){
+    alert('Informe uma quantidade válida.');return;
+  }
+  const lat=Number.isFinite(window._gpsLat)?window._gpsLat:null;
+  const lng=Number.isFinite(window._gpsLng)?window._gpsLng:null;
+  const hasCoords=lat!==null&&lng!==null;
+  const endereco=valor('pub-end'),bairro=valor('pub-bairro');
+  if(!endereco&&!hasCoords){
+    alert('Informe o endereço ou utilize a localização GPS para identificar o problema.');return;
+  }
+  if(!v19PortalToken){
+    alert('Conclua a verificação de segurança antes de enviar o chamado.');return;
+  }
+  const observacoes=[valor('pub-obs'),obsExtra].filter(Boolean).join(' ').slice(0,500);
+  const dados={
+    consorcio_id:consorcioId,cidade_id:cidadeId,
+    solicitante_nome:nome,solicitante_tel:telefone,
+    tipo:pubProb,area:valor('pub-area')||'Urbana',qtd:quantidade,
+    bairro:bairro||null,endereco:endereco||null,
+    referencia:valor('pub-ref')||null,observacoes:observacoes||null,
+    latitude:hasCoords?lat:null,longitude:hasCoords?lng:null,
+    loc_src:hasCoords?(window._locSrc==='minimap_confirmed'?'minimap_confirmed':'gps_mobile'):'manual'
+  };
+  // Se a rede falhar, uma tentativa idêntica reutiliza a chave de idempotência.
+  // Se os dados mudarem, a chave será renovada.
+  const assinatura=JSON.stringify(dados);
+  if(!v19PortalPendente||v19PortalPendente.assinatura!==assinatura){
+    v19PortalPendente={assinatura,chave:crypto.randomUUID()};
+  }
+  v19PortalEnviando=true;v19AtualizarBotaoPortal();
+  try{
+    const response=await fetch(SUPA_URL+'/functions/v1/v19-abrir-chamado',{
+      method:'POST',credentials:'omit',cache:'no-store',
+      headers:{'Content-Type':'application/json',apikey:SUPA_KEY},
+      body:JSON.stringify({...dados,chave_requisicao:v19PortalPendente.chave,turnstile_token:v19PortalToken})
+    });
+    const resultado=await response.json().catch(()=>null);
+    if(!response.ok||resultado?.ok!==true||!resultado.protocolo){
+      if(response.status===429)throw new Error('Muitas tentativas. Aguarde alguns minutos.');
+      if(resultado?.erro==='VERIFICACAO_HUMANA_RECUSADA')throw new Error('Verificação expirada ou recusada. Tente novamente.');
+      if(resultado?.erro==='ABERTURA_EM_HOMOLOGACAO'||resultado?.erro==='SERVICO_NAO_CONFIGURADO')
+        throw new Error('O serviço de abertura pública ainda não está disponível. Tente novamente mais tarde.');
+      throw new Error('Não foi possível registrar o chamado. Confirme se o município está habilitado e tente novamente.');
+    }
+    v19PortalPendente=null;
+    document.getElementById('proto-confirmado').textContent=String(resultado.protocolo);
+    goPage('pg-confirmacao');
+  }catch(e){
+    alert(e?.message||'Falha ao conectar com o servidor. Tente novamente.');
+  }finally{
+    v19PortalEnviando=false;
+    v19ReiniciarTurnstile();
+  }
 }
 async function consultarProtocolo(){
   const input=(document.getElementById('consulta-input').value||'').trim();
@@ -4954,7 +5039,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
         encerrarSessaoExpirada();   // sem perfil/sem renovação → encerra e volta ao login limpo
       }
     } else {
-      goPage('pg-login');
+      // URL pública do consórcio entra diretamente no portal, sem login.
+      const portalId=new URLSearchParams(location.search).get('consorcio_id');
+      if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(portalId||''))goPage('pg-portal');
+      else goPage('pg-login');
     }
   })();
 });
@@ -4978,6 +5066,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     <div style="padding:8px 18px;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;flex-shrink:0">💡 Arraste o marcador vermelho para ajustar a posição exata do poste</div>
   </div>
 </div>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer onload="v19InitTurnstile()" onerror="console.warn('[Portal] Turnstile não carregou')"></script>
 <script src="./v19.js" defer></script>
 <script src="./v19-fotos.js" defer></script>
 <script src="./v19-relatorios.js" defer></script>
