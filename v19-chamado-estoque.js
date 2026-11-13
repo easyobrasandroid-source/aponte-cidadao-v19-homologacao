@@ -153,7 +153,7 @@
             'border:1px solid #cbd5e1;border-radius:8px;' +
             'padding:9px;width:130px;box-sizing:border-box;');
           amount.type='number';amount.min='0.01';amount.max=String(available);
-          amount.step='0.01';amount.value='1';
+          amount.step='0.01';amount.value=String(Math.min(1,available));
           const simulate=node('button',form,'Simular consumo (não grava)',
             'background:#0f766e;color:#fff;border:0;border-radius:8px;' +
             'padding:10px 12px;font-weight:700;cursor:pointer;');
