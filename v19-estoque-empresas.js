@@ -1,7 +1,8 @@
-/* Aponte Cidadão V19 — ETAPA 550
-   Painel exclusivo de CONSULTA de estoque por empresa.
-   NÃO habilitar entradas, saídas, consumo, edição ou estorno até a
-   integração das RPCs de escrita e homologação ponta a ponta.
+/* Aponte Cidadão V19 — ETAPA 552
+   Painel de estoque exclusivo por empresa.
+   Entrada e saída MANUAL: só Master e Gestor Consórcio, via RPC empresarial
+   da etapa 547. Consumo em chamado, edição e estorno seguem INDISPONÍVEIS
+   na interface até a homologação coordenada.
    V18 de produção não deve ser alterada. */
 (function () {
   'use strict';
@@ -35,6 +36,10 @@
     if (description) node('p', x, description,
       'font-size:12px;color:#64748b;margin:6px 0 0;');
     return x;
+  }
+  function validUuid(v) {
+    return typeof v === 'string' &&
+      /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(v);
   }
   function checkRows(rows, role, consorcio, empresa) {
     if (!Array.isArray(rows)) throw new Error('Consulta empresarial não retornou uma lista.');
@@ -93,9 +98,9 @@
 
     panel(root, 'Estoque exclusivo por empresa',
       'Cada saldo pertence a uma empresa. O consórcio não possui estoque próprio.');
-    const safety = panel(root, 'Movimentações temporariamente indisponíveis',
-      'A entrada, saída, consumo, edição e estorno ainda não estão liberados na interface.' +
-      ' As novas rotinas serão homologadas antes da ativação.');
+    const safety = panel(root, 'Operações de estoque em homologação',
+      'Master e Gestor Consórcio podem registrar entradas e saídas diretamente no estoque da empresa.' +
+      ' Consumo em chamados, edição e estorno permanecem indisponíveis na interface até os testes.');
     safety.style.borderLeft = '4px solid #c28524';
 
     const filterBox = panel(root, 'Consulta de saldos', null);
@@ -194,11 +199,14 @@
             (!cons || r.consorcio_id===cons) &&
             (!cmp || r.empresa_id===cmp));
           results.replaceChildren();
-          const count = new Set(visible.map(x => x.empresa_id)).size;
+          const count = Array.from(companies.values()).filter(x =>
+            (!cons || x.consorcio_id===cons) && (!cmp || x.id===cmp)).length;
           const top = panel(results, 'Saldos empresariais',
-            count + ' empresa(s) · ' + visible.length + ' material(is) exibido(s)');
+            count + ' empresa(s) · ' + visible.length + ' posição(ões) de estoque exibida(s)');
           if (!visible.length) {
-            node('p', top, 'Nenhum material cadastrado para os filtros selecionados.',
+            node('p', top,
+              cmp ? 'Esta empresa ainda não possui materiais cadastrados.' :
+                'Nenhum material cadastrado para os filtros selecionados.',
               'font-size:13px;color:#64748b;margin-top:12px;');
             return;
           }
@@ -223,6 +231,109 @@
             if (!r.estoque_id) {
               node('div', card, 'Saldo empresarial ainda não cadastrado',
                 'font-size:11px;color:#b45309;margin-top:10px;');
+            }
+            if ((role==='master' || role==='consorcio') &&
+                validUuid(r.material_id) && validUuid(r.empresa_id) &&
+                validUuid(r.estoque_id)) {
+              const launch = node('button', card, 'Registrar entrada / saída',
+                'display:block;width:100%;border:1px solid #94a3b8;background:#f8fafc;' +
+                'color:#334155;border-radius:8px;padding:9px;margin-top:12px;' +
+                'font-size:12px;font-weight:700;cursor:pointer;');
+              launch.type = 'button';
+              launch.addEventListener('click', () => {
+                if (seq!==renderSeq || SB_SESSION?.user?.id!==identity) return;
+                const current = card.querySelector('[data-v19-movimento]');
+                if (current) { current.remove(); return; }
+
+                const form = node('form', card, null,
+                  'border-top:1px solid #e2e8f0;margin-top:10px;padding-top:12px;' +
+                  'display:flex;flex-direction:column;gap:8px;');
+                form.dataset.v19Movimento='1';
+                function field(labelText, type, required) {
+                  const wrap = node('label', form, null,
+                    'font-size:12px;font-weight:600;color:#334155;' +
+                    'display:flex;flex-direction:column;gap:4px;');
+                  node('span', wrap, labelText);
+                  const input = node(type==='select'?'select':type==='textarea'?'textarea':'input', wrap,
+                    null,'padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;');
+                  if (type!=='select' && type!=='textarea') input.type=type;
+                  input.required=!!required;
+                  return input;
+                }
+                node('div', form,
+                  'Empresa: '+r.empresa_nome+' · Material: '+r.material_nome,
+                  'font-size:12px;color:#0f172a;');
+                const kind = field('Tipo de movimentação','select',true);
+                option(kind,'entrada','Entrada de material');
+                option(kind,'saida','Saída manual de material');
+                const amount=field('Quantidade (máximo 2 casas decimais)','number',true);
+                amount.min='0.01';amount.step='0.01';amount.max='9999999999';
+                amount.placeholder='Ex.: 5';
+                const note=field('Observação','textarea',false);
+                note.maxLength=500;note.rows=2;
+                const info=node('div',form,
+                  'A operação será registrada apenas para '+r.empresa_nome+'.',
+                  'font-size:11px;color:#64748b;');
+                const submit = node('button',form,'Conferir movimentação',
+                  'background:#0f766e;color:#fff;border:0;border-radius:8px;' +
+                  'padding:10px;font-weight:700;cursor:pointer;');
+                submit.type='submit';
+                form.addEventListener('submit',async ev=>{
+                  ev.preventDefault();
+                  if (form.dataset.busy==='1') return;
+                  if (seq!==renderSeq || SB_SESSION?.user?.id!==identity ||
+                      CU?.perfil!==role) return;
+                  const quantity=Number(amount.value);
+                  const direction=kind.value;
+                  if (!['entrada','saida'].includes(direction) ||
+                      !Number.isFinite(quantity) || quantity<=0 ||
+                      quantity>9999999999 ||
+                      Math.round(quantity*100)!==quantity*100) {
+                    info.textContent='Informe uma quantidade positiva com até duas casas decimais.';
+                    return;
+                  }
+                  if (direction==='saida' && quantity>Number(r.quantidade_disponivel)) {
+                    info.textContent='Saída maior do que o saldo desta empresa.';
+                    return;
+                  }
+                  const description = direction==='entrada'?'ENTRADA':'SAÍDA';
+                  const confirmed = window.confirm(
+                    'Confirmar '+description+' de '+qty(quantity)+' '+(r.unidade||'')+
+                    ' para a empresa '+r.empresa_nome+
+                    '\\nMaterial: '+r.material_nome+
+                    '\\nSaldo disponível atual: '+qty(r.quantidade_disponivel)+
+                    '\\nEsta operação será gravada no Supabase V19.'
+                  );
+                  if (!confirmed) return;
+                  form.dataset.busy='1';submit.disabled=true;
+                  info.textContent='Registrando movimentação no estoque da empresa…';
+                  try {
+                    const response=await sbFetch('rpc/v19_movimentar_estoque_empresa',
+                      'POST',{
+                        p_material_id:r.material_id,
+                        p_empresa_id:r.empresa_id,
+                        p_tipo:direction,
+                        p_quantidade:quantity,
+                        p_observacao:note.value.trim().slice(0,500) ||
+                          'Movimentação manual pela tela empresarial V19'
+                      });
+                    if (response?.ok!==true || response.empresa_id!==r.empresa_id ||
+                        response.estoque_id!==r.estoque_id) {
+                      throw new Error('Operação não confirmada. Consulte o saldo antes de tentar novamente.');
+                    }
+                    // Nunca reenviar automaticamente em caso de resposta de rede ambígua.
+                    window.vEstoque(body,title,actions);
+                  } catch(e) {
+                    info.textContent='Falha ou confirmação indisponível: '+
+                      (e?.message||'Verifique o estoque antes de repetir.');
+                    submit.disabled=true;
+                    info.style.color='#b91c1c';
+                    // Em erro de rede, a transação pode ter sido gravada.
+                    // A recuperação exige atualizar o saldo, nunca reenviar.
+                    reload.focus();
+                  }
+                });
+              });
             }
           });
         }
