@@ -66,8 +66,8 @@ BEGIN
     -- Uma linha por material + empresa; se nao ha saldo especifico, retorna ZERO.
     -- A coluna saldo_legado e temporaria e sempre FALSE, para manter assinatura.
     SELECT
-      m.id, m.nome, m.unidade, m.consorcio_id,
-      emp.id, emp.nome,
+      m.id, m.nome::text, m.unidade::text, m.consorcio_id,
+      emp.id, emp.nome::text,
       s.id,
       COALESCE(s.quantidade_contratada,0)::numeric,
       COALESCE(s.quantidade_disponivel,0)::numeric,
