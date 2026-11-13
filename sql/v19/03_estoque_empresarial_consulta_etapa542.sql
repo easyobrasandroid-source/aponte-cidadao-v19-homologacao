@@ -2,10 +2,12 @@
 -- Interface de CONSULTA segregada para estoques por empresa.
 -- Executar somente no Supabase V19, APOS as etapas 538 e 541.
 -- Preparacao: nao cria saldos, nao altera quantidades nem RLS existentes.
--- A consulta apresenta saldos empresariais inexistentes como 0 (nao como
--- atribuicao do saldo legado), para verificacao antes do corte operacional.
--- MASTER e CONSORCIO podem ver tambem o estoque legado, claramente rotulado.
--- EMPRESA so consulta o proprio estoque, sem ver saldos legados.
+-- Regra definitiva: so existe estoque operacional POR EMPRESA.
+-- Um material sem linha de estoque empresarial aparece com saldo ZERO.
+-- Saldos antigos nao atribuidos NAO sao exibidos nesta consulta: ficam
+-- preservados em sua tabela de origem ate conciliacao supervisionada.
+-- MASTER e CONSORCIO podem ver empresas autorizadas, NAO o saldo antigo.
+-- EMPRESA so consulta o seu proprio estoque.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
@@ -25,7 +27,7 @@ RETURNS TABLE (
     quantidade_disponivel numeric,
     estoque_minimo numeric,
     preco_unitario numeric,
-    saldo_legado boolean
+    saldo_legado boolean -- compatibilidade temporaria: sempre FALSE; nao cria terceiro estoque
 )
 LANGUAGE plpgsql
 STABLE
@@ -62,6 +64,7 @@ BEGIN
 
   RETURN QUERY
     -- Uma linha por material + empresa; se nao ha saldo especifico, retorna ZERO.
+    -- A coluna saldo_legado e temporaria e sempre FALSE, para manter assinatura.
     SELECT
       m.id, m.nome, m.unidade, m.consorcio_id,
       emp.id, emp.nome,
@@ -84,24 +87,7 @@ BEGIN
         OR (v_perfil='empresa'
             AND m.consorcio_id=v_consorcio AND emp.id=v_empresa)
       )
-
-    UNION ALL
-
-    -- Saldo legado isolado de empresas, visivel apenas a Master/Consorcio.
-    SELECT
-      m.id, m.nome, m.unidade, m.consorcio_id,
-      NULL::uuid, 'LEGADO - SEM EMPRESA'::text,
-      s.id,
-      s.quantidade_contratada, s.quantidade_disponivel,
-      m.estoque_minimo, m.preco_unitario, true
-    FROM public.estoques s
-    JOIN public.materiais m
-      ON m.id=s.material_id AND m.consorcio_id=s.consorcio_id
-    WHERE s.empresa_id IS NULL
-      AND m.status='ativo'
-      AND v_perfil IN ('master','consorcio')
-      AND (p_consorcio_id IS NULL OR m.consorcio_id=p_consorcio_id)
-      AND (v_perfil='master' OR m.consorcio_id=v_consorcio);
+;
 END
 $v19$;
 
@@ -110,7 +96,7 @@ REVOKE ALL ON FUNCTION public.v19_listar_estoques_por_empresa(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.v19_listar_estoques_por_empresa(uuid)
   TO authenticated;
 COMMENT ON FUNCTION public.v19_listar_estoques_por_empresa(uuid) IS
-  'V19 Etapa 542: consulta segura por empresa, sem atribuir saldo legado; ainda sem movimentacoes empresariais.';
+  'V19 Etapa 542: consulta somente de estoques empresariais; historico nao atribuido preservado e nao exibido; ainda sem movimentacoes empresariais.';
 
 COMMIT;
 
