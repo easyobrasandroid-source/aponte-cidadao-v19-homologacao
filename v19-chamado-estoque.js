@@ -1,10 +1,10 @@
-/* APONTE CIDADAO V19 — ETAPA 574
- * Simulacao de selecao de material e quantidade por chamado, SOMENTE LEITURA.
- * Nenhum consumo/edicao/estorno ativo: RPCs ainda revogadas no banco.
- * Empresas so veem materiais do proprio estoque; Master/Consorcio consultam
- * o historico do chamado SEM botoes de escrita.
- * O estado do chamado e sua empresa sao confirmados no Supabase antes
- * da listagem. V18 de producao permanece intacta.
+/* APONTE CIDADAO V19 — ETAPA 576
+ * Consumo REAL por chamado, somente pela EMPRESA responsavel.
+ * A funcao v19_consumir_material_chamado_empresa executa baixa
+ * transacional, historico e auditoria no banco (etapa 575).
+ * Master/Consorcio: somente consulta. Edicao/estorno: ainda BLOQUEADOS.
+ * Operacao exige confirmacao, valida retorno e impede reenvio ambiguo.
+ * V18 de producao permanece intacta.
  */
 (function () {
   'use strict';
@@ -87,10 +87,10 @@
       'padding:8px 12px;cursor:pointer;');
     close.type='button';close.addEventListener('click',closeModal);
     shade.addEventListener('click',e=>{if(e.target===shade)closeModal();});
-    addMessage(card,'Prévia de consumo — etapa 574',
-      'Selecione um material e simule a quantidade desejada.' +
-      ' Nenhuma movimentação será gravada: as RPCs de consumo,' +
-      ' edição e estorno ainda estão bloqueadas no Supabase.');
+    addMessage(card,'Registrar consumo de material',
+      'A empresa responsável pode dar baixa real no estoque do chamado.' +
+      ' Confirme a operação antes de gravar. Edição e estorno' +
+      ' de consumos continuam indisponíveis durante a homologação.');
     const results=node('div',card,'Consultando saldo empresarial…',
       'font-size:12px;color:#64748b;margin-top:12px;');
     document.body.style.overflow='hidden';
@@ -118,7 +118,7 @@
       results.replaceChildren();
       addMessage(results,'Chamado '+(called[0].protocolo||''),
         readStatuses.has(status)
-          ? 'Status '+status+' · você pode simular a baixa, sem gravar.'
+          ? 'Status '+status+' · baixa de materiais permitida à empresa responsável.'
           : 'Status '+status+' · consumo não é permitido neste estado.');
       const list=stocks.filter(r=>r.estoque_id && uuid(r.estoque_id));
       if(!list.length){
@@ -138,7 +138,7 @@
             available>0 && available<=Number(r.quantidade_contratada);
           node('small',pane,
             allowed
-              ? 'Simulação permitida neste status; nenhuma baixa será registrada'
+              ? 'Consumo permitido neste chamado, sujeito à confirmação e ao saldo atual'
               : available<=0 ? 'Sem saldo disponível para consumo'
                 : 'Consumo indisponível neste status ou registro',
             'display:block;margin-top:6px;color:#64748b;');
@@ -148,20 +148,23 @@
           const label=node('label',form,null,
             'font-size:12px;color:#334155;font-weight:600;display:flex;' +
             'flex-direction:column;gap:4px;');
-          node('span',label,'Quantidade a simular');
+          node('span',label,'Quantidade a consumir');
           const amount=node('input',label,null,
             'border:1px solid #cbd5e1;border-radius:8px;' +
             'padding:9px;width:130px;box-sizing:border-box;');
           amount.type='number';amount.min='0.01';amount.max=String(available);
           amount.step='0.01';amount.value=String(Math.min(1,available));
-          const simulate=node('button',form,'Simular consumo (não grava)',
+          const simulate=node('button',form,'Registrar consumo',
             'background:#0f766e;color:#fff;border:0;border-radius:8px;' +
             'padding:10px 12px;font-weight:700;cursor:pointer;');
           simulate.type='submit';
           const preview=node('div',pane,null,
             'font-size:12px;color:#334155;margin-top:10px;');
-          form.addEventListener('submit',event=>{
+          form.addEventListener('submit',async event=>{
             event.preventDefault();
+            // Importante: apos qualquer POST, sucesso ou erro ambiguo,
+            // nao apagar mensagem e NUNCA permitir um segundo envio.
+            if(shade.dataset.consumoEnviado==='1')return;
             if(request!==modalId || !activeSession(session,company,callId) ||
                !document.getElementById('v19-consumo-preview'))return;
             preview.replaceChildren();
@@ -177,15 +180,92 @@
             }
             const unit=String(r.unidade||'Un.');
             const name=String(r.material_nome||'Material');
-            const remains=Math.round((available-qtyNum)*100)/100;
-            addMessage(preview,'SIMULAÇÃO — sem gravar',
-              'Empresa: '+String(r.empresa_nome||'')+
-              ' · Material: '+name+
-              ' · Quantidade prevista: '+dec(qtyNum)+' '+unit+
-              ' · Saldo atual: '+dec(available)+
-              ' · Saldo previsto: '+dec(remains)+
-              ' · Custo estimado: '+money(qtyNum*Number(r.preco_unitario||0))+
-              ' · Nenhuma baixa foi registrada.');
+            // A confirmacao e a ultima barreira antes do POST real.
+            // A RPC validara novamente o usuario, chamado, status,
+            // titularidade e saldo sob lock transacional.
+            if(shade.dataset.consumoEnviado==='1')return;
+            const cost=qtyNum*Number(r.preco_unitario||0);
+            const confirmed=window.confirm(
+              'REGISTRAR CONSUMO REAL NA V19?'+
+              '\nEmpresa: '+String(r.empresa_nome||'')+
+              '\nChamado: '+String(called[0].protocolo||callId)+
+              '\nMaterial: '+name+
+              '\nQuantidade: '+dec(qtyNum)+' '+unit+
+              '\nSaldo exibido: '+dec(available)+' '+unit+
+              '\nSaldo previsto: '+dec(Math.round((available-qtyNum)*100)/100)+
+              '\nCusto estimado: '+money(cost)+
+              '\nA baixa, historico e auditoria serao GRAVADOS no Supabase V19.'
+            );
+            if(!confirmed)return;
+            if(request!==modalId || !activeSession(session,company,callId) ||
+               !document.getElementById('v19-consumo-preview') ||
+               shade.dataset.consumoEnviado==='1')return;
+            shade.dataset.consumoEnviado='1';
+            // Trava TODOS os formularios desta janela para evitar
+            // consumo duplicado enquanto uma baixa esta em andamento.
+            Array.from(card.querySelectorAll('form button, form input'))
+              .forEach(el=>{el.disabled=true;});
+            addMessage(preview,'Registrando consumo',
+              'Aguardando confirmacao transacional do Supabase V19…');
+            try {
+              const response=await sbFetch(
+                'rpc/v19_consumir_material_chamado_empresa','POST',{
+                  p_chamado_id:callId,
+                  p_material_id:r.material_id,
+                  p_quantidade:qtyNum
+                }
+              );
+              const before=Number(response?.saldo_anterior);
+              const after=Number(response?.novo_saldo);
+              const responseQty=Number(response?.quantidade);
+              const total=Number(response?.total);
+              const validResponse=response?.ok===true &&
+                uuid(response?.item_id) &&
+                response.empresa_id===company &&
+                response.material_id===r.material_id &&
+                response.estoque_id===r.estoque_id &&
+                responseQty===qtyNum &&
+                Number.isFinite(before) && Number.isFinite(after) &&
+                Number.isFinite(total) && total>=0 &&
+                before>=qtyNum && after>=0 &&
+                Math.abs(before-qtyNum-after)<=1e-9;
+              if(!validResponse){
+                throw new Error('Resposta da baixa inconsistente. Confira o estoque e o chamado.');
+              }
+              if(request!==modalId || !activeSession(session,company,callId) ||
+                 !document.getElementById('v19-consumo-preview'))return;
+              results.replaceChildren();
+              addMessage(results,'Consumo REGISTRADO com sucesso',
+                'Empresa: '+String(r.empresa_nome||'')+
+                ' · Chamado: '+String(called[0].protocolo||callId)+
+                ' · Material: '+name+
+                ' · Quantidade consumida: '+dec(qtyNum)+' '+unit+
+                ' · Saldo anterior confirmado: '+dec(before)+
+                ' · Novo saldo confirmado: '+dec(after)+
+                ' · Valor registrado: '+money(response.total)+
+                ' · Registro: '+String(response.item_id));
+              node('p',results,
+                'A operação foi gravada no Supabase. Feche esta janela' +
+                ' para conferir o material na aba Materiais do chamado.',
+                'font-size:12px;color:#047857;margin-top:10px;font-weight:600;');
+              // Sincronizar lista do chamado, nunca repetir o POST.
+              if(typeof window.renderMateriaisChamado==='function'){
+                Promise.resolve(window.renderMateriaisChamado()).catch(e=>{
+                  console.warn('[V19 consumo] falha ao atualizar lista',e);
+                });
+              }
+            }catch(e){
+              if(request!==modalId || !activeSession(session,company,callId) ||
+                 !document.getElementById('v19-consumo-preview'))return;
+              preview.replaceChildren();
+              addMessage(preview,'Consumo sem confirmação — NÃO REPETIR',
+                'A resposta não confirmou a operação: '+
+                (e?.message||'Falha de comunicação.')+
+                ' Uma falha de rede pode acontecer APÓS a gravação.'+
+                ' Feche a janela, atualize o estoque e consulte o chamado' +
+                ' antes de tentar qualquer nova baixa.');
+              // Reenvio neste modal fica definitivamente desabilitado.
+            }
           });
         });
     } catch(e) {
@@ -247,5 +327,5 @@
   window.editarMaterialChamado=()=>message('Edição em homologação na V19. Nada foi alterado.');
   window.removerMaterialChamado=()=>message('Estorno em homologação na V19. Nada foi alterado.');
   window.confirmarMatChamado=()=>message('Consumo em homologação na V19. Nada foi alterado.');
-  window.abrirModalMaterialChamado=()=>message('Utilize a prévia de consumo empresarial da etapa 574.');
+  window.abrirModalMaterialChamado=()=>message('Utilize o consumo empresarial por chamado da etapa 576.');
 })();
