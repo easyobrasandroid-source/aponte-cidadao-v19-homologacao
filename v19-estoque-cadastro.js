@@ -1,4 +1,4 @@
-/* Aponte Cidadão V19 — ETAPA 561: cadastro de novos materiais por empresa.
+/* Aponte Cidadão V19 — ETAPA 564: cadastro de materiais com quantidade inicial.
    Apenas o próprio usuário de perfil Empresa pode cadastrar materiais.
    Master e Consórcio permanecem somente leitura. V18 intocada.
    A fonte autoritativa de empresa e consórcio é o usuário JWT na RPC. */
@@ -13,6 +13,8 @@
     /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(v);
   const displayMoney=n=>Number(n).toLocaleString('pt-BR',
     {minimumFractionDigits:2,maximumFractionDigits:2});
+  const displayQty=n=>Number(n).toLocaleString('pt-BR',
+    {maximumFractionDigits:2});
   function elem(tag, parent, text, style) {
     const el=document.createElement(tag);
     if(text!==null && text!==undefined)el.textContent=String(text);
@@ -45,8 +47,8 @@
     elem('h3',editor,'Cadastrar novo material da minha empresa',
       'font-size:15px;color:#0f172a;margin:0 0 6px;');
     elem('p',editor,
-      'Este material será exclusivo da sua empresa, com quantidade inicial zero.' +
-      ' Depois do cadastro, use Registrar entrada / saída para incluir unidades.',
+      'Este material será exclusivo da sua empresa. Informe a quantidade inicial' +
+      ' (zero é permitido). Quando positiva, ela gera uma entrada no histórico automaticamente.',
       'font-size:12px;color:#64748b;margin:0 0 14px;');
 
     const form=elem('form',editor,null,
@@ -70,6 +72,8 @@
     name.minLength=2;name.maxLength=120;
     const unit=field('Unidade *','text','Un.','Ex.: Un., kg, m, cx',true);
     unit.maxLength=20;
+    const initial=field('Quantidade inicial *','number','0','Ex.: 10',true);
+    initial.min='0';initial.step='0.01';initial.max='9999999999';
     const stockMin=field('Estoque mínimo','number','0','0',true);
     stockMin.min='0';stockMin.step='0.01';stockMin.max='9999999999';
     const price=field('Preço unitário (R$)','number','0','0.00',true);
@@ -110,12 +114,14 @@
 
       const nome=String(name.value||'').trim();
       const unidade=String(unit.value||'').trim();
+      const quantidadeInicial=Number(initial.value);
       const minimo=Number(stockMin.value);
       const preco=Number(price.value);
       if(nome.length<2||nome.length>120||unidade.length<1||unidade.length>20 ||
-        stockMin.value===''||price.value===''||!numberOk(minimo)||!numberOk(preco)) {
+        initial.value===''||stockMin.value===''||price.value===''||
+        !numberOk(quantidadeInicial)||!numberOk(minimo)||!numberOk(preco)) {
         info.textContent='Informe nome de 2 a 120 caracteres, unidade de 1 a 20' +
-          ' e números não negativos com até duas casas decimais.';
+          ' e quantidades e preços não negativos com até duas casas decimais.';
         info.style.color='#b91c1c';
         return;
       }
@@ -124,7 +130,9 @@
         '\nMaterial: '+nome+' ('+unidade+')'+
         '\nEstoque mínimo: '+minimo+
         '\nPreço unitário: R$ '+displayMoney(preco)+
-        '\nQuantidade inicial: zero'+
+        '\nQuantidade inicial: '+displayQty(quantidadeInicial)+' '+unidade+
+        (quantidadeInicial>0 ? '\nUma ENTRADA inicial será registrada no histórico.' :
+          '\nNenhuma entrada será gerada para o saldo inicial zero.')+
         '\nA operação será gravada no Supabase V19.'
       );
       if(!confirmed)return;
@@ -137,15 +145,19 @@
       info.textContent='Criando material exclusivo na empresa…';
 
       try {
-        const response=await sbFetch('rpc/v19_criar_material_empresa','POST',{
+        const response=await sbFetch('rpc/v19_criar_material_empresa_com_saldo','POST',{
           p_nome:nome,p_unidade:unidade,
-          p_estoque_minimo:minimo,p_preco_unitario:preco
+          p_estoque_minimo:minimo,p_preco_unitario:preco,
+          p_quantidade_inicial:quantidadeInicial
         });
         if(response?.ok!==true||!validUUID(response.material_id) ||
            !validUUID(response.estoque_id)||response.empresa_id!==company ||
            response.consorcio_id!==consortium ||
-           Number(response.quantidade_contratada)!==0 ||
-           Number(response.quantidade_disponivel)!==0) {
+           !Number.isFinite(Number(response.quantidade_contratada)) ||
+           !Number.isFinite(Number(response.quantidade_disponivel)) ||
+           Math.abs(Number(response.quantidade_contratada)-quantidadeInicial)>1e-9 ||
+           Math.abs(Number(response.quantidade_disponivel)-quantidadeInicial)>1e-9 ||
+           response.movimentacao_inicial_registrada !== (quantidadeInicial>0)) {
           throw new Error('Resposta não confirmada. Confira o cadastro no estoque.');
         }
         if(stillActive())window.vEstoque(body,title,actions);

@@ -1,4 +1,4 @@
-/* Aponte Cidadão V19 — ETAPA 561
+/* Aponte Cidadão V19 — ETAPA 564
    A EMPRESA administra seu estoque, registra entradas/saidas
    e cadastra novos materiais exclusivos pelo modulo de cadastro.
    Master e Gestor Consorcio somente visualizam.
@@ -101,7 +101,8 @@
     const safety = panel(root, 'Estoque administrado pela própria empresa',
       'Cada empresa registra entradas e saídas de seu estoque.' +
       ' Master e Consórcio possuem acesso somente de consulta.' +
-      ' Cadastro de novos materiais, consumo em chamados, edição e estorno estão em homologação.');
+      ' Cadastro com quantidade inicial já está disponível à empresa.' +
+      ' Consumo em chamados, edição e estorno ainda estão em homologação.');
     safety.style.borderLeft = '4px solid #c28524';
 
     const filterBox = panel(root, 'Consulta de saldos', null);
