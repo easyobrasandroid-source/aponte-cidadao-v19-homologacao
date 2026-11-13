@@ -1,5 +1,5 @@
-/* APONTE CIDADAO V19 — ETAPA 570
- * Preparacao da tela de consumo por chamado, SOMENTE LEITURA.
+/* APONTE CIDADAO V19 — ETAPA 574
+ * Simulacao de selecao de material e quantidade por chamado, SOMENTE LEITURA.
  * Nenhum consumo/edicao/estorno ativo: RPCs ainda revogadas no banco.
  * Empresas so veem materiais do proprio estoque; Master/Consorcio consultam
  * o historico do chamado SEM botoes de escrita.
@@ -87,9 +87,10 @@
       'padding:8px 12px;cursor:pointer;');
     close.type='button';close.addEventListener('click',closeModal);
     shade.addEventListener('click',e=>{if(e.target===shade)closeModal();});
-    addMessage(card,'Somente consulta — etapa 570',
-      'Consumo, edições e estornos ainda estão bloqueados no Supabase.' +
-      ' Nenhuma quantidade será alterada nesta etapa.');
+    addMessage(card,'Prévia de consumo — etapa 574',
+      'Selecione um material e simule a quantidade desejada.' +
+      ' Nenhuma movimentação será gravada: as RPCs de consumo,' +
+      ' edição e estorno ainda estão bloqueadas no Supabase.');
     const results=node('div',card,'Consultando saldo empresarial…',
       'font-size:12px;color:#64748b;margin-top:12px;');
     document.body.style.overflow='hidden';
@@ -117,7 +118,7 @@
       results.replaceChildren();
       addMessage(results,'Chamado '+(called[0].protocolo||''),
         readStatuses.has(status)
-          ? 'Status '+status+' · escolha do material será habilitada após homologação das RPCs.'
+          ? 'Status '+status+' · você pode simular a baixa, sem gravar.'
           : 'Status '+status+' · consumo não é permitido neste estado.');
       const list=stocks.filter(r=>r.estoque_id && uuid(r.estoque_id));
       if(!list.length){
@@ -132,11 +133,60 @@
             'Disponível: '+dec(r.quantidade_disponivel)+' '+(r.unidade||'')+
             ' · Contratado: '+dec(r.quantidade_contratada)+
             ' · Preço unitário: '+money(r.preco_unitario));
+          const allowed=readStatuses.has(status) &&
+            uuid(r.material_id) && Number.isFinite(available) &&
+            available>0 && available<=Number(r.quantidade_contratada);
           node('small',pane,
-            Number.isFinite(available)&&available>0
-              ? 'Disponível para consumo quando a funcionalidade for liberada'
-              : 'Sem saldo disponível para consumo',
+            allowed
+              ? 'Simulação permitida neste status; nenhuma baixa será registrada'
+              : available<=0 ? 'Sem saldo disponível para consumo'
+                : 'Consumo indisponível neste status ou registro',
             'display:block;margin-top:6px;color:#64748b;');
+          if(!allowed)return;
+          const form=node('form',pane,null,
+            'display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-top:12px;');
+          const label=node('label',form,null,
+            'font-size:12px;color:#334155;font-weight:600;display:flex;' +
+            'flex-direction:column;gap:4px;');
+          node('span',label,'Quantidade a simular');
+          const amount=node('input',label,null,
+            'border:1px solid #cbd5e1;border-radius:8px;' +
+            'padding:9px;width:130px;box-sizing:border-box;');
+          amount.type='number';amount.min='0.01';amount.max=String(available);
+          amount.step='0.01';amount.value='1';
+          const simulate=node('button',form,'Simular consumo (não grava)',
+            'background:#0f766e;color:#fff;border:0;border-radius:8px;' +
+            'padding:10px 12px;font-weight:700;cursor:pointer;');
+          simulate.type='submit';
+          const preview=node('div',pane,null,
+            'font-size:12px;color:#334155;margin-top:10px;');
+          form.addEventListener('submit',event=>{
+            event.preventDefault();
+            if(request!==modalId || !activeSession(session,company,callId) ||
+               !document.getElementById('v19-consumo-preview'))return;
+            preview.replaceChildren();
+            const qtyNum=Number(amount.value);
+            if(amount.value==='' || !Number.isFinite(qtyNum) ||
+               qtyNum<=0 || qtyNum>available ||
+               qtyNum>9999999999 ||
+               Math.abs(Math.round(qtyNum*100)/100-qtyNum)>1e-9) {
+              node('strong',preview,
+                'Quantidade inválida ou acima do saldo da empresa.',
+                'color:#b91c1c;');
+              return;
+            }
+            const unit=String(r.unidade||'Un.');
+            const name=String(r.material_nome||'Material');
+            const remains=Math.round((available-qtyNum)*100)/100;
+            addMessage(preview,'SIMULAÇÃO — sem gravar',
+              'Empresa: '+String(r.empresa_nome||'')+
+              ' · Material: '+name+
+              ' · Quantidade prevista: '+dec(qtyNum)+' '+unit+
+              ' · Saldo atual: '+dec(available)+
+              ' · Saldo previsto: '+dec(remains)+
+              ' · Custo estimado: '+money(qtyNum*Number(r.preco_unitario||0))+
+              ' · Nenhuma baixa foi registrada.');
+          });
         });
     } catch(e) {
       if(request!==modalId || !activeSession(session,company,callId) ||
@@ -197,5 +247,5 @@
   window.editarMaterialChamado=()=>message('Edição em homologação na V19. Nada foi alterado.');
   window.removerMaterialChamado=()=>message('Estorno em homologação na V19. Nada foi alterado.');
   window.confirmarMatChamado=()=>message('Consumo em homologação na V19. Nada foi alterado.');
-  window.abrirModalMaterialChamado=()=>message('Utilize a consulta empresarial da etapa 570.');
+  window.abrirModalMaterialChamado=()=>message('Utilize a prévia de consumo empresarial da etapa 574.');
 })();
