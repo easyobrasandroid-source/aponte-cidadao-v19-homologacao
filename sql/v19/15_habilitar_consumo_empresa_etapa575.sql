@@ -266,17 +266,22 @@ DO $guard$
 DECLARE
   v_signature text;
 BEGIN
-  FOREACH v_signature IN ARRAY ARRAY[
-    'public.consumir_material_chamado(uuid,uuid,numeric)',
-    'public.editar_material_chamado(uuid,numeric)',
-    'public.remover_material_chamado(uuid)',
-    'public.v19_movimentar_estoque(uuid,text,numeric,text)',
-    'public.v19_salvar_material(uuid,uuid,text,text,numeric,numeric,numeric,numeric)'
-  ] LOOP
-    IF to_regprocedure(v_signature) IS NOT NULL THEN
-      EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated',
-        v_signature);
-    END IF;
+  -- Incluir TODAS as assinaturas existentes, evitando ignorar overloads.
+  FOR v_signature IN
+    SELECT p.oid::regprocedure::text
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public'
+      AND p.proname IN (
+        'consumir_material_chamado',
+        'editar_material_chamado',
+        'remover_material_chamado',
+        'v19_movimentar_estoque',
+        'v19_salvar_material'
+      )
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon, authenticated',
+      v_signature);
   END LOOP;
 END
 $guard$;
