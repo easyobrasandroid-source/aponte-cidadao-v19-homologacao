@@ -671,7 +671,10 @@ async function sbMeuPerfil(){
     const r = await fetch(SUPA_URL+'/rest/v1/usuarios?auth_user_id=eq.'+SB_SESSION.user.id+'&select=*', {headers: sbHeaders()});
     if(!r.ok) return null;
     const rows = await r.json();
-    return (rows && rows[0]) ? rows[0] : null;
+    // Além de Auth, exigir perfil operacional ATIVO. A mesma checagem
+    // é feita na restauração da sessão após F5 e no login normal.
+    const perfil = Array.isArray(rows) ? rows[0] : null;
+    return perfil && perfil.status === 'ativo' ? perfil : null;
   }catch(e){ return null; }
 }
 // Montar o objeto CU (usuário atual) a partir do perfil vindo do banco
