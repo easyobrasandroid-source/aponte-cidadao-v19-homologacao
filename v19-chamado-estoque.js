@@ -162,6 +162,9 @@
             'font-size:12px;color:#334155;margin-top:10px;');
           form.addEventListener('submit',async event=>{
             event.preventDefault();
+            // Importante: apos qualquer POST, sucesso ou erro ambiguo,
+            // nao apagar mensagem e NUNCA permitir um segundo envio.
+            if(shade.dataset.consumoEnviado==='1')return;
             if(request!==modalId || !activeSession(session,company,callId) ||
                !document.getElementById('v19-consumo-preview'))return;
             preview.replaceChildren();
