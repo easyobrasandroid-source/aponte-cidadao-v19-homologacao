@@ -42,7 +42,8 @@ DECLARE
 BEGIN
   -- Reexecutar o arquivo nao gera auditoria duplicada nem mexe nos saldos.
   IF
-    (SELECT COUNT(*) FROM public.estoques WHERE empresa_id IS NOT NULL)=0
+    (SELECT COUNT(*) FROM public.estoques)=2
+    AND (SELECT COUNT(*) FROM public.estoques WHERE empresa_id IS NOT NULL)=0
     AND (SELECT COUNT(*)
          FROM public.estoques
          WHERE id IN (
