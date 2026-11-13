@@ -1,8 +1,8 @@
-/* Aponte Cidadão V19 — ETAPA 558
-   A EMPRESA administra seu proprio estoque e registra entradas e saidas.
+/* Aponte Cidadão V19 — ETAPA 561
+   A EMPRESA administra seu estoque, registra entradas/saidas
+   e cadastra novos materiais exclusivos pelo modulo de cadastro.
    Master e Gestor Consorcio somente visualizam.
-   Cadastro de novo material, consumo, edicao e estorno seguem pendentes
-   ate a integracao segura das RPCs empresariais.
+   Consumo, edicao e estorno de materiais seguem em homologacao.
    V18 de producao nao deve ser alterada. */
 (function () {
   'use strict';
