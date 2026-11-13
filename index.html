@@ -710,7 +710,9 @@ const V19_WRITABLE_RPCS = new Set([
  // A RPC de estoque empresarial e SOMENTE LEITURA, mas usa POST no PostgREST.
  'v19_listar_estoques_por_empresa',
  // Etapa 552: escrita SOMENTE por RPC transacional restrita a empresa.
- 'v19_movimentar_estoque_empresa'
+ 'v19_movimentar_estoque_empresa',
+ // Etapa 561: somente empresa autenticada cadastra materiais proprios via RPC.
+ 'v19_criar_material_empresa'
 ]);
 // Bloqueio por padrao: nao permitir que o frontend legado grave em tabelas
 // antes de existir RPC especifica homologada. GET segue sujeito ao RLS.
@@ -5256,5 +5258,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-dashboard.js" defer></script>
 <!-- Etapa 550: painel de consulta empresarial. Escritas ainda bloqueadas. -->
 <script src="./v19-estoque-empresas.js" defer></script>
+<!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
+<script src="./v19-estoque-cadastro.js" defer></script>
 </body>
 </html>
