@@ -153,6 +153,8 @@
         if(response?.ok!==true||!validUUID(response.material_id) ||
            !validUUID(response.estoque_id)||response.empresa_id!==company ||
            response.consorcio_id!==consortium ||
+           !Number.isFinite(Number(response.quantidade_contratada)) ||
+           !Number.isFinite(Number(response.quantidade_disponivel)) ||
            Math.abs(Number(response.quantidade_contratada)-quantidadeInicial)>1e-9 ||
            Math.abs(Number(response.quantidade_disponivel)-quantidadeInicial)>1e-9 ||
            response.movimentacao_inicial_registrada !== (quantidadeInicial>0)) {
