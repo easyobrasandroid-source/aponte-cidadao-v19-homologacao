@@ -29,8 +29,8 @@ BEGIN
     RAISE EXCEPTION 'ETAPA_577_BLOQUEADA: saldos ou historico mudaram; revisar antes de habilitar';
   END IF;
 
-  -- A etapa 575 falhou por comparar literalmente o DDL formatado por
-  -- pg_get_functiondef. Usar prosrc: corpo PL/pgSQL armazenado,
+  -- A etapa 575 pode falhar por comparacao textual fragil do DDL
+  -- obtido por pg_get_functiondef. Usar prosrc: corpo PL/pgSQL armazenado,
   -- normalizando quebras e espacos, sem flexibilizar as autorizacoes.
   SELECT p.prosrc,p.prosecdef,
     EXISTS (
