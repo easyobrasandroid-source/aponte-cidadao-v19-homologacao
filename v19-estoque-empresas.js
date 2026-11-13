@@ -36,7 +36,7 @@
       'font-size:12px;color:#64748b;margin:6px 0 0;');
     return x;
   }
-  function checkRows(rows, identity, role, consorcio, empresa) {
+  function checkRows(rows, role, consorcio, empresa) {
     if (!Array.isArray(rows)) throw new Error('Consulta empresarial não retornou uma lista.');
     const filtered = [];
     for (const row of rows) {
@@ -109,9 +109,15 @@
       try {
         // RPC de leitura via POST; credenciais do usuário e validação
         // de perfil permanecem obrigatórias dentro do Supabase.
-        const data = await sbFetch('rpc/v19_listar_estoques_por_empresa',
-          'POST', {p_consorcio_id:null});
-        const rows = checkRows(data, identity, role, consorcio, empresa);
+        const [data, companyRows, consortiumRows] = await Promise.all([
+          sbFetch('rpc/v19_listar_estoques_por_empresa',
+            'POST', {p_consorcio_id:null}),
+          role === 'empresa' ? Promise.resolve([]) :
+            sbSelect('empresas','select=id,nome,consorcio_id,status&status=eq.ativo&order=nome.asc'),
+          role === 'master' ?
+            sbSelect('consorcios','select=id,nome&order=nome.asc') : Promise.resolve([])
+        ]);
+        const rows = checkRows(data, role, consorcio, empresa);
         if (seq !== renderSeq || SB_SESSION?.user?.id !== identity ||
             title.textContent !== 'Controle de estoque') return;
 
@@ -123,6 +129,25 @@
             id:r.empresa_id, name:r.empresa_nome, consorcio_id:r.consorcio_id
           });
         });
+        // Inclui empresas que ainda não possuem materiais, como Beta A.
+        // Para Consórcio, o filtro permanece restrito ao vínculo da sessão.
+        if (Array.isArray(companyRows)) {
+          companyRows.forEach(e => {
+            if (!e?.id || !e?.consorcio_id || e.status !== 'ativo') return;
+            if (role === 'consorcio' && e.consorcio_id !== consorcio) return;
+            companies.set(e.id,{
+              id:e.id,name:e.nome,consorcio_id:e.consorcio_id
+            });
+            if (!consortium.has(e.consorcio_id)) {
+              consortium.set(e.consorcio_id,e.consorcio_id);
+            }
+          });
+        }
+        if (Array.isArray(consortiumRows) && role === 'master') {
+          consortiumRows.forEach(c => {
+            if (c?.id) consortium.set(c.id,c.nome || c.id);
+          });
+        }
 
         let consSelect = null;
         if (role === 'master' && consortium.size > 1) {
@@ -131,7 +156,9 @@
           consSelect = node('select', control, null,
             'padding:9px;border:1px solid #cbd5e1;border-radius:8px;');
           option(consSelect, '', 'Todos os consórcios');
-          Array.from(consortium.keys()).sort().forEach(id => option(consSelect,id,id));
+          Array.from(consortium.keys())
+            .sort((a,b)=>String(consortium.get(a)).localeCompare(String(consortium.get(b)),'pt-BR'))
+            .forEach(id=>option(consSelect,id,consortium.get(id)));
         }
 
         let companySelect = null;
@@ -141,7 +168,7 @@
           companySelect = node('select', control, null,
             'padding:9px;border:1px solid #cbd5e1;border-radius:8px;');
         } else {
-          const companyName = rows[0]?.empresa_nome || 'Empresa vinculada';
+          const companyName = rows[0]?.empresa_nome || CU?.org || 'Empresa vinculada';
           node('p', selects, companyName,
             'font-size:13px;font-weight:650;color:#0f172a;');
         }
