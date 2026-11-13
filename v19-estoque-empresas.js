@@ -1,9 +1,9 @@
-/* Aponte Cidadão V19 — ETAPA 552
-   Painel de estoque exclusivo por empresa.
-   Entrada e saída MANUAL: só Master e Gestor Consórcio, via RPC empresarial
-   da etapa 547. Consumo em chamado, edição e estorno seguem INDISPONÍVEIS
-   na interface até a homologação coordenada.
-   V18 de produção não deve ser alterada. */
+/* Aponte Cidadão V19 — ETAPA 558
+   A EMPRESA administra seu proprio estoque e registra entradas e saidas.
+   Master e Gestor Consorcio somente visualizam.
+   Cadastro de novo material, consumo, edicao e estorno seguem pendentes
+   ate a integracao segura das RPCs empresariais.
+   V18 de producao nao deve ser alterada. */
 (function () {
   'use strict';
 
@@ -98,9 +98,10 @@
 
     panel(root, 'Estoque exclusivo por empresa',
       'Cada saldo pertence a uma empresa. O consórcio não possui estoque próprio.');
-    const safety = panel(root, 'Operações de estoque em homologação',
-      'Master e Gestor Consórcio podem registrar entradas e saídas diretamente no estoque da empresa.' +
-      ' Consumo em chamados, edição e estorno permanecem indisponíveis na interface até os testes.');
+    const safety = panel(root, 'Estoque administrado pela própria empresa',
+      'Cada empresa registra entradas e saídas de seu estoque.' +
+      ' Master e Consórcio possuem acesso somente de consulta.' +
+      ' Cadastro de novos materiais, consumo em chamados, edição e estorno estão em homologação.');
     safety.style.borderLeft = '4px solid #c28524';
 
     const filterBox = panel(root, 'Consulta de saldos', null);
@@ -232,7 +233,8 @@
               node('div', card, 'Saldo empresarial ainda não cadastrado',
                 'font-size:11px;color:#b45309;margin-top:10px;');
             }
-            if ((role==='master' || role==='consorcio') &&
+            if (role==='empresa' && r.empresa_id===empresa &&
+                r.consorcio_id===consorcio &&
                 validUuid(r.material_id) && validUuid(r.empresa_id) &&
                 validUuid(r.estoque_id)) {
               const launch = node('button', card, 'Registrar entrada / saída',
@@ -282,7 +284,9 @@
                   ev.preventDefault();
                   if (form.dataset.busy==='1') return;
                   if (seq!==renderSeq || SB_SESSION?.user?.id!==identity ||
-                      CU?.perfil!==role) return;
+                      CU?.perfil!=='empresa' ||
+                      CU?.empresa_id!==r.empresa_id ||
+                      CU?.consorcio_id!==r.consorcio_id) return;
                   const quantity=Number(amount.value);
                   const direction=kind.value;
                   if (!['entrada','saida'].includes(direction) ||
