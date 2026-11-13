@@ -1131,7 +1131,7 @@ async function doLogin(){
   }
   const perfil = await sbMeuPerfil();
   if(!perfil){
-    errEl.textContent='Login válido, mas este usuário ainda não tem perfil no sistema. Fale com o administrador.';
+    errEl.textContent='Login válido, mas não há um perfil ativo autorizado para esta conta. Solicite verificação ao administrador.';
     errEl.style.display='block'; await sbLogout();
     if(btn){ btn.disabled=false; btn.textContent=btn._txt||'Entrar no sistema'; }
     return;
