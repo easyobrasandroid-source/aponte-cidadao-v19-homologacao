@@ -184,14 +184,14 @@
             const cost=qtyNum*Number(r.preco_unitario||0);
             const confirmed=window.confirm(
               'REGISTRAR CONSUMO REAL NA V19?'+
-              '\\nEmpresa: '+String(r.empresa_nome||'')+
-              '\\nChamado: '+String(called[0].protocolo||callId)+
-              '\\nMaterial: '+name+
-              '\\nQuantidade: '+dec(qtyNum)+' '+unit+
-              '\\nSaldo exibido: '+dec(available)+' '+unit+
-              '\\nSaldo previsto: '+dec(Math.round((available-qtyNum)*100)/100)+
-              '\\nCusto estimado: '+money(cost)+
-              '\\nA baixa, historico e auditoria serao GRAVADOS no Supabase V19.'
+              '\nEmpresa: '+String(r.empresa_nome||'')+
+              '\nChamado: '+String(called[0].protocolo||callId)+
+              '\nMaterial: '+name+
+              '\nQuantidade: '+dec(qtyNum)+' '+unit+
+              '\nSaldo exibido: '+dec(available)+' '+unit+
+              '\nSaldo previsto: '+dec(Math.round((available-qtyNum)*100)/100)+
+              '\nCusto estimado: '+money(cost)+
+              '\nA baixa, historico e auditoria serao GRAVADOS no Supabase V19.'
             );
             if(!confirmed)return;
             if(request!==modalId || !activeSession(session,company,callId) ||
@@ -215,6 +215,7 @@
               const before=Number(response?.saldo_anterior);
               const after=Number(response?.novo_saldo);
               const responseQty=Number(response?.quantidade);
+              const total=Number(response?.total);
               const validResponse=response?.ok===true &&
                 uuid(response?.item_id) &&
                 response.empresa_id===company &&
@@ -222,6 +223,7 @@
                 response.estoque_id===r.estoque_id &&
                 responseQty===qtyNum &&
                 Number.isFinite(before) && Number.isFinite(after) &&
+                Number.isFinite(total) && total>=0 &&
                 before>=qtyNum && after>=0 &&
                 Math.abs(before-qtyNum-after)<=1e-9;
               if(!validResponse){
