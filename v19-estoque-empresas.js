@@ -288,7 +288,7 @@
                   if (!['entrada','saida'].includes(direction) ||
                       !Number.isFinite(quantity) || quantity<=0 ||
                       quantity>9999999999 ||
-                      Math.round(quantity*100)!==quantity*100) {
+                      Math.abs(Math.round(quantity*100)/100-quantity)>1e-9) {
                     info.textContent='Informe uma quantidade positiva com até duas casas decimais.';
                     return;
                   }
@@ -300,9 +300,9 @@
                   const confirmed = window.confirm(
                     'Confirmar '+description+' de '+qty(quantity)+' '+(r.unidade||'')+
                     ' para a empresa '+r.empresa_nome+
-                    '\\nMaterial: '+r.material_nome+
-                    '\\nSaldo disponível atual: '+qty(r.quantidade_disponivel)+
-                    '\\nEsta operação será gravada no Supabase V19.'
+                    '\nMaterial: '+r.material_nome+
+                    '\nSaldo disponível atual: '+qty(r.quantidade_disponivel)+
+                    '\nEsta operação será gravada no Supabase V19.'
                   );
                   if (!confirmed) return;
                   form.dataset.busy='1';submit.disabled=true;
@@ -314,7 +314,7 @@
                         p_empresa_id:r.empresa_id,
                         p_tipo:direction,
                         p_quantidade:quantity,
-                        p_observacao:note.value.trim().slice(0,500) ||
+                        p_observacao:String(note.value||'').trim().slice(0,500) ||
                           'Movimentação manual pela tela empresarial V19'
                       });
                     if (response?.ok!==true || response.empresa_id!==r.empresa_id ||
