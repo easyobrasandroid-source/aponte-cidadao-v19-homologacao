@@ -500,7 +500,7 @@ tbody tr:last-child td{border-bottom:none;}
      <div class="dw-tc" id="dw-tc-materiais">
        <div class="card-title">Materiais utilizados</div>
        <div id="dw-materiais-lista"></div>
-       <button class="btn btn-ghost" id="dw-add-material-chamado" style="display:none;margin-top:10px;font-size:11px" onclick="adicionarMaterialChamado()">+ Consultar materiais da minha empresa</button>
+       <button class="btn btn-ghost" id="dw-add-material-chamado" style="display:none;margin-top:10px;font-size:11px" onclick="adicionarMaterialChamado()">+ Registrar consumo de material</button>
      </div>
     <div class="dw-tc" id="dw-tc-fotos">
       <div class="card-title">Registro fotográfico</div>
@@ -711,7 +711,9 @@ const V19_WRITABLE_RPCS = new Set([
  // Etapa 552: escrita SOMENTE por RPC transacional restrita a empresa.
  'v19_movimentar_estoque_empresa',
  // Etapa 564: cadastro com quantidade inicial via transacao empresarial.
- 'v19_criar_material_empresa_com_saldo'
+ 'v19_criar_material_empresa_com_saldo',
+ // Etapa 576: BAIXA REAL apenas pela empresa dona do chamado e do estoque.
+ 'v19_consumir_material_chamado_empresa'
 ]);
 // Bloqueio por padrao: nao permitir que o frontend legado grave em tabelas
 // antes de existir RPC especifica homologada. GET segue sujeito ao RLS.
@@ -5265,7 +5267,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-estoque-empresas.js" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
-<!-- Etapa 570: materiais consumidos e consulta empresarial no chamado, SEM escritas. -->
+<!-- Etapa 576: baixa transacional pela empresa responsavel, via RPC V19. -->
 <script src="./v19-chamado-estoque.js" defer></script>
 </body>
 </html>
