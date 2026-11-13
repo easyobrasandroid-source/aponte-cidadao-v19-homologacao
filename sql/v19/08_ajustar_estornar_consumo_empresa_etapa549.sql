@@ -5,7 +5,7 @@
 -- A INSTALACAO NAO ALTERA SALDOS OU MOVIMENTACOES.
 -- A empresa de origem e tomada de chamado_materiais.estoque_id, NAO do
 -- chamado atual, que pode ter sido transferido para outra empresa.
--- V18 PRODUCAO NAO DEVE SER ALTERADA.
+-- Nunca executar na V18 de producao.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
