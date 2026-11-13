@@ -1,8 +1,8 @@
-/* APONTE CIDADAO V19 — ETAPA 576
+/* APONTE CIDADAO V19 — ETAPA 583
  * Consumo REAL por chamado, somente pela EMPRESA responsavel.
  * A funcao v19_consumir_material_chamado_empresa executa baixa
  * transacional, historico e auditoria no banco (etapa 575).
- * Master/Consorcio: somente consulta. Edicao/estorno: ainda BLOQUEADOS.
+ * Master/Consorcio: somente consulta. Edicao/estorno reais no modulo v19-chamado-ajustes.js.
  * Operacao exige confirmacao, valida retorno e impede reenvio ambiguo.
  * V18 de producao permanece intacta.
  */
@@ -89,8 +89,8 @@
     shade.addEventListener('click',e=>{if(e.target===shade)closeModal();});
     addMessage(card,'Registrar consumo de material',
       'A empresa responsável pode dar baixa real no estoque do chamado.' +
-      ' Confirme a operação antes de gravar. Edição e estorno' +
-      ' de consumos continuam indisponíveis durante a homologação.');
+      ' Confirme a operação antes de gravar.' +
+      ' Para editar ou estornar consumos já registrados, use a aba Materiais.');
     const results=node('div',card,'Consultando saldo empresarial…',
       'font-size:12px;color:#64748b;margin-top:12px;');
     document.body.style.overflow='hidden';
@@ -322,7 +322,7 @@
     }
   };
 
-  // Desativar todas as rotas legadas de edicao/estorno/confirmacao:
+  // Manter INATIVAS as rotas legadas de edicao/estorno/confirmacao:
   // nunca permitir gravar pelas RPCs antigas ainda referenciadas no HTML.
   window.editarMaterialChamado=()=>message('Edição em homologação na V19. Nada foi alterado.');
   window.removerMaterialChamado=()=>message('Estorno em homologação na V19. Nada foi alterado.');
