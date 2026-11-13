@@ -500,7 +500,7 @@ tbody tr:last-child td{border-bottom:none;}
      <div class="dw-tc" id="dw-tc-materiais">
        <div class="card-title">Materiais utilizados</div>
        <div id="dw-materiais-lista"></div>
-       <button class="btn btn-ghost" style="margin-top:10px;font-size:11px" onclick="adicionarMaterialChamado()">+ Adicionar material</button>
+       <button class="btn btn-ghost" id="dw-add-material-chamado" style="display:none;margin-top:10px;font-size:11px" onclick="adicionarMaterialChamado()">+ Consultar materiais da minha empresa</button>
      </div>
     <div class="dw-tc" id="dw-tc-fotos">
       <div class="card-title">Registro fotográfico</div>
@@ -704,8 +704,7 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_concluir_garantia','v19_listar_disponiveis', 
 'v19_designar_empresa_chamado',
   'v19_salvar_sla_padrao','v19_criar_chamado_interno',
- 'v19_salvar_material','v19_movimentar_estoque',
- 'consumir_material_chamado','editar_material_chamado','remover_material_chamado',
+ // Os 5 caminhos legados de estoque permanecem BLOQUEADOS (etapa 570).
  'v19_registrar_foto','v19_salvar_config_portal',
  // A RPC de estoque empresarial e SOMENTE LEITURA, mas usa POST no PostgREST.
  'v19_listar_estoques_por_empresa',
@@ -1808,6 +1807,12 @@ function v19PassoPermitido(c,i){
 function abrirDrawer(id){
   CC=DB.chamados.find(c=>c.id===id);if(!CC)return;
   const c=CC;
+  // Consulta da etapa 570: somente empresa vinculada. Consumo ainda bloqueado.
+  const materialBtn=document.getElementById('dw-add-material-chamado');
+  if(materialBtn) materialBtn.style.display=CU?.perfil==='empresa' &&
+    !!CU?.empresa_id && !!CU?.consorcio_id &&
+    CU.empresa_id===c.empresa_id && CU.consorcio_id===c.consorcio_id &&
+    !!c._supaId ? '' : 'none';
   document.getElementById('dw-proto').textContent=c.protocolo;
   document.getElementById('dw-title').textContent=`${c.tipo} — ${c.qtd} unidade(s)`;
   const sl=window.v19StatusSLA?.(c);
@@ -5260,5 +5265,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-estoque-empresas.js" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
+<!-- Etapa 570: materiais consumidos e consulta empresarial no chamado, SEM escritas. -->
+<script src="./v19-chamado-estoque.js" defer></script>
 </body>
 </html>
