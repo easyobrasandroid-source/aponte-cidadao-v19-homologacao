@@ -496,6 +496,7 @@ tbody tr:last-child td{border-bottom:none;}
         </div>
       </div>
       <div id="dw-dados"></div>
+      <div id="dw-edicao-v19"></div>
     </div>
     <div class="dw-tc" id="dw-tc-historico"></div>
      <div class="dw-tc" id="dw-tc-materiais">
@@ -514,7 +515,7 @@ tbody tr:last-child td{border-bottom:none;}
   <div class="dw-footer">
     <button class="btn btn-ghost" onclick="closeDrawer()">Fechar</button>
     <button class="btn btn-ghost" onclick="if(CC){const w=window.open('','_blank');w.document.write('<pre>'+JSON.stringify(CC,null,2)+'</pre>');w.print();}">🖨 Imprimir</button>
-    <button class="btn btn-save" id="dw-btn-salvar" style="display:none" disabled title="Edição de chamado requer RPC V19 homologada">💾 Salvar</button>
+    <button class="btn btn-save" id="dw-btn-salvar" style="display:none" disabled onclick="salvarDrawer()" title="Salvar correções de dados no Supabase">💾 Salvar</button>
   </div>
 </div>
 
@@ -719,7 +720,9 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_editar_material_chamado_empresa',
  'v19_remover_material_chamado_empresa',
  // Etapa 634: criar/editar/excluir equipes exclusivamente por RPC autenticada.
- 'v19_gerenciar_equipe'
+ 'v19_gerenciar_equipe',
+ // Etapa 641: correção de dados de chamados por RPC autenticada e auditada.
+ 'v19_editar_dados_chamado'
 ]);
 // Bloqueio por padrao: nao permitir que o frontend legado grave em tabelas
 // antes de existir RPC especifica homologada. GET segue sujeito ao RLS.
@@ -1427,8 +1430,9 @@ async function carregarChamadosDoBanco(){
       prioridade: r.prioridade||'Média', sla:r.sla_horas==null?null:Number(r.sla_horas), _slaHoras:r.sla_horas==null?null:Number(r.sla_horas),
       slaPct: r.status==='Concluído'?100:0, sla_pausado: r.sla_pausado||false,
       origem: r.origem||'Público', solicitante: r.solicitante_nome||'',
-      tel: r.solicitante_tel||'', lat: r.latitude||null, lng: r.longitude||null,
+      tel: r.solicitante_tel||'', lat: r.latitude==null?null:Number(r.latitude), lng: r.longitude==null?null:Number(r.longitude),
       loc_src: r.loc_src||null, created_at: r.created_at, completed_at: r.completed_at,
+      updated_at: r.updated_at,
       garantia_tipo: r.garantia_tipo||null, garantia_obs: r.garantia_obs||null,
       garantia_dt: r.garantia_dt||null, garantia_user: r.garantia_user||null,
       data: r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '',
@@ -1961,6 +1965,7 @@ function abrirDrawer(id){
       ${c.completed_at?`<div class="drow"><span class="dlbl">Conclusão</span><span class="dval" style="color:var(--green)">✓ ${new Date(c.completed_at).toLocaleString('pt-BR')}</span></div>`:'<div class="drow"><span class="dlbl">Conclusão</span><span class="dval" style="color:var(--gray-400)">Pendente</span></div>'}
       ${c.created_at&&c.completed_at?`<div class="drow"><span class="dlbl">Tempo total</span><span class="dval" style="color:var(--brand)">${v19FormatarTempoAtendimento(c.created_at,c.completed_at)}</span></div>`:''}
     </div></div>`;
+  if(window.v19PrepararEdicaoChamado)window.v19PrepararEdicaoChamado(c);
   const hist=DB.historico[id]||[];
   document.getElementById('dw-tc-historico').innerHTML=`<div class="card-title">Timeline do chamado</div>${hist.map((h,i)=>`<div class="tl-item"><div class="tl-dot-col"><div class="tl-dot" style="background:${h.c}"></div>${i<hist.length-1?'<div class="tl-line"></div>':''}</div><div class="tl-body"><div class="tl-s">${h.s}</div><div class="tl-m">${h.m}</div>${h.o?`<div class="tl-o">${h.o}</div>`:''}</div></div>`).join('')}`;
   document.getElementById('drawer').classList.add('open');
@@ -1969,8 +1974,11 @@ function abrirDrawer(id){
   showDTab('resumo',document.querySelector('.dtab'));
 }
 async function salvarDrawer(){
-  showToast('🔒 Edição geral do chamado bloqueada até integração de RPC específica na V19.','aviso');
-  return false;
+  if(typeof window.v19SalvarEdicaoChamado!=='function'){
+    showToast('O módulo de edição V19 não carregou. Atualize a página.','erro');
+    return false;
+  }
+  return window.v19SalvarEdicaoChamado();
 }
 async function renderMateriaisChamado(){
   const cont = document.getElementById('dw-materiais-lista');
@@ -2237,7 +2245,7 @@ function refreshChamadosView(){
   atualizarBadgeChamados();
 }
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');document.body.style.overflow='';}
-function showDTab(id,el){document.querySelectorAll('.dw-tc').forEach(t=>t.classList.remove('on'));document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));document.getElementById('dw-tc-'+id).classList.add('on');if(el)el.classList.add('on');if(id==='materiais'&&typeof renderMateriaisChamado==='function')renderMateriaisChamado();}
+function showDTab(id,el){document.querySelectorAll('.dw-tc').forEach(t=>t.classList.remove('on'));document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));document.getElementById('dw-tc-'+id).classList.add('on');if(el)el.classList.add('on');if(id==='materiais'&&typeof renderMateriaisChamado==='function')renderMateriaisChamado();if(id==='historico'&&typeof window.v19CarregarHistoricoChamado==='function')window.v19CarregarHistoricoChamado();}
 
 // ═══ STATUS ═══
 const s2s=['Recebido','Em programação','Em execução','Aguard. material','Concluído'];
@@ -5492,5 +5500,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-chamado-estoque.js" defer></script>
 <!-- Etapa 583: editar e estornar consumos reais via RPCs da empresa de origem. -->
 <script src="./v19-chamado-ajustes.js" defer></script>
+<!-- Etapa 641: edição auditada de dados operacionais via RPC, sem PATCH direto. -->
+<script src="./v19-chamado-edicao.js" defer></script>
 </body>
 </html>
