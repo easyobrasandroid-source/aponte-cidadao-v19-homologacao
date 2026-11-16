@@ -360,7 +360,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="gps-btn" onclick="captureGPS('geocode-status-pub')"><span>📍</span>Usar minha localização atual (GPS)</div>
         <div id="geocode-status-pub" class="geocode-status"></div>
         <div class="frow frow2" style="margin-bottom:10px">
-          <div class="field"><label>Cidade</label><select id="pub-cidade" onchange="v19AtualizarBotaoPortal()" disabled><option value="">Nenhum município disponível</option></select></div>
+          <div class="field"><label>Cidade</label><select id="pub-cidade" onchange="v19AtualizarBotaoPortal();_v19LimparSugestoes('pub')" disabled><option value="">Nenhum município disponível</option></select></div>
           <div class="field"><label>Bairro</label><input type="text" id="pub-bairro" placeholder="Nome do bairro"></div>
         </div>
         <div class="frow frow32">
@@ -2579,10 +2579,22 @@ const CIDADES_COORDS={
   'Caparaó Divinas':{lat:-20.5500,lng:-41.9667,bounds:[[-20.59,-42.00],[-20.51,-41.93]]},
 };
 
-// V19 HOMOLOGACAO: provedor de geocodificacao desabilitado.
-// Nao consultar Google com chave de origem desconhecida nem Nominatim publico automaticamente.
+// Geocodificacao real para enderecos COM numero e correspondencia precisa.
+// Nao inventa coordenadas por centro de bairro/cidade.
 async function geocodificarEndereco(rua, numero, bairro, cidade) {
-  return null;
+  const st=String(rua||'').trim(),number=String(numero||'').trim();
+  if(!st||!number||!String(cidade||'').trim())return null;
+  try {
+    const found=await _v19PhotonBuscar([st,number,bairro].filter(Boolean).join(' '),cidade,null);
+    const exact=found.find(r=>r.numero===number&&
+      _v19NormalizarGeo(r.rua).includes(_v19NormalizarGeo(st).slice(0,30)));
+    if(!exact)return null;
+    return {lat:exact.lat,lng:exact.lng,confianca:'endereco_confirmado',
+      provedor:'Photon/OpenStreetMap'};
+  }catch(e){
+    console.warn('[V19] Geocodificacao indisponivel:',e?.message||'erro');
+    return null;
+  }
 }
 
 async function tentarGeocodar(campos,cbId){
@@ -4732,7 +4744,7 @@ async function vNovoChamado(){
       <div class="gps-btn" onclick="captureGPS('geocode-status-int')"><span>📍</span>Usar minha localização atual (GPS)</div>
       <div id="geocode-status-int" class="geocode-status"></div>
       <div class="frow frow2" style="margin-bottom:10px">
-        <div class="field"><label>Cidade</label><select id="int-cidade" onchange="v19AtualizarEmpresasAbertura()" ${CU.perfil==='prefeitura'?'disabled':''}>${cityOptions}</select></div>
+        <div class="field"><label>Cidade</label><select id="int-cidade" onchange="v19AtualizarEmpresasAbertura();_v19LimparSugestoes('int')" ${CU.perfil==='prefeitura'?'disabled':''}>${cityOptions}</select></div>
         <div class="field"><label>Bairro</label><input type="text" id="int-bairro" placeholder="Nome do bairro"></div>
       </div>
       <div class="frow frow32">
@@ -4790,7 +4802,7 @@ function _renderSuggestions(sug, results, suggestionsId){
   results.forEach(res=>{
     const div=document.createElement('div');
     div.style.cssText='padding:9px 13px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--gray-100);color:var(--gray-700);line-height:1.4';
-    div.innerHTML='📍 <b>'+res.rua+(res.numero?' '+res.numero:'')+'</b>'+(res.bairro?'<br><span style="font-size:10px;color:var(--gray-400)">'+res.bairro+', '+res.cidade+'</span>':'');
+    div.innerHTML='📍 <b>'+escaparCidadeHTML(res.rua)+(res.numero?' '+escaparCidadeHTML(res.numero):'')+'</b>'+(res.bairro?'<br><span style="font-size:10px;color:var(--gray-400)">'+escaparCidadeHTML(res.bairro)+', '+escaparCidadeHTML(res.cidade)+'</span>':'');
     div.onmouseover=()=>div.style.background='var(--brand-light)';
     div.onmouseout=()=>div.style.background='';
     div.onclick=()=>{
@@ -4801,6 +4813,8 @@ function _renderSuggestions(sug, results, suggestionsId){
       sug.style.display='none';
       const labelEl=document.getElementById(prefix+'-minimap-label');
       if(labelEl) labelEl.textContent=labels[res.tipo]||'📍 Localização encontrada';
+      // Nunca reutilizar coordenadas anteriores sem nova confirmacao.
+      window._gpsLat=null;window._gpsLng=null;window._locSrc=null;
       mostrarMinimap(res.lat,res.lng,res.label,prefix);
     };
     sug.appendChild(div);
@@ -4808,13 +4822,118 @@ function _renderSuggestions(sug, results, suggestionsId){
   sug.style.display=results.length?'block':'none';
 }
 
-// V19 HOMOLOGACAO: autocomplete temporariamente desabilitado.
-// Preencha endereco manualmente e utilize GPS/minimapa para confirmacao.
-async function autocompleteEndereco(query, suggestionsId, cidadeFieldId) {
-  const sug = document.getElementById(suggestionsId);
-  if (!sug) return;
-  sug.innerHTML = '';
-  sug.style.display = 'none';
+// Busca de endereco V19: Photon (OpenStreetMap) oferece autocomplete;
+// o servidor publico e DEMONSTRATIVO, sujeito a disponibilidade e limites.
+// https://github.com/komoot/photon — futuras instalacoes podem substituir a URL
+// por um servico gerenciado ou instancia propria sem mudar a interface.
+const V19_PHOTON_ENDPOINT='https://photon.komoot.io/api/';
+const _v19GeoCache=new Map();
+let _v19GeoTimer=null,_v19GeoAbort=null,_v19GeoSequence=0,_v19GeoUltimoEnvio=0;
+
+function _v19NormalizarGeo(v){
+  return String(v||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/\s+/g,' ');
+}
+function _v19CidadeSelecionada(fieldId){
+  const sel=document.getElementById(fieldId);
+  if(!sel?.value)return '';
+  return String(sel.selectedOptions?.[0]?.textContent||'').split('/')[0].trim();
+}
+function _v19GeoCidadeCompativel(valor,esperada){
+  const v=_v19NormalizarGeo(valor),e=_v19NormalizarGeo(esperada);
+  if(!e||!v)return false;
+  return v===e;
+}
+async function _v19PhotonBuscar(consulta,cidade,signal){
+  const q=String(consulta||'').trim(),c=String(cidade||'').trim();
+  if(q.length<4||q.length>160||!c)return [];
+  const cacheKey=_v19NormalizarGeo(c+'|'+q);
+  if(_v19GeoCache.has(cacheKey))return _v19GeoCache.get(cacheKey);
+  const wait=Math.max(0,1300-(Date.now()-_v19GeoUltimoEnvio));
+  if(wait)await new Promise((resolve,reject)=>{
+    const timer=setTimeout(resolve,wait);
+    if(signal)signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('Cancelado','AbortError'));},{once:true});
+  });
+  if(signal?.aborted)throw new DOMException('Cancelado','AbortError');
+  _v19GeoUltimoEnvio=Date.now();
+  const url=new URL(V19_PHOTON_ENDPOINT);
+  url.searchParams.set('q',q+', '+c+', Brasil');
+  url.searchParams.set('limit','8');
+  url.searchParams.set('lang','pt');
+  const res=await fetch(url.toString(),{method:'GET',mode:'cors',signal,
+    credentials:'omit',cache:'default'});
+  if(!res.ok)throw new Error('Busca de enderecos indisponivel (HTTP '+res.status+').');
+  const data=await res.json();
+  if(!Array.isArray(data?.features))return [];
+  const results=data.features.map(f=>{
+    const p=f?.properties||{},g=f?.geometry?.coordinates;
+    const lat=Number(g?.[1]),lng=Number(g?.[0]);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)||
+       lat< -90||lat>90||lng< -180||lng>180)return null;
+    const pais=String(p.countrycode||p.country_code||'').toUpperCase();
+    if(pais&&pais!=='BR')return null;
+    const local=p.city||p.town||p.village||p.municipality||p.locality||'';
+    if(!_v19GeoCidadeCompativel(local,c))return null;
+    const rua=String(p.street||p.name||'').trim();
+    if(!rua)return null;
+    const numero=String(p.housenumber||'').trim();
+    return {rua,numero,bairro:String(p.district||p.suburb||p.neighbourhood||''),
+      cidade:c,lat,lng,tipo:numero?'ROOFTOP':'GEOMETRIC_CENTER',
+      label:[rua,numero,c,'Brasil'].filter(Boolean).join(', ')};
+  }).filter(Boolean).slice(0,5);
+  if(_v19GeoCache.size>40)_v19GeoCache.delete(_v19GeoCache.keys().next().value);
+  _v19GeoCache.set(cacheKey,results);
+  return results;
+}
+
+function _v19LimparSugestoes(prefix){
+  ++_v19GeoSequence;
+  if(_v19GeoTimer)clearTimeout(_v19GeoTimer);
+  if(_v19GeoAbort)_v19GeoAbort.abort();
+  const sug=document.getElementById(prefix+'-suggestions');
+  if(sug){sug.replaceChildren();sug.style.display='none';}
+  // Cidade alterada exige nova confirmacao de GPS/endereco.
+  window._gpsLat=null;window._gpsLng=null;window._locSrc=null;
+}
+
+async function autocompleteEndereco(query,suggestionsId,cidadeFieldId){
+  const sug=document.getElementById(suggestionsId);
+  if(!sug)return;
+  const city=_v19CidadeSelecionada(cidadeFieldId);
+  const seq=++_v19GeoSequence;
+  if(_v19GeoTimer){clearTimeout(_v19GeoTimer);_v19GeoTimer=null;}
+  if(_v19GeoAbort){_v19GeoAbort.abort();_v19GeoAbort=null;}
+  sug.replaceChildren();sug.style.display='none';
+  if(String(query||'').trim().length<4||!city)return;
+  _v19GeoTimer=setTimeout(async()=>{
+    const controller=new AbortController();
+    _v19GeoAbort=controller;
+    try{
+      const found=await _v19PhotonBuscar(query,city,controller.signal);
+      if(seq!==_v19GeoSequence||controller.signal.aborted||
+         !_v19GeoCidadeCompativel(_v19CidadeSelecionada(cidadeFieldId),city))return;
+      if(found.length){
+        _renderSuggestions(sug,found,suggestionsId);
+        const credit=document.createElement('div');
+        credit.style.cssText='padding:4px 10px;font-size:10px;color:#64748b';
+        credit.textContent='Endereços: © OpenStreetMap · Busca Photon. Confirme o ponto no mapa.';
+        sug.appendChild(credit);
+      }else{
+        const message=document.createElement('div');
+        message.style.cssText='padding:9px 13px;font-size:11px;color:#64748b';
+        message.textContent='Nenhum endereço encontrado neste município. Preencha manualmente ou use GPS.';
+        sug.appendChild(message);sug.style.display='block';
+      }
+    }catch(e){
+      if(e?.name==='AbortError')return;
+      if(seq!==_v19GeoSequence)return;
+      console.warn('[V19] Photon:',e?.message||'erro');
+      const msg=document.createElement('div');
+      msg.style.cssText='padding:9px 13px;font-size:11px;color:#64748b';
+      msg.textContent='Busca temporariamente indisponível. Você pode preencher manualmente ou usar GPS.';
+      sug.appendChild(msg);sug.style.display='block';
+    }finally{if(_v19GeoAbort===controller)_v19GeoAbort=null;}
+  },850);
 }
 
 // Estado do mini-mapa — deve existir antes de qualquer autocomplete/GPS.
