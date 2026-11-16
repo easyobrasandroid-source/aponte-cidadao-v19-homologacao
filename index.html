@@ -1386,10 +1386,16 @@ const slaCumprido=slaConcluidos.length ? Math.round(slaDentro*100/slaConcluidos.
 function v19StatusSLALinha(c){
   const raw = c?._slaHoras ?? c?.sla_horas ?? null;
   const prazo = raw==null || raw==='' ? NaN : Number(raw);
+  // Um SLA pausado nao tem tempo liquido apuravel sem eventos de pausa/retomada.
+  // Conclusao de Garantia LED preserva sla_pausado como marcador historico.
+  // Nao classificar como "no prazo" ou "atrasado" enquanto faltar esse calculo.
+  if(c?.sla_pausado)
+    return {estado:c.status==='Concluído'?
+      'Concluído — SLA suspenso por garantia':'SLA pausado — Garantia LED',
+      resultado:null,tempo:null,
+      prazo:Number.isFinite(prazo)&&prazo>0?prazo:null,pausado:true};
   if(!Number.isFinite(prazo) || prazo<=0 || !c?.created_at)
     return {estado:'Não apurável',resultado:null,tempo:null,prazo:null};
-  if(c.sla_pausado)
-    return {estado:'Pausado (sem histórico de pausa)',resultado:null,tempo:null,prazo};
   if(c.status==='Concluído'&&!c.completed_at)
     return {estado:'Concluído sem data (não apurável)',resultado:null,tempo:null,prazo};
   const abertura=new Date(c.created_at).getTime();
@@ -1509,6 +1515,12 @@ function vChamados(b,t,a){
 
   function calcSLA(c){
     const r=window.v19StatusSLA?.(c);
+    if(r?.pausado)return {
+      txt:c.status==='Concluído'?'✓ Concluído — SLA suspenso por garantia':
+        '⏸ SLA pausado — Garantia LED',
+      cls:c.status==='Concluído'?'sla-ok':'sla-warn',
+      pct:c.status==='Concluído'?100:0
+    };
     if(!r||r.tempo===null || r.prazo==null)
       return {txt:'SLA não apurável',cls:'sla-warn',pct:0};
     const rest=r.prazo-r.tempo;
@@ -1923,7 +1935,8 @@ function abrirDrawer(id){
     'var(--red)':(sl?.estado==='Em andamento no prazo'||sl?.resultado===true)?
     'var(--green)':'var(--amber)';
   const descricaoSLA=sl?.estado||'Não apurável';
-  document.getElementById('dw-chips').innerHTML=`<span class="tag ${stm[c.status]||'tag-gray'}">${c.status}</span><span style="font-size:11px;color:${sc};font-weight:600">⏱ ${descricaoSLA} (estimativa)</span><span style="font-size:11px;color:var(--gray-400)">📍 ${c.cidade}</span>`;
+  const sufixoSLA=sl?.pausado?'':' (estimativa)';
+  document.getElementById('dw-chips').innerHTML=`<span class="tag ${stm[c.status]||'tag-gray'}">${c.status}</span><span style="font-size:11px;color:${sc};font-weight:600">⏱ ${descricaoSLA}${sufixoSLA}</span><span style="font-size:11px;color:var(--gray-400)">📍 ${c.cidade}</span>`;
   const stepLbls=['Recebido','Programado','Em execução','Aguard. mat.','Concluído'],stepIcos=['✓','✓','⚡','📦','✅'];
   const s2i={'Recebido':0,'Em programação':1,'Em execução':2,'Aguard. material':3,'Concluído':4,'Aguardando Garantia LED':2};
   const ci=s2i[c.status]??-1;
