@@ -44,40 +44,77 @@
       vencido:!ok};
   });
   window.v19StatusSLA=statusSLA;
-  let movimientos = [];
-  let movementsPartial=false;
-  async function carregarMovimentos(){
-    const total=[];
-    for(let off=0;off<25000;off+=500){
-      const rows=await sbFetch('movimentacoes?select=*&order=created_at.desc,id.desc&limit=500&offset='+off);
-      if(!Array.isArray(rows))throw new Error('Não foi possível consultar o histórico de movimentações.');
-      total.push(...rows);
-      if(rows.length<500)return total;
-    }
-    throw new Error('Histórico muito grande. Exportação interrompida para evitar relatório incompleto.');
-  }
-  function materiaisComMovimento(items){
-    return items.map(m=>{
-      const movs=movimientos.filter(x=>x.material_id===m.id);
-      const consumido=movs.filter(x=>['saida','consumo'].includes(x.tipo)).reduce((a,v)=>a+num(v.quantidade),0);
-      const estornado=movs.filter(x=>['devolucao','estorno'].includes(x.tipo)).reduce((a,v)=>a+num(v.quantidade),0);
-      return {...m,consumoRegistrado:consumido-estornado,historicoCompleto:!movementsPartial&&movs.length>0};
+  // Etapa 594: o estoque e as movimentações vêm da MESMA RPC segregada.
+  // Nunca indexar por material_id ou inferir consumos de contratado-disponível.
+  const uuid=x=>typeof x==='string'&&
+    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(x);
+  function mapearEstoquesEmpresariais(rows){
+    if(!Array.isArray(rows))
+      throw new Error('Relatório de estoque não retornou uma lista válida.');
+    const perfil=CU?.perfil,consorcio=CU?.consorcio_id,
+      empresa=CU?.empresa_id;
+    if(!['master','consorcio','empresa'].includes(perfil) ||
+      (perfil==='consorcio'&&!uuid(consorcio)) ||
+      (perfil==='empresa'&&(!uuid(consorcio)||!uuid(empresa))))
+      throw new Error('Perfil ou vínculo empresarial inválido para relatórios.');
+    const vistos=new Set();
+    return rows.map(r=>{
+      if(!r || !uuid(r.estoque_id) || !uuid(r.material_id) ||
+        !uuid(r.empresa_id) || !uuid(r.consorcio_id) ||
+        !String(r.empresa_nome||'').trim() ||
+        !String(r.material_nome||'').trim() ||
+        vistos.has(r.estoque_id) ||
+        (perfil==='consorcio'&&r.consorcio_id!==consorcio) ||
+        (perfil==='empresa'&&(r.consorcio_id!==consorcio||
+          r.empresa_id!==empresa)))
+        throw new Error('Dados de estoque inesperados ou fora do vínculo do usuário.');
+      vistos.add(r.estoque_id);
+      const nums=[
+        r.quantidade_contratada,r.quantidade_disponivel,
+        r.estoque_minimo,r.preco_unitario,r.movimentos_identificados,
+        r.saidas_identificadas,r.devolucoes_identificadas,
+        r.saidas_liquidas_identificadas
+      ];
+      if(nums.some(v=>v===null||v===undefined||
+        !Number.isFinite(Number(v))) ||
+        nums.slice(0,7).some(v=>Number(v)<0) ||
+        Math.abs(Number(r.saidas_identificadas)-
+          Number(r.devolucoes_identificadas)-
+          Number(r.saidas_liquidas_identificadas))>1e-8)
+        throw new Error('Saldo ou histórico empresarial com valores inválidos.');
+      return {
+        id:r.estoque_id,_supaId:r.estoque_id,_estoqueId:r.estoque_id,
+        material_id:r.material_id,consorcio_id:r.consorcio_id,
+        empresa_id:r.empresa_id,empresa_nome:r.empresa_nome,
+        n:r.material_nome,u:r.unidade||'Un.',
+        cont:num(r.quantidade_contratada),
+        disp:num(r.quantidade_disponivel),
+        min:num(r.estoque_minimo),preco:num(r.preco_unitario),
+        movimentosIdentificados:num(r.movimentos_identificados),
+        saidasIdentificadas:num(r.saidas_identificadas),
+        devolucoesIdentificadas:num(r.devolucoes_identificadas),
+        consumoRegistrado:num(r.saidas_liquidas_identificadas)
+      };
     });
   }
   function source(tipo){
     if(tipo==='estoque'){
       if(!Array.isArray(_exportMats))throw new Error('Clique em Buscar para aplicar os filtros de estoque.');
-      return materiaisComMovimento(_exportMats);
+      return _exportMats.map(m=>({...m}));
     }
     if(!Array.isArray(_exportChamados))throw new Error('Clique em Buscar para aplicar os filtros de chamados.');
     return _exportChamados.slice();
   }
   function colunas(tipo,dados,paraExcel=false){
     if(tipo==='estoque')return dados.map(m=>({
-      'Material':m.n,'Unidade':m.u,'Contratado':num(m.cont),
-      'Disponível':num(m.disp),'Estoque mínimo':num(m.min),
-      'Preço unitário':num(m.preco),'Saídas líquidas registradas':m.consumoRegistrado,
-      'Histórico':m.historicoCompleto?'Movimentos existentes':'Possivelmente incompleto; não inferir consumo de contratado - disponível'
+      'Empresa':m.empresa_nome,'Material':m.n,'Unidade':m.u,
+      'Contratado':num(m.cont),'Disponível':num(m.disp),
+      'Estoque mínimo':num(m.min),'Preço unitário':num(m.preco),
+      'Saídas identificadas':num(m.saidasIdentificadas),
+      'Devoluções identificadas':num(m.devolucoesIdentificadas),
+      'Saídas líquidas identificadas':num(m.consumoRegistrado),
+      'Movimentações vinculadas':num(m.movimentosIdentificados),
+      'ID do estoque':m._estoqueId
     }));
     if(tipo==='sla')return dados.map(c=>{
       const a=statusSLA(c);
@@ -124,8 +161,10 @@
         'Resultado estimado':36,'Tempo observado (dias corridos)':37,
         'Tempo observado (horas)':28,
         'Material':34,'Unidade':15,'Contratado':17,'Disponível':17,
-        'Estoque mínimo':19,'Preço unitário':19,'Saídas líquidas registradas':30,
-        'Histórico':60
+        'Estoque mínimo':19,'Preço unitário':19,
+        'Saídas identificadas':23,'Devoluções identificadas':26,
+        'Saídas líquidas identificadas':30,
+        'Movimentações vinculadas':26,'ID do estoque':40
       };
       ws['!cols']=headers.map(h=>({wch:larguras[h]||24}));
       for(const nome of ['Data abertura','Data conclusão','Aberto em','Concluído em']){
@@ -248,9 +287,10 @@
             '</div></section>';
         }).join('')+'</div>';
       }
-      if(tipo==='estoque')note='<p>O relatório apresenta saldo atual e saídas líquidas registradas. '+
-        'Não pressupõe que contratado menos disponível seja consumo. Movimentos anteriores '+
-        'ao registro de histórico podem estar ausentes.</p>';
+      if(tipo==='estoque')note='<p>Uma linha por estoque empresarial, com saldos separados por empresa. '+
+        'Saídas e devoluções incluem somente movimentações associadas ao estoque de origem '+
+        '(empresa_id e estoque_id identificados). Movimentos legados sem vínculo não entram '+
+        'nesses indicadores. Contratado menos disponível não representa consumo comprovado.</p>';
       const win=window.open('','_blank');
       if(!win)throw new Error('O navegador bloqueou a janela de PDF; permita pop-ups e tente novamente.');
       const doc='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Aponte V19 '+esc(label[tipo])+
@@ -281,16 +321,29 @@
     }catch(e){showToast(esc(e.message),'erro');}
   };
 
+  // O usuário nunca exporta estoque de uma sessão ou consulta anterior.
+  // Os campos de empresa/estoque são preservados sem agrupamento global.
   const originalRelatorios=window.vRelatorios;
   window.vRelatorios=async function (b,t,a){
     t.textContent='Relatórios';a.innerHTML='';
-    b.innerHTML='<div class="tcard" style="padding:2rem">Atualizando chamados, estoque e movimentações do Supabase…</div>';
+    b.innerHTML='<div class="tcard" style="padding:2rem">Atualizando chamados e posições de estoque empresariais do Supabase…</div>';
+    const sessao=SB_SESSION?.user?.id;
+    const perfil=CU?.perfil,consorcio=CU?.consorcio_id,
+      empresa=CU?.empresa_id;
     try {
-      const [ok,mats,movs]=await Promise.all([
-        carregarChamadosDoBanco(),sbGetMateriais(),carregarMovimentos()]);
-      if(!ok||!Array.isArray(mats))throw new Error('Dados do banco não confirmados; relatório cancelado.');
-      if(t.textContent!=='Relatórios'||!b.isConnected)return;
-      movimientos=movs;movementsPartial=false;DB.materiais=mats;
+      // GET de RPC STABLE: acesso validado pelo JWT no Supabase.
+      // Nenhuma movimentação, alteração de saldos ou gravação nesta consulta.
+      const [ok,saldos]=await Promise.all([
+        carregarChamadosDoBanco(),
+        sbFetch('rpc/v19_relatorio_estoque_empresarial')
+      ]);
+      if(!ok)throw new Error('Chamados do banco não confirmados; relatório cancelado.');
+      if(t.textContent!=='Relatórios'||!b.isConnected||
+         SB_SESSION?.user?.id!==sessao||
+         CU?.perfil!==perfil||CU?.consorcio_id!==consorcio||
+         CU?.empresa_id!==empresa)return;
+      const mats=mapearEstoquesEmpresariais(saldos);
+      DB.materiais=mats;
       originalRelatorios(b,t,a);
       const buscarAntes=window._rfBuscar;
       window._rfBuscar=function(){
