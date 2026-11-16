@@ -1660,8 +1660,57 @@ function vChamados(b,t,a){
     else SEL.clear();
     updateBulkBar();
   };
-  window.alterarStatusLote=function(){
-    showToast('🔒 Operação em lote indisponível até existir RPC V19 homologada.','aviso');
+  // Status em lote: reutiliza a mesma RPC autenticada e as mesmas regras
+  // de cada chamado individual; nenhum UPDATE REST ou atalho ao RLS.
+  let v19LoteStatusEmExecucao=false;
+  window.alterarStatusLote=async function(){
+    if(v19LoteStatusEmExecucao||v19StatusBusy)return;
+    const ids=[...SEL];
+    if(!ids.length){showToast('Selecione ao menos um chamado.','aviso');return;}
+    const entrada=window.prompt(
+      'Alterar status dos chamados selecionados. Digite: 1 = Em programação; 2 = Em execução; 3 = Aguard. material.\nPara concluir, use o fluxo individual de conclusão.'
+    );
+    if(entrada===null)return;
+    const alvo=({'1':'Em programação','2':'Em execução','3':'Aguard. material'})[entrada.trim()];
+    if(!alvo){showToast('Informe 1, 2 ou 3.','erro');return;}
+    const passo={'Em programação':1,'Em execução':2,'Aguard. material':3}[alvo];
+    const elegiveis=ids.map(id=>DB.chamados.find(c=>c.id===id)).filter(c=>
+      c&&c._supaId&&v19PassoPermitido(c,passo));
+    const ignorados=ids.length-elegiveis.length;
+    if(!elegiveis.length){
+      showToast('Nenhum chamado selecionado permite este status.','erro');return;
+    }
+    if(elegiveis.length>100){
+      showToast('Selecione no máximo 100 chamados por operação.','erro');return;
+    }
+    if(!window.confirm('Alterar '+elegiveis.length+' chamado(s) para "'+alvo+
+       '"? '+ignorados+' não elegível(is) serão ignorados. O servidor gravará cada alteração e histórico.'))return;
+    v19LoteStatusEmExecucao=true;v19StatusBusy=true;
+    let ok=0,erros=0;
+    const falhas=[];
+    try{
+      for(const c of elegiveis){
+        try{
+          const r=await sbFetch('rpc/v19_atualizar_status_chamado','POST',{
+            p_chamado_id:c._supaId,p_novo_status:alvo
+          });
+          if(r?.ok!==true||r.status!==alvo)
+            throw new Error('Resposta da RPC não confirmou a alteração.');
+          ok++;SEL.delete(c.id);
+        }catch(e){
+          erros++;falhas.push(c.protocolo+': '+e.message);
+          console.warn('[V19] Status em lote não confirmado:',c.protocolo,e);
+        }
+      }
+      const atualizado=await carregarChamadosDoBanco();
+      if(atualizado){
+        updateBulkBar();refreshChamadosView();
+      }else{
+        showToast('Atualize a página para conferir os estados reais no servidor.','aviso');
+      }
+      showToast('Status em lote: '+ok+' atualizado(s), '+erros+' erro(s), '+
+        ignorados+' ignorado(s).'+(falhas.length?' Veja o console para detalhes.':''),erros?'aviso':'ok');
+    }finally{v19StatusBusy=false;v19LoteStatusEmExecucao=false;}
   };
   window.cancelarSel=function(){SEL.clear();updateBulkBar();};
 
