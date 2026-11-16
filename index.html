@@ -551,7 +551,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="modal-body">
       <div style="background:#FFF8DC;border:1px solid #DAA520;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#92400E">
         <strong>⚡ Confirma</strong> que o defeito identificado está relacionado ao <strong>módulo LED ou equipamento coberto por garantia</strong>?<br>
-        <span style="font-size:11px;margin-top:4px;display:block;color:#B45309">A empresa executora <strong>não realizará a troca</strong>. O SLA da empresa será pausado.</span>
+        <span style="font-size:11px;margin-top:4px;display:block;color:#B45309">O chamado será encaminhado para análise de garantia e o SLA da empresa será pausado. A conclusão exige perfil autorizado.</span>
       </div>
       <div class="field" style="margin-bottom:10px">
         <label>Tipo de defeito de garantia *</label>
@@ -568,7 +568,7 @@ tbody tr:last-child td{border-bottom:none;}
       </div>
       <div class="field" style="margin-bottom:10px">
         <label>Observação técnica</label>
-        <textarea id="garantia-obs" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);font-size:13px;font-family:'Inter',sans-serif;resize:none;outline:none" placeholder="Ex: Módulo LED queimado internamente. Número de série: XYZ-123. Equipamento dentro do prazo de 5 anos de garantia."></textarea>
+        <textarea id="garantia-obs" maxlength="2000" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);font-size:13px;font-family:'Inter',sans-serif;resize:none;outline:none" placeholder="Ex: Módulo LED queimado internamente. Número de série: XYZ-123. Equipamento dentro do prazo de 5 anos de garantia."></textarea>
       </div>
       <div class="field">
         <label>Data de identificação</label>
@@ -577,7 +577,7 @@ tbody tr:last-child td{border-bottom:none;}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalGarantia()">Cancelar</button>
-      <button class="btn" style="background:#DAA520;color:#fff;padding:7px 16px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px" onclick="confirmarGarantia()">⚡ Confirmar — Encaminhar Garantia LED</button>
+      <button class="btn" id="v19-btn-confirmar-garantia" style="background:#DAA520;color:#fff;padding:7px 16px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px" onclick="confirmarGarantia()">⚡ Confirmar — Encaminhar Garantia LED</button>
     </div>
   </div>
 </div>
@@ -703,7 +703,7 @@ async function sbRefreshSession(){
 }
 const V19_WRITABLE_RPCS = new Set([
  'v19_assumir_chamado','v19_atualizar_status_chamado',
- 'v19_concluir_garantia','v19_listar_disponiveis', 
+ 'v19_concluir_garantia','v19_encaminhar_garantia_led','v19_listar_disponiveis', 
 'v19_designar_empresa_chamado',
   'v19_salvar_sla_padrao','v19_criar_chamado_interno',
  // Os 5 caminhos legados de estoque permanecem BLOQUEADOS (etapa 570).
@@ -1885,6 +1885,19 @@ function v19PodeConcluir(c){
     CU.consorcio_id===c.consorcio_id&&CU.empresa_id===c.empresa_id;
   return false;
 }
+// Etapa 649: encaminhamento via RPC (sem gravacao direta ou simulada).
+function v19PodeEncaminharGarantia(c){
+  if(!CU||!c||!c._supaId||!SB_SESSION?.access_token||
+     c.completed_at||c.garantia_tipo||c.sla_pausado)return false;
+  if(!['Recebido','Em programação','Em execução','Aguard. material',
+       'Aguardando material','Em atraso'].includes(c.status))return false;
+  if(CU.perfil==='master')return true;
+  if(!CU.consorcio_id||CU.consorcio_id!==c.consorcio_id)return false;
+  if(CU.perfil==='consorcio')return true;
+  if(CU.perfil==='empresa')return !!CU.empresa_id&&
+    CU.empresa_id===c.empresa_id;
+  return false;
+}
 function v19PassoPermitido(c,i){
   if(i===4)return v19PodeConcluir(c);
   if(!c||!podeMudarStatus(c)||c.completed_at||c.garantia_tipo||
@@ -1926,10 +1939,11 @@ function abrirDrawer(id){
   const btnConcluir=document.getElementById('dw-acao-concluir');
   if(btnConcluir) btnConcluir.style.display=v19PodeConcluir(c)?'':'none'; // Somente via RPC
   const btnGarantia=document.getElementById('dw-acao-garantia');
-  if(btnGarantia) btnGarantia.style.display='none'; // Encaminhamento legado ainda bloqueado
-  // Esconder também o aviso de conclusão quando as duas ações estão bloqueadas.
+  if(btnGarantia) btnGarantia.style.display=v19PodeEncaminharGarantia(c)?'':'none';
+  // Exibir a barra quando ao menos uma acao real estiver disponivel.
   const finalizarBox=document.getElementById('dw-finalizar-box');
-  if(finalizarBox) finalizarBox.style.display=v19PodeConcluir(c)?'flex':'none';
+  if(finalizarBox) finalizarBox.style.display=
+    (v19PodeConcluir(c)||v19PodeEncaminharGarantia(c))?'flex':'none';
   // Duração com precisão em minutos; evita exibir 0h em conclusões rápidas.
   function v19FormatarTempoAtendimento(inicio, fim) {
     const duracaoMs = new Date(fim).getTime() - new Date(inicio).getTime();
@@ -2308,51 +2322,81 @@ function abrirModalConcluir(){
 }
 function closeModalConcluir(){document.getElementById('modalConcluir').classList.remove('open');}
 function abrirModalGarantia(){
-  if(!['master','consorcio'].includes(CU?.perfil)){
-    showToast('Seu perfil não tem permissão para encaminhar status à garantia.','erro');return;
+  if(v19StatusBusy||!v19PodeEncaminharGarantia(CC)){
+    showToast('Este chamado não está elegível para encaminhamento à Garantia LED.','erro');
+    return;
   }
+  // datetime-local recebe hora LOCAL, nao UTC.
   const now=new Date();
-  document.getElementById('garantia-dt').value=now.toISOString().slice(0,16);
+  const local=new Date(now.getTime()-now.getTimezoneOffset()*60000)
+    .toISOString().slice(0,16);
+  const dt=document.getElementById('garantia-dt');
+  if(dt){dt.value=local;dt.max=local;}
   document.getElementById('garantia-tipo').value='';
   document.getElementById('garantia-obs').value='';
   document.getElementById('modalGarantia').classList.add('open');
 }
 function closeModalGarantia(){
+  if(v19StatusBusy)return;
   document.getElementById('modalGarantia').classList.remove('open');
 }
 async function confirmarGarantia(){
-  const tipo=document.getElementById('garantia-tipo')?.value;
-  if(!tipo){alert('Selecione o tipo de defeito de garantia.');return;}
-  if(!CC) return;
-  const obs=document.getElementById('garantia-obs')?.value||'';
-  const dtStr=document.getElementById('garantia-dt')?.value;
-  const dt=dtStr?new Date(dtStr):new Date();
-  const dtFmt=dt.toLocaleString('pt-BR');
-  const snap={status:CC.status,garantia_tipo:CC.garantia_tipo,garantia_obs:CC.garantia_obs,garantia_dt:CC.garantia_dt,garantia_user:CC.garantia_user,sla_pausado:CC.sla_pausado};
-  CC.status='Aguardando Garantia LED';
-  CC.garantia_tipo=tipo;
-  CC.garantia_obs=obs;
-  CC.garantia_dt=dt.toISOString();
-  CC.garantia_user=CU?.nome||'Sistema';
-  CC.sla_pausado=true; // SLA pausado para empresa
-  if(!DB.historico[CC.id]) DB.historico[CC.id]=[];
-  DB.historico[CC.id].push({
-    s:'⚡ Aguardando Garantia LED',
-    m:`${dtFmt} — ${CU?.nome||'Sistema'}`,
-    o:`Tipo: ${tipo}. ${obs}`,
-    c:'#B8860B'
-  });
-  // GRAVA PRIMEIRO no banco. Só confirma se aceitou.
-  showToast('💾 Salvando no banco…','aviso');
-  const ok=await sbSaveChamado(CC);
-  if(!ok){ Object.assign(CC,snap); DB.historico[CC.id].pop(); showToast('❌ Falha ao gravar a Garantia no banco. Nada foi alterado.','erro'); return; }
-  await sbSaveHistorico(CC.protocolo, DB.historico[CC.id]||[]);
-  saveDB(DB);
-  atualizarBadgeChamados();
-  closeModalGarantia();
-  abrirDrawer(CC.id);
-  refreshChamadosView();
-  showToast('⚡ Chamado encaminhado para Garantia LED — salvo no banco. SLA pausado.','ok');
+  const c=CC;
+  if(v19StatusBusy||!v19PodeEncaminharGarantia(c))return;
+  const tipo=document.getElementById('garantia-tipo')?.value||'';
+  const obs=document.getElementById('garantia-obs')?.value?.trim()||'';
+  const dtStr=document.getElementById('garantia-dt')?.value||'';
+  const dt=dtStr?new Date(dtStr):null;
+  if(!tipo){showToast('Selecione o tipo de defeito de garantia.','erro');return;}
+  if(tipo==='Outro defeito de garantia'&&!obs){
+    showToast('Descreva o defeito de garantia.','erro');return;
+  }
+  if(obs.length>2000){showToast('Observação deve ter até 2.000 caracteres.','erro');return;}
+  if(dtStr&&(!dt||!Number.isFinite(dt.getTime())||dt>Date.now())){
+    showToast('Informe uma data de identificação válida, sem data futura.','erro');return;
+  }
+  // O banco validará usuario, tenant, empresa, vinculo, status e concorrencia.
+  const payload={
+    p_chamado_id:c._supaId,
+    p_tipo_defeito:tipo,
+    p_observacao:obs,
+    p_identificado_em:dt?.toISOString()||null,
+    p_status_esperado:c.status,
+    p_atualizado_em:c.updated_at
+  };
+  if(!payload.p_atualizado_em){
+    showToast('Versão do chamado ausente. Reabra o chamado antes de encaminhar.','erro');
+    return;
+  }
+  v19StatusBusy=true;
+  const botao=document.getElementById('v19-btn-confirmar-garantia');
+  if(botao){botao.disabled=true;botao.textContent='Encaminhando...';}
+  try{
+    const resp=await sbFetch('rpc/v19_encaminhar_garantia_led','POST',payload);
+    if(resp?.ok!==true||resp.id!==c._supaId||
+       resp.status!=='Aguardando Garantia LED'||
+       resp.garantia_tipo!=='LED'||resp.sla_pausado!==true){
+      throw new Error('Confirmação do banco inconsistente; consulte o chamado antes de repetir.');
+    }
+    document.getElementById('modalGarantia').classList.remove('open');
+    const recarregou=await carregarChamadosDoBanco();
+    if(!recarregou){
+      closeDrawer();
+      showToast('✅ Banco confirmou encaminhamento. Pressione F5 para consultar.','aviso');
+    }else{
+      refreshChamadosView();
+      if(DB.chamados.some(x=>x.id===c.id))abrirDrawer(c.id);
+      else closeDrawer();
+      showToast('⚡ Garantia LED encaminhada; SLA pausado e histórico registrado.','ok');
+    }
+  }catch(e){
+    console.error('[V19] Encaminhamento Garantia LED:',e);
+    showToast('❌ Operação não confirmada: '+e.message+
+      '. Consulte o status após F5 antes de tentar novamente.','erro');
+  }finally{
+    v19StatusBusy=false;
+    if(botao){botao.disabled=false;botao.textContent='⚡ Confirmar — Encaminhar Garantia LED';}
+  }
 }
 
 async function confirmarConclusao(){
