@@ -346,6 +346,7 @@ tbody tr:last-child td{border-bottom:none;}
   </div>
   <div class="pub-body">
     <div class="pub-hero"><h1>Relate um problema na iluminação pública</h1><p>Ajude a melhorar sua cidade. Registre em menos de 1 minuto.</p></div>
+    <div id="v19-pub-estado" role="status" aria-live="polite" style="display:none;padding:18px 20px;border:1px solid #FDE68A;background:#FFFBEB;color:#92400E;border-radius:10px;font-size:14px;line-height:1.5;margin-bottom:16px"></div>
     <div class="form-card">
       <div class="form-section">
         <div class="form-sec-title"><span class="form-sec-num">1</span>Seus dados</div>
@@ -799,16 +800,28 @@ function cidadeIdPorNome(nome){ if(!_cidadesMap||!nome) return null; return _cid
 function getCidadesCache(){ return DB.cidades||[]; }
 // O portal público consulta SOMENTE a RPC anônima e recebe o consórcio via URL.
 // O JWT de qualquer sessão administrativa NUNCA é enviado nesta requisição.
+// Estado de apresentação, nunca substitui bloqueio real da Edge e das flags do banco.
+function v19EstadoFormularioPublico(disponivel, mensagem=''){
+  v19PortalCatalogoDisponivel=!!disponivel;
+  const aviso=document.getElementById('v19-pub-estado');
+  const form=document.querySelector('#pg-portal .form-card');
+  if(aviso){aviso.textContent=mensagem;aviso.style.display=disponivel?'none':'block';}
+  if(form)form.style.display=disponivel?'':'none';
+  v19AtualizarBotaoPortal();
+}
 async function carregarCidadesPortal(){
   const sel=document.getElementById('pub-cidade');
   const aviso=document.getElementById('pub-cidades-status');
   if(!sel)return;
+  v19EstadoFormularioPublico(false,'Verificando disponibilidade do portal público...');
   sel.replaceChildren(new Option('Nenhum município disponível',''));
   sel.disabled=true;
   const id=new URLSearchParams(location.search).get('consorcio_id');
   const valido=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||'');
   if(!valido){
-    if(aviso)aviso.textContent='Link do portal incompleto. Acesse pelo endereço fornecido pelo consórcio.';
+    const mensagem='Link do portal incompleto. Acesse pelo endereço fornecido pelo consórcio.';
+    if(aviso)aviso.textContent=mensagem;
+    v19EstadoFormularioPublico(false,mensagem);
     return;
   }
   if(aviso)aviso.textContent='Verificando municípios disponíveis para o consórcio…';
@@ -819,13 +832,24 @@ async function carregarCidadesPortal(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({acao:'listar_municipios',consorcio_id:id})
     });
-    if(!resposta.ok)throw new Error('Consulta de municípios falhou (HTTP '+resposta.status+').');
+    if(!resposta.ok){
+      const erro=await resposta.json().catch(()=>null);
+      if(resposta.status===503 && erro?.erro==='ABERTURA_EM_HOMOLOGACAO'){
+        const mensagem='Portal público temporariamente indisponível: sistema em homologação. Nenhum chamado pode ser registrado neste momento.';
+        if(aviso)aviso.textContent=mensagem;
+        v19EstadoFormularioPublico(false,mensagem);
+        return;
+      }
+      throw new Error('Consulta de municípios falhou (HTTP '+resposta.status+').');
+    }
     const dados=await resposta.json();
     if(dados?.ok!==true||!Array.isArray(dados.municipios))
       throw new Error('Resposta inválida do catálogo.');
     const rows=dados.municipios;
     if(!rows.length){
-      if(aviso)aviso.textContent='Ainda não há municípios habilitados para abertura pública neste consórcio.';
+      const mensagem='Este consórcio ainda não possui municípios habilitados para abertura pública.';
+      if(aviso)aviso.textContent=mensagem;
+      v19EstadoFormularioPublico(false,mensagem);
       return;
     }
     sel.replaceChildren(new Option('Selecione o município',''));
@@ -834,12 +858,19 @@ async function carregarCidadesPortal(){
       sel.add(new Option(String(c.municipio||'')+' / '+String(c.uf||''),c.cidade_id));
     }
     sel.disabled=sel.options.length<=1;
+    if(sel.disabled){
+      v19EstadoFormularioPublico(false,'Não há municípios válidos para abertura pública neste consórcio.');
+      return;
+    }
     if(aviso)aviso.textContent='Selecione um município disponível e preencha os dados para registrar o chamado.';
-    v19AtualizarBotaoPortal();
+    v19EstadoFormularioPublico(true);
+    v19InitTurnstile();
   }catch(e){
     sel.replaceChildren(new Option('Nenhum município disponível',''));
     sel.disabled=true;
-    if(aviso)aviso.textContent='Não foi possível carregar os municípios.';
+    const mensagem='O portal público está indisponível no momento. Tente novamente mais tarde.';
+    if(aviso)aviso.textContent=mensagem;
+    v19EstadoFormularioPublico(false,mensagem);
     console.warn('[Portal] municípios:',e.message);
   }
 }
@@ -1120,7 +1151,6 @@ function goPage(id){
   // Executar apenas quando o usuário abre o portal, não no bootstrap da aplicação.
   if(id==='pg-portal'){
     carregarCidadesPortal().catch(e=>console.warn('[Portal] municípios:',e.message));
-    v19InitTurnstile();
   }
 }
 
@@ -4932,6 +4962,7 @@ function gerarProto(){
 // Site key é pública. A Secret Key e a service role são EXCLUSIVAS do Supabase.
 const V19_PORTAL_SITE_KEY='0x4AAAAAAF9_2hStCdR1FVKj';
 let v19PortalWidgetId=null, v19PortalToken='', v19PortalEnviando=false, v19PortalPendente=null;
+let v19PortalCatalogoDisponivel=false;
 let v19PortalFoto=null, v19PortalFotoUrl=null;
 function v19RemoverFotoPublica(){
   v19PortalFoto=null;
@@ -4970,13 +5001,13 @@ function v19AtualizarBotaoPortal(){
   const botao=document.getElementById('v19-pub-enviar');
   const cidade=document.getElementById('pub-cidade');
   if(!botao)return;
-  botao.disabled=v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
+  botao.disabled=!v19PortalCatalogoDisponivel||v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
   botao.textContent=v19PortalEnviando?'Registrando e enviando anexo...':'Registrar chamado →';
 }
 function v19InitTurnstile(){
   const container=document.getElementById('v19-pub-turnstile');
   const aviso=document.getElementById('v19-pub-verificacao');
-  if(!container||!document.getElementById('pg-portal')?.classList.contains('active'))return;
+  if(!container||!document.getElementById('pg-portal')?.classList.contains('active')||!v19PortalCatalogoDisponivel)return;
   if(v19PortalWidgetId!==null)return;
   if(!window.turnstile || typeof window.turnstile.render!=='function'){
     if(aviso)aviso.textContent='Aguardando carregamento da proteção contra robôs...';
