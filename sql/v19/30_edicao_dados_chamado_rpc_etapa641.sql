@@ -199,8 +199,10 @@ BEGIN
       RAISE EXCEPTION 'REGRA_SLA_NAO_ENCONTRADA_PARA_NOVO_TIPO_AREA'
         USING ERRCODE='22023';
     END IF;
-    -- sla_configuracoes guarda prazos em DIAS corridos; chamados usa HORAS.
-    v_novo.sla_horas:=v_sla*24;
+    -- sla_configuracoes.urb_prazo/rur_prazo ja estao em HORAS,
+    -- conforme a tela de SLA e a RPC v19_salvar_sla_padrao.
+    -- Nao multiplicar por 24: alteracoes de area/tipo preservam a unidade.
+    v_novo.sla_horas:=v_sla;
   END IF;
 
   SELECT coalesce(array_agg(k ORDER BY k),ARRAY[]::text[])
