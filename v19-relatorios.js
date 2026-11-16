@@ -114,7 +114,7 @@
       'Devoluções identificadas':num(m.devolucoesIdentificadas),
       'Saídas líquidas identificadas':num(m.consumoRegistrado),
       'Movimentações vinculadas':num(m.movimentosIdentificados),
-      'ID do estoque':m._estoqueId
+      ...(paraExcel?{'ID do estoque':m._estoqueId}:{})
     }));
     if(tipo==='sla')return dados.map(c=>{
       const a=statusSLA(c);
@@ -325,6 +325,8 @@
   // Os campos de empresa/estoque são preservados sem agrupamento global.
   const originalRelatorios=window.vRelatorios;
   window.vRelatorios=async function (b,t,a){
+    // Nao reutilizar filtros ou exportacoes obtidas em outro login/consulta.
+    _exportMats=null;_exportChamados=null;
     t.textContent='Relatórios';a.innerHTML='';
     b.innerHTML='<div class="tcard" style="padding:2rem">Atualizando chamados e posições de estoque empresariais do Supabase…</div>';
     const sessao=SB_SESSION?.user?.id;
