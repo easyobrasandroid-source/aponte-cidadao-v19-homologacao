@@ -3058,7 +3058,11 @@ function vRelatorios(b,t,a){
 
   // ── Dados únicos para os selects ──
   const cidades=[...new Set(DB.chamados.map(c=>c.cidade))].sort();
-  const empresas=[...new Set(DB.chamados.map(c=>c.empresa))].sort();
+  // Empresas com estoque aparecem mesmo sem chamados abertos.
+  const empresas=[...new Set([
+    ...DB.chamados.map(c=>c.empresa).filter(Boolean),
+    ...getMats().map(m=>m.empresa_nome).filter(Boolean)
+  ])].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'));
   const tipos=[...new Set(DB.chamados.map(c=>c.tipo))].sort();
   const bairros=[...new Set(DB.chamados.map(c=>c.bairro).filter(Boolean))].sort();
 
@@ -3080,11 +3084,24 @@ function vRelatorios(b,t,a){
     if(RF.sla==='atraso') r=r.filter(c=>['Em atraso','Concluído fora do prazo'].includes(window.v19StatusSLA?.(c).estado));
     return r;
   };
+  // Cada linha do relatório representa uma posição empresarial.
+  // Para contratado=0, não calcular percentual (evita divisão 0/0).
+  const pctEstoque=m=>m.cont>0?100*m.disp/m.cont:null;
+  const criticoEstoque=m=>m.disp<(m.min||0)||
+    (pctEstoque(m)!==null&&pctEstoque(m)<20);
   window._rfFiltrarEstoque=function(){
-    const mats=getMats();
-    if(RF.matStatus==='critico') return mats.filter(m=>m.disp<(m.min||0)||(m.disp/m.cont)*100<20);
-    if(RF.matStatus==='atencao') return mats.filter(m=>{const p=(m.disp/m.cont)*100;return p>=20&&p<35;});
-    if(RF.matStatus==='normal')  return mats.filter(m=>(m.disp/m.cont)*100>=35&&m.disp>=(m.min||0));
+    const mats=RF.empresa
+      ? getMats().filter(m=>m.empresa_nome===RF.empresa)
+      : getMats();
+    if(RF.matStatus==='critico')return mats.filter(criticoEstoque);
+    if(RF.matStatus==='atencao')return mats.filter(m=>{
+      const p=pctEstoque(m);
+      return p!==null&&p>=20&&p<35&&!criticoEstoque(m);
+    });
+    if(RF.matStatus==='normal')return mats.filter(m=>{
+      const p=pctEstoque(m);
+      return p!==null&&p>=35&&!criticoEstoque(m);
+    });
     return mats;
   };
   window._rfLimpar=function(){
@@ -3112,13 +3129,13 @@ function vRelatorios(b,t,a){
     const at=ch.filter(c=>c.status!=='Concluído' && window.v19StatusSLA?.(c)?.estado==='Em atraso').length;
     const co=ch.filter(c=>c.status==='Concluído').length;
     const pct=ch.length?Math.round((co/ch.length)*100):0;
-    const crit=mats.filter(m=>m.disp<(m.min||0)||(m.disp/m.cont)*100<20).length;
+    const crit=mats.filter(criticoEstoque).length;
     // O indicador deve refletir o filtro de estoque aplicado; não rotular
     // zero materiais críticos como "0 materiais OK".
     const rotuloEstoque=RF.matStatus==='critico'?'Materiais críticos':
       RF.matStatus==='atencao'?'Materiais em atenção':
       RF.matStatus==='normal'?'Materiais normais':
-      'Materiais ('+crit+' crítico'+(crit===1?'':'s')+')';
+      'Posições de estoque ('+crit+' crítica'+(crit===1?'':'s')+')';
     const corEstoque=crit>0?'var(--red)':
       RF.matStatus==='atencao'&&mats.length>0?'var(--amber)':'var(--green)';
     const fundoEstoque=crit>0?'var(--red-light)':
@@ -3186,10 +3203,10 @@ function vRelatorios(b,t,a){
         </select>
       </div>
       <div class="field">
-        <label>Empresa executora</label>
+        <label>Empresa (chamados e estoque)</label>
         <select id="rf-empresa">
           <option value="">Todas as empresas</option>
-          ${empresas.map(e=>`<option>${e}</option>`).join('')}
+          ${empresas.map(e=>`<option>${escaparCidadeHTML(e)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
