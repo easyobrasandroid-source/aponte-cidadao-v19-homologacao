@@ -491,6 +491,7 @@ tbody tr:last-child td{border-bottom:none;}
           <span style="font-size:12px;color:var(--green);font-weight:500">Atendimento finalizado? <strong>Registrar conclusão segura</strong></span>
           <div style="display:flex;gap:7px;flex-shrink:0">
             <button class="btn" style="background:#FFF8DC;color:#B8860B;border:1.5px solid #DAA520;font-size:12px;font-weight:700;padding:6px 13px;display:inline-flex;align-items:center;gap:5px" id="dw-acao-garantia" onclick="abrirModalGarantia()" title="Módulo LED com defeito coberto por garantia">⚡ Garantia LED</button>
+            <button class="btn" id="dw-acao-retomar-garantia" onclick="retomarGarantiaMaster()" style="display:none;background:#e0f2fe;color:#075985;padding:7px 12px;border:1px solid #7dd3fc;font-size:12px;font-weight:700">↩ Retomar execução</button>
             <button class="btn btn-concluir" id="dw-acao-concluir" onclick="abrirModalConcluir()">✅ Concluir</button>
           </div>
         </div>
@@ -703,7 +704,7 @@ async function sbRefreshSession(){
 }
 const V19_WRITABLE_RPCS = new Set([
  'v19_assumir_chamado','v19_atualizar_status_chamado',
- 'v19_concluir_garantia','v19_encaminhar_garantia_led','v19_listar_disponiveis', 
+ 'v19_concluir_garantia','v19_encaminhar_garantia_led','v19_gerenciar_garantia_master','v19_listar_disponiveis', 
 'v19_designar_empresa_chamado',
   'v19_salvar_sla_padrao','v19_criar_chamado_interno',
  // Os 5 caminhos legados de estoque permanecem BLOQUEADOS (etapa 570).
@@ -1410,7 +1411,10 @@ function v19StatusSLALinha(c){
   const toleranciaMs=5*60*1000;
   if(diferencaMs<0&&(c.completed_at||Math.abs(diferencaMs)>toleranciaMs))
     return {estado:'Relógio divergente',resultado:null,tempo:null,prazo};
-  const tempo=Math.max(0,diferencaMs)/36e5;
+  // Ao retomar da garantia, descontar pausas reais contabilizadas em servidor.
+  const pausaSegundos=Number(c.sla_pausa_acumulada_segundos||0);
+  const tempo=Math.max(0,diferencaMs-
+    (Number.isFinite(pausaSegundos)&&pausaSegundos>0?pausaSegundos:0)*1000)/36e5;
   const concluido=c.status==='Concluído';
   const dentro=tempo<=prazo;
   return {estado:concluido?(dentro?'Concluído no prazo':'Concluído fora do prazo'):
@@ -1435,6 +1439,8 @@ async function carregarChamadosDoBanco(){
       qtd: r.qtd||1, status: r.status||'Recebido', empresa: r.empresa||'',
       prioridade: r.prioridade||'Média', sla:r.sla_horas==null?null:Number(r.sla_horas), _slaHoras:r.sla_horas==null?null:Number(r.sla_horas),
       slaPct: r.status==='Concluído'?100:0, sla_pausado: r.sla_pausado||false,
+      sla_pausa_inicio:r.sla_pausa_inicio||null,
+      sla_pausa_acumulada_segundos:Number(r.sla_pausa_acumulada_segundos||0),
       origem: r.origem||'Público', solicitante: r.solicitante_nome||'',
       tel: r.solicitante_tel||'', lat: r.latitude==null?null:Number(r.latitude), lng: r.longitude==null?null:Number(r.longitude),
       loc_src: r.loc_src||null, created_at: r.created_at, completed_at: r.completed_at,
@@ -1885,6 +1891,7 @@ function v19PodeConcluir(c){
   if(!CU||!c||!c._supaId||c.status==='Concluído'||c.completed_at)return false;
   if(v19GarantiaLED(c)){
     if(CU.perfil==='garantia')return !!CU.consorcio_id&&CU.consorcio_id===c.consorcio_id;
+    if(CU.perfil==='master')return true; // Etapa 652: concluir por RPC exclusiva Master.
     return CU.perfil==='empresa'&&!!CU.empresa_id&&!!CU.consorcio_id&&
       CU.consorcio_id===c.consorcio_id&&CU.empresa_id===c.empresa_id;
   }
@@ -1896,6 +1903,11 @@ function v19PodeConcluir(c){
   if(CU.perfil==='empresa')return !!CU.empresa_id&&!!CU.consorcio_id&&
     CU.consorcio_id===c.consorcio_id&&CU.empresa_id===c.empresa_id;
   return false;
+}
+// Etapa 652: o Master pode tirar o chamado da garantia sem UPDATE direto.
+function v19PodeRetomarGarantia(c){
+  return CU?.perfil==='master'&&v19GarantiaLED(c)&&!c.completed_at&&
+    !!c._supaId&&!!SB_SESSION?.access_token;
 }
 // Etapa 649: encaminhamento via RPC (sem gravacao direta ou simulada).
 function v19PodeEncaminharGarantia(c){
@@ -1937,26 +1949,39 @@ function abrirDrawer(id){
   const descricaoSLA=sl?.estado||'Não apurável';
   const sufixoSLA=sl?.pausado?'':' (estimativa)';
   document.getElementById('dw-chips').innerHTML=`<span class="tag ${stm[c.status]||'tag-gray'}">${c.status}</span><span style="font-size:11px;color:${sc};font-weight:600">⏱ ${descricaoSLA}${sufixoSLA}</span><span style="font-size:11px;color:var(--gray-400)">📍 ${c.cidade}</span>`;
-  const stepLbls=['Recebido','Programado','Em execução','Aguard. mat.','Concluído'],stepIcos=['✓','✓','⚡','📦','✅'];
-  const s2i={'Recebido':0,'Em programação':1,'Em execução':2,'Aguard. material':3,'Concluído':4,'Aguardando Garantia LED':2};
+  const emGarantia=v19GarantiaLED(c);
+  const temGarantiaHistorica=String(c.garantia_tipo||'').trim().toUpperCase()==='LED';
+  const stepLbls=['Recebido','Programado','Em execução','Aguard. mat.','Concluído'];
+  const stepIcos=['✓','✓','⚡','📦','✅'];
+  // Aguardando MATERIAL não é Aguardando GARANTIA. A trilha da garantia
+  // substitui o quarto marco visual; o Histórico é a verdade dos eventos reais.
+  if(emGarantia||(c.status==='Concluído'&&temGarantiaHistorica)){
+    stepLbls[3]='Garantia LED';stepIcos[3]='⚡';
+  }
+  const s2i={'Recebido':0,'Em programação':1,'Em execução':2,
+    'Aguard. material':3,'Aguardando material':3,'Concluído':4,
+    'Aguardando Garantia LED':3};
   const ci=s2i[c.status]??-1;
-  // Step 0 = Recebido (automático, não clicável). Steps 1-4 são clicáveis
-  const podeMudar = podeMudarStatus(c);
+  const podeMudar=podeMudarStatus(c);
   document.getElementById('dw-steps').innerHTML=stepLbls.map((s,i)=>`
-    <div class="ss-item" ${v19PassoPermitido(c,i)?`onclick="alterarStatus('${id}',${i})"`:i===0?'title="Status automático do sistema"':'title="Alteração indisponível até integração segura da RPC V19"'} style="${i===0?'cursor:default;opacity:.85':v19PassoPermitido(c,i)?'cursor:pointer':'cursor:not-allowed;opacity:.6'}">
+    <div class="ss-item" ${v19PassoPermitido(c,i)?`onclick="alterarStatus('${id}',${i})"`:i===0?'title="Status automático do sistema"':'title="Etapa ilustrativa: os eventos efetivos constam do Histórico"'} style="${i===0?'cursor:default;opacity:.85':v19PassoPermitido(c,i)?'cursor:pointer':'cursor:not-allowed;opacity:.6'}">
       <div class="ss-circle ${i<ci?'done':i===ci?'active':'idle'}">${i<ci?'✓':stepIcos[i]}</div>
       <div class="ss-label ${i<ci?'done':i===ci?'active':''}">${s}${i===0?'<br><span style="font-size:8px;color:var(--gray-400)">(automático)</span>':''}</div>
     </div>${i<4?`<div class="ss-line ${i<ci?'done':''}"></div>`:''}`).join('');
   document.getElementById('dw-step-note').textContent=`${c.status} — ${c.empresa||'Sem empresa'} · ${c.cidade}` +
-    (podeMudar ? '' : ' · Somente leitura: mudança de status pelo gestor ou empresa responsável');
+    (emGarantia?' · Status de garantia: use a ação de conclusão ou a retomada autorizada. A linha de progresso é ilustrativa; confira os eventos reais no Histórico.':
+      podeMudar ? '' : ' · Somente leitura: mudança de status pelo gestor ou empresa responsável');
   const btnConcluir=document.getElementById('dw-acao-concluir');
   if(btnConcluir) btnConcluir.style.display=v19PodeConcluir(c)?'':'none'; // Somente via RPC
+  const btnRetomarGarantia=document.getElementById('dw-acao-retomar-garantia');
+  if(btnRetomarGarantia)btnRetomarGarantia.style.display=
+    v19PodeRetomarGarantia(c)?'':'none';
   const btnGarantia=document.getElementById('dw-acao-garantia');
   if(btnGarantia) btnGarantia.style.display=v19PodeEncaminharGarantia(c)?'':'none';
   // Exibir a barra quando ao menos uma acao real estiver disponivel.
   const finalizarBox=document.getElementById('dw-finalizar-box');
   if(finalizarBox) finalizarBox.style.display=
-    (v19PodeConcluir(c)||v19PodeEncaminharGarantia(c))?'flex':'none';
+    (v19PodeConcluir(c)||v19PodeEncaminharGarantia(c)||v19PodeRetomarGarantia(c))?'flex':'none';
   // Duração com precisão em minutos; evita exibir 0h em conclusões rápidas.
   function v19FormatarTempoAtendimento(inicio, fim) {
     const duracaoMs = new Date(fim).getTime() - new Date(inicio).getTime();
@@ -2412,6 +2437,45 @@ async function confirmarGarantia(){
   }
 }
 
+
+async function retomarGarantiaMaster(){
+  const c=CC;
+  if(!v19PodeRetomarGarantia(c)||v19StatusBusy)return;
+  if(!c.updated_at){
+    showToast('Versão do chamado ausente; reabra o chamado.','erro');return;
+  }
+  if(!window.confirm('Retomar execução do protocolo '+c.protocolo+
+    '? O período de pausa será preservado no histórico e descontado do SLA.'))return;
+  v19StatusBusy=true;
+  const btn=document.getElementById('dw-acao-retomar-garantia');
+  if(btn){btn.disabled=true;btn.textContent='Retomando...';}
+  try{
+    const resposta=await sbFetch('rpc/v19_gerenciar_garantia_master','POST',{
+      p_chamado_id:c._supaId,p_acao:'retomar',
+      p_status_esperado:c.status,p_atualizado_em:c.updated_at
+    });
+    if(resposta?.ok!==true||resposta.id!==c._supaId||
+       resposta.status!=='Em execução'||resposta.sla_pausado!==false)
+      throw new Error('Banco não confirmou a retomada.');
+    const carregado=await carregarChamadosDoBanco();
+    if(carregado){
+      refreshChamadosView();
+      if(DB.chamados.some(x=>x.id===c.id))abrirDrawer(c.id);else closeDrawer();
+      showToast('✅ Execução retomada; pausa descontada do SLA.','ok');
+    }else{
+      closeDrawer();
+      showToast('✅ Banco confirmou a retomada. Pressione F5 para consultar.','aviso');
+    }
+  }catch(e){
+    console.error('[V19] Retomar garantia:',e);
+    showToast('❌ Retomada não confirmada: '+e.message+
+      '. Atualize a página antes de repetir.','erro');
+  }finally{
+    v19StatusBusy=false;
+    if(btn){btn.disabled=false;btn.textContent='↩ Retomar execução';}
+  }
+}
+
 async function confirmarConclusao(){
   const c=CC;
   if(!c||!v19PodeConcluir(c)||!SB_SESSION?.access_token){
@@ -2419,14 +2483,19 @@ async function confirmarConclusao(){
   }
   if(v19StatusBusy)return;
   const garantia=v19GarantiaLED(c);
-  const rpc=garantia?'v19_concluir_garantia':'v19_atualizar_status_chamado';
+  const masterGarantia=garantia&&CU?.perfil==='master';
+  const rpc=masterGarantia?'v19_gerenciar_garantia_master':
+    garantia?'v19_concluir_garantia':'v19_atualizar_status_chamado';
   if(!window.confirm('Concluir definitivamente o protocolo '+c.protocolo+
     ' no Supabase V19 de homologação? O banco gravará data, responsável e histórico.'))return;
   v19StatusBusy=true;
   const botao=document.getElementById('v19-btn-confirmar-conclusao');
   if(botao){botao.disabled=true;botao.textContent='Concluindo...';}
   try{
-    const payload=garantia?{p_chamado_id:c._supaId}:
+    const payload=masterGarantia?{
+      p_chamado_id:c._supaId,p_acao:'concluir',
+      p_atualizado_em:c.updated_at,p_status_esperado:c.status
+    }:garantia?{p_chamado_id:c._supaId}:
       {p_chamado_id:c._supaId,p_novo_status:'Concluído'};
     // Transação única no banco; o trigger cria o histórico automaticamente.
     const resp=await sbFetch('rpc/'+rpc,'POST',payload);
