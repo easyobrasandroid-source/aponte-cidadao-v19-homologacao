@@ -1,4 +1,5 @@
-/* Aponte Cidadão V19 — fotografias e histórico persistentes no Supabase */
+/* Aponte Cidadão V19 — fotografias persistentes no Supabase.
+   O histórico é renderizado exclusivamente por v19-chamado-edicao.js. */
 (function () {
   'use strict';
   const html = value => String(value == null ? '' : value).replace(/[&<>"']/g, x =>
@@ -6,7 +7,7 @@
   const validUUID = value => /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(String(value || ''));
   const pathUrl = p => String(p || '').split('/').map(encodeURIComponent).join('/');
   const noticeError = e => showToast(html(e?.message || String(e)), 'erro');
-  let lastPhotoQuery=0, lastHistQuery=0;
+  let lastPhotoQuery=0;
 
   async function obterUrlAssinada(path) {
     const resposta=await fetch(SUPA_URL+'/storage/v1/object/sign/chamado-fotos/'+pathUrl(path),{
@@ -119,38 +120,10 @@
     input.click();
   };
 
-  async function renderHistoricoChamado() {
-    const box=document.getElementById('dw-tc-historico');
-    if(!box||!CC)return;
-    const ch=CC,seq=++lastHistQuery;
-    box.innerHTML='<div class="card-title">Histórico do chamado</div>'+
-      '<div style="font-size:12px;color:var(--gray-500)">Consultando histórico…</div>';
-    try {
-      const rows=await sbSelect('chamado_historico',
-        'select=*&chamado_id=eq.'+encodeURIComponent(ch._supaId)+'&order=created_at.asc');
-      if(!Array.isArray(rows))throw new Error('Não foi possível consultar o histórico no Supabase.');
-      if(seq!==lastHistQuery || CC?._supaId!==ch._supaId)return;
-      box.innerHTML='<div class="card-title">Histórico do chamado</div>'+
-        (rows.length?rows.map((h,i)=>'<div class="tl-item"><div class="tl-dot-col">'+
-          '<div class="tl-dot" style="background:#1251A3"></div>'+
-          (i<rows.length-1?'<div class="tl-line"></div>':'')+'</div>'+
-          '<div class="tl-body"><div class="tl-s">'+html(h.status||h.mensagem||'Atualização')+'</div>'+
-          '<div class="tl-m">'+html(h.usuario_nome||'Sistema')+' · '+
-           html(h.created_at?new Date(h.created_at).toLocaleString('pt-BR'):'')+'</div>'+
-          (h.observacao?'<div class="tl-o">'+html(h.observacao)+'</div>':'')+
-          '</div></div>').join(''):
-          '<p style="font-size:12px;color:var(--gray-400)">Nenhum histórico registrado no banco.</p>');
-    }catch(e){
-      if(seq===lastHistQuery)box.innerHTML='<div class="card-title">Histórico do chamado</div>'+
-        '<p style="font-size:12px;color:var(--red)">'+html(e.message)+'</p>';
-    }
-  }
-
   const olderShowDTab=window.showDTab;
   window.showDTab=function (tab,el) {
     olderShowDTab(tab,el);
     if(tab==='fotos')void renderFotosChamado();
-    if(tab==='historico')void renderHistoricoChamado();
   };
-  console.info('[Aponte V19] fotos e histórico persistentes carregados.');
+  console.info('[Aponte V19] fotos persistentes carregadas; histórico tem um único renderizador.');
 })();
