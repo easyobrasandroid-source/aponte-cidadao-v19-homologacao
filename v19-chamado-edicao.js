@@ -138,6 +138,60 @@ function fieldValue(key){
   return val||null;
 }
 
+// Sempre carregar o histórico real ao abrir a aba, inclusive após alterações.
+// Sem fallback para DB.historico local e sem inserir HTML recebido do servidor.
+let historicoSeq=0;
+window.v19CarregarHistoricoChamado=async function(){
+  const c=CC,alvo=document.getElementById('dw-tc-historico');
+  if(!alvo||!c?._supaId)return;
+  const seq=++historicoSeq;
+  alvo.replaceChildren();
+  const heading=document.createElement('div');
+  heading.className='card-title';heading.textContent='Histórico real do chamado';
+  const status=document.createElement('p');
+  status.textContent='Consultando registros no Supabase…';
+  status.style.cssText='font-size:12px;color:var(--gray-500)';
+  alvo.append(heading,status);
+  try{
+    const rows=await sbSelect('chamado_historico',
+      'select=status,mensagem,observacao,usuario_nome,created_at'+
+      '&chamado_id=eq.'+encodeURIComponent(c._supaId)+
+      '&order=created_at.asc&limit=300');
+    if(!Array.isArray(rows))throw new Error('Consulta do histórico indisponível.');
+    if(seq!==historicoSeq||CC?._supaId!==c._supaId)return;
+    status.remove();
+    if(!rows.length){
+      const empty=document.createElement('p');
+      empty.textContent='Nenhum evento registrado.';
+      alvo.appendChild(empty);
+      return;
+    }
+    for(const event of rows){
+      const item=document.createElement('div');
+      item.style.cssText='border-left:3px solid #1251A3;padding:6px 10px;margin:10px 0;font-size:12px';
+      const title=document.createElement('div');
+      title.style.fontWeight='700';
+      title.textContent=event.mensagem||event.status||'Evento';
+      const meta=document.createElement('div');
+      meta.style.cssText='font-size:11px;color:var(--gray-500);margin-top:3px';
+      const dt=event.created_at?new Date(event.created_at):null;
+      meta.textContent=(dt&&!isNaN(dt)?dt.toLocaleString('pt-BR'):'')+
+        (event.usuario_nome?' — '+event.usuario_nome:'');
+      item.append(title,meta);
+      if(event.observacao){
+        const note=document.createElement('div');
+        note.style.marginTop='4px';note.textContent=event.observacao;
+        item.appendChild(note);
+      }
+      alvo.appendChild(item);
+    }
+  }catch(e){
+    if(seq!==historicoSeq||CC?._supaId!==c._supaId)return;
+    status.textContent='Não foi possível consultar o histórico: '+e.message;
+    status.style.color='var(--red)';
+  }
+};
+
 window.v19SalvarEdicaoChamado=async function(){
   const c=CC;
   if(busy||!autorizado(c)||editandoId!==c._supaId)return false;
@@ -187,8 +241,12 @@ window.v19SalvarEdicaoChamado=async function(){
     return true;
   }catch(e){
     console.error('[V19] Edição RPC do chamado:',e);
-    showToast('❌ Salvamento não confirmado: '+e.message+
-      '. Atualize antes de tentar novamente.','erro');
+    const raw=String(e.corpo||'');
+    const detail=/VERSAO_DESATUALIZADA_RECARREGUE/.test(raw)?'Outro usuário atualizou o chamado. Recarregue a página antes de tentar novamente.':
+      /REGRA_SLA_NAO_ENCONTRADA/.test(raw)?'Regra de SLA não cadastrada para o novo tipo/área. Configure-a primeiro.':
+      /CHAMADO_FORA_DO_ESCOPO|CAMPO_NAO_AUTORIZADO/.test(raw)?'Seu perfil não permite esta alteração.':
+      e.message;
+    showToast('❌ Salvamento não confirmado: '+detail,'erro');
     return false;
   }finally{
     busy=false;
