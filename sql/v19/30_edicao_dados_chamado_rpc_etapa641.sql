@@ -136,7 +136,7 @@ BEGIN
   END IF;
   IF p_alteracoes ? 'qtd' THEN
     IF jsonb_typeof(p_alteracoes->'qtd')<>'number' OR
-       (p_alteracoes->>'qtd') !~ '^[0-9]+
+       (p_alteracoes->>'qtd') !~ '^[0-9]+$' THEN
       RAISE EXCEPTION 'QUANTIDADE_INVALIDA' USING ERRCODE='22023';
     END IF;
     v_novo.qtd:=(p_alteracoes->>'qtd')::integer;
@@ -199,7 +199,8 @@ BEGIN
       RAISE EXCEPTION 'REGRA_SLA_NAO_ENCONTRADA_PARA_NOVO_TIPO_AREA'
         USING ERRCODE='22023';
     END IF;
-    v_novo.sla_horas:=v_sla;
+    -- sla_configuracoes guarda prazos em DIAS corridos; chamados usa HORAS.
+    v_novo.sla_horas:=v_sla*24;
   END IF;
 
   SELECT coalesce(array_agg(k ORDER BY k),ARRAY[]::text[])
