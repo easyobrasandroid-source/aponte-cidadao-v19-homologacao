@@ -464,6 +464,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // Consulta de andamento pública: somente protocolo V19P integral, escopo
     // do consórcio no link, rate-limit separado e dados estritamente mínimos.
+    // O banco permite consultar_protocolo SOMENTE com service_role depois
+    // da etapa 603. Aplicar a migracao SQL apos publicar esta Edge Function.
     // A RPC consulta apenas quando portal_ativo e consulta_protocolo_ativo=true.
     // Nunca expor chamdo(s), telefone, nome, fotos ou credenciais ao visitante.
     if (body.acao === "consultar_protocolo") {
@@ -489,15 +491,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
         return reply(503, { ok: false, erro: "CONTROLE_DE_ACESSO_INDISPONIVEL" }, origin);
       }
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-      if (!anonKey) return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
+      // A consulta deve passar pelo rate-limit ANTES desta chamada.
+      // A RPC consultar_protocolo nao e mais acessivel a anon/authenticated.
+      // Apenas esta Edge Function recebe service_role (nunca o navegador).
       const response = await fetch(
         supabaseUrl.replace(/\/+$/, "") + "/rest/v1/rpc/consultar_protocolo",
         {
           method: "POST",
           headers: {
-            apikey: anonKey,
-            authorization: "Bearer " + anonKey,
+            apikey: serviceRoleKey,
+            authorization: "Bearer " + serviceRoleKey,
             "content-type": "application/json",
             "cache-control": "no-store",
           },
