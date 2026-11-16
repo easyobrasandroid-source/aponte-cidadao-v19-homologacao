@@ -52,6 +52,9 @@ window.vConfigPortal=async function(b,t,a,consId){
     portalRow=rows[0]||{consorcio_id:chosen,portal_ativo:false,abertura_portal_ativo:false,
       consulta_protocolo_ativo:false,gps_obrigatorio:false,mostrar_empresa:false,
       notificacao_whatsapp:false,telefone_contato:'',whatsapp_contato:'',prazo_medio_texto:''};
+    const servicosAtivosNoBanco=!!(
+      portalRow.portal_ativo || portalRow.abertura_portal_ativo ||
+      portalRow.consulta_protocolo_ativo || portalRow.notificacao_whatsapp);
     const check=(id,field,label,bloqueado=false)=>'<label style="display:flex;align-items:center;gap:9px;font-size:13px;padding:8px 0">'+
       '<input type="checkbox" id="'+id+'" '+(portalRow[field]?'checked':'')+
       (bloqueado?' disabled title="Ativação pendente de homologação"':'')+'> '+esc(label)+
@@ -59,6 +62,9 @@ window.vConfigPortal=async function(b,t,a,consId){
     b.innerHTML='<div class="card" style="max-width:760px">'+
       '<div style="margin-bottom:18px">'+escolha(chosen,'v19MudarConsPortal')+'</div>'+
       '<h3 style="font-size:15px;margin-bottom:8px">Serviços do portal cidadão</h3>'+
+      (servicosAtivosNoBanco
+        ? '<div role="alert" style="border:1px solid #b45309;border-radius:8px;padding:10px;margin:12px 0;color:#92400e;background:#fffbeb;font-size:12px">ATENÇÃO: o banco informa serviços públicos ATIVOS neste consórcio, embora sua ativação ainda esteja bloqueada. Salvar nesta tela desativa os serviços públicos; não publique o portal antes da homologação.</div>'
+        : '')+
       check('v19-portal-ativo','portal_ativo','Portal público ativo',true)+
       check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados',true)+
       check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo',true)+
@@ -79,17 +85,21 @@ window.vConfigPortal=async function(b,t,a,consId){
 window.v19SalvarPortal=async function(){
   if(!admin()||!valid(selectedCons))return;
   const btn=document.getElementById('v19-portal-salvar');
-  if(btn?.disabled)return;
+  if(!btn||btn.disabled)return;
+  const alvo=selectedCons;
+  const sessao=SB_SESSION?.user?.id;
   const g=id=>!!document.getElementById(id)?.checked;
   const v=id=>document.getElementById(id)?.value?.trim()||null;
   const payload={
-    p_consorcio_id:selectedCons,
-    p_portal_ativo:g('v19-portal-ativo'),
-    p_abertura_portal_ativo:g('v19-portal-abertura'),
-    p_consulta_protocolo_ativo:g('v19-portal-consulta'),
+    p_consorcio_id:alvo,
+    // Campos bloqueados na UI NAO podem reenviar "true" do banco.
+    // O backend somente permite false ate a homologacao do portal.
+    p_portal_ativo:false,
+    p_abertura_portal_ativo:false,
+    p_consulta_protocolo_ativo:false,
     p_gps_obrigatorio:g('v19-portal-gps'),
     p_mostrar_empresa:g('v19-portal-empresa'),
-    p_notificacao_whatsapp:g('v19-portal-whatsapp'),
+    p_notificacao_whatsapp:false,
     p_telefone_contato:v('v19-portal-telefone'),
     p_whatsapp_contato:v('v19-portal-numero'),
     p_prazo_medio_texto:v('v19-portal-prazo')
@@ -98,22 +108,29 @@ window.v19SalvarPortal=async function(){
   try{
     // Não usar INSERT/PATCH direto: validações e isolamento pertencem à RPC homologada.
     const resp=await sbFetch('rpc/v19_salvar_config_portal','POST',payload);
-    if(resp?.ok!==true || resp.consorcio_id!==selectedCons)
+    if(resp?.ok!==true || resp.consorcio_id!==alvo)
       throw new Error('A RPC não confirmou o salvamento da configuração.');
-    portalRow={
-      consorcio_id:selectedCons,
-      portal_ativo:false,abertura_portal_ativo:false,consulta_protocolo_ativo:false,
-      gps_obrigatorio:payload.p_gps_obrigatorio,
-      mostrar_empresa:payload.p_mostrar_empresa,
-      notificacao_whatsapp:false,
-      telefone_contato:payload.p_telefone_contato,
-      whatsapp_contato:payload.p_whatsapp_contato,
-      prazo_medio_texto:payload.p_prazo_medio_texto,
-      updated_at:new Date().toISOString()
-    };
-    showToast('✅ Configurações confirmadas no banco.','ok');
-  }catch(e){showToast(esc(e.message),'erro');}
-  finally{btn.disabled=false;btn.textContent='💾 Salvar configurações';}
+    // Nunca presumir as flags: confirmar valor REAL lido apos o COMMIT.
+    const rows=await sbSelect('portal_configuracoes',
+      'select=*&consorcio_id=eq.'+encodeURIComponent(alvo)+'&limit=1');
+    if(!Array.isArray(rows)||rows.length!==1||rows[0].consorcio_id!==alvo)
+      throw new Error('Salvamento confirmado, mas a consulta de verificação falhou. Atualize a página antes de repetir.');
+    if(rows[0].portal_ativo || rows[0].abertura_portal_ativo ||
+       rows[0].consulta_protocolo_ativo || rows[0].notificacao_whatsapp)
+      throw new Error('O banco ainda indica serviços públicos ativos. Não habilite o portal; verifique as flags no Supabase.');
+    if(selectedCons!==alvo || SB_SESSION?.user?.id!==sessao)return;
+    portalRow=rows[0];
+    showToast('✅ Configurações verificadas no banco. Serviços públicos desativados.','ok');
+    const corpo=document.getElementById('main-body'),
+      titulo=document.getElementById('topbar-title'),
+      acoes=document.getElementById('topbar-actions');
+    if(titulo?.textContent==='Configurações do portal público' &&
+       corpo && acoes)
+      await window.vConfigPortal(corpo,titulo,acoes,alvo);
+  }catch(e){
+    if(selectedCons===alvo && SB_SESSION?.user?.id===sessao)
+      showToast(esc(e.message),'erro');
+  }finally{btn.disabled=false;btn.textContent='💾 Salvar configurações';}
 };
 
 // Configuração global de SLA. Valores em dias na UI e horas na tabela.
