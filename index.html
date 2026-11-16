@@ -2245,7 +2245,7 @@ function refreshChamadosView(){
   atualizarBadgeChamados();
 }
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');document.body.style.overflow='';}
-function showDTab(id,el){document.querySelectorAll('.dw-tc').forEach(t=>t.classList.remove('on'));document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));document.getElementById('dw-tc-'+id).classList.add('on');if(el)el.classList.add('on');if(id==='materiais'&&typeof renderMateriaisChamado==='function')renderMateriaisChamado();}
+function showDTab(id,el){document.querySelectorAll('.dw-tc').forEach(t=>t.classList.remove('on'));document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('on'));document.getElementById('dw-tc-'+id).classList.add('on');if(el)el.classList.add('on');if(id==='materiais'&&typeof renderMateriaisChamado==='function')renderMateriaisChamado();if(id==='historico'&&typeof window.v19CarregarHistoricoChamado==='function')window.v19CarregarHistoricoChamado();}
 
 // ═══ STATUS ═══
 const s2s=['Recebido','Em programação','Em execução','Aguard. material','Concluído'];
