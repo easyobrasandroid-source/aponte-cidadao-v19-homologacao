@@ -267,97 +267,171 @@
     return previousAbrirMov(id);
   };
 
-  // Equipes deixam de ser gravadas em DB/localStorage; sempre buscar na base real.
+  // Equipes V19: somente leitura direta; criar/editar/excluir por RPC autenticada.
   const previousVEquipes=window.vEquipes;
   const previousAbrirEquipe=window.abrirModalEquipe;
-  window.vEquipes = async function (b,t,a) {
+  let equipeModalCarregado=false;
+  let equipeCidadesCache=[];
+  let equipeVinculosCache=[];
+  let equipeEmpresasCache=[];
+
+  const equipePermitida = e =>
+    CU?.perfil==='master' ||
+    (CU?.perfil==='consorcio' && e.consorcio_id===CU.consorcio_id) ||
+    (CU?.perfil==='empresa' && e.id===CU.empresa_id &&
+     e.consorcio_id===CU.consorcio_id);
+
+  window.vEquipes = async function(b,t,a) {
     t.textContent='Equipes';a.innerHTML='';
     b.innerHTML='<div class="tcard" style="padding:2rem">Consultando equipes do Supabase…</div>';
     if (!mayManageTeams()) {
-      b.innerHTML='<div class="tcard" style="padding:2rem">Acesso restrito.</div>'; return;
+      b.innerHTML='<div class="tcard" style="padding:2rem">Acesso restrito.</div>';return;
     }
     try {
       const [rows,empRows]=await Promise.all([
         sbSelect('equipes','select=*&order=nome.asc'),
         sbSelect('empresas','select=*&order=nome.asc')
       ]);
-      if (!Array.isArray(rows)||!Array.isArray(empRows)) throw new Error('O banco não retornou equipes ou empresas.');
-      if (t.textContent!=='Equipes' || !b.isConnected) return;
-      const allowedEmps=CU?.perfil==='empresa'?empRows.filter(e=>e.id===CU.empresa_id):empRows;
+      if (!Array.isArray(rows)||!Array.isArray(empRows))
+        throw new Error('O banco não retornou equipes ou empresas.');
+      if (t.textContent!=='Equipes'||!b.isConnected)return;
+      const allowedEmps=empRows.filter(e=>equipePermitida(e));
       DB.empresas=allowedEmps.map(mapEmpresa);
-      const map=new Map(allowedEmps.map(e=>[e.id,e.nome]));
-      const permitted=CU?.perfil==='empresa'?rows.filter(e=>e.empresa_id===CU.empresa_id):rows;
-      DB.equipes=permitted.map(e=>({
+      const companyMap=new Map(allowedEmps.map(e=>[e.id,e.nome]));
+      const visible=rows.filter(e=>CU?.perfil==='master' ||
+        (CU?.perfil==='consorcio' && e.consorcio_id===CU.consorcio_id) ||
+        (CU?.perfil==='empresa' && e.consorcio_id===CU.consorcio_id &&
+         e.empresa_id===CU.empresa_id));
+      DB.equipes=visible.map(e=>({
         id:e.id,consorcio_id:e.consorcio_id,empresa_id:e.empresa_id,
-        nome:e.nome,empresa:map.get(e.empresa_id)||'—',tecnico:e.tecnico_lider||'',
-        membros:e.membros||1,cidades:e.cidades||[],status:e.status||'ativa'
+        nome:e.nome,empresa:companyMap.get(e.empresa_id)||'—',
+        tecnico:e.tecnico_lider||'',membros:e.membros||1,
+        cidades:e.cidades||[],status:e.status||'ativa'
       }));
       previousVEquipes(b,t,a);
-      window.excluirEquipe = async function(id) {
+      window.excluirEquipe=async function(id){
         const equipe=getEquipes().find(e=>e.id===id);
-        if(!equipe || !confirm('Excluir a equipe "'+equipe.nome+'"?'))return;
-        try{
-          const resp=await sbFetch('equipes?id=eq.'+escPath(id)+'&select=id','DELETE');
-          if (!Array.isArray(resp)||resp.length!==1) throw new Error('Exclusão não confirmada pelo banco.');
+        if(!equipe||!window.confirm('Excluir a equipe "'+equipe.nome+'"?'))return;
+        try {
+          const resposta=await sbFetch('rpc/v19_gerenciar_equipe','POST',{
+            p_acao:'excluir',p_equipe_id:id
+          });
+          if(resposta?.ok!==true||resposta.acao!=='excluir'||
+             resposta.equipe_id!==id)throw new Error('Exclusão não confirmada pela RPC.');
           showToast('✅ Equipe excluída no Supabase.','ok');
           await window.vEquipes(b,t,a);
-        }catch(e){warn(e.message);}
+        }catch(e){warn('Exclusão não confirmada: '+e.message);}
       };
     }catch(e){
-      b.innerHTML='<div class="tcard" style="padding:2rem;color:var(--red)">'+escapeHTML(e.message)+'</div>';
-      warn(e.message);
+      b.innerHTML='<div class="tcard" style="padding:2rem;color:var(--red)">'+
+        escapeHTML(e.message)+'</div>';warn(e.message);
     }
   };
 
-  window.abrirModalEquipe = async function (id) {
+  function renderCidadesEmpresa(empresaId,preSelecionadas=[]){
+    const checkbox=document.querySelector('#modal-eq-body input[type=checkbox]');
+    const panel=checkbox?.parentElement?.parentElement ||
+      document.querySelector('#modal-eq-cidades-v19');
+    if(!panel)return;
+    panel.id='modal-eq-cidades-v19';
+    panel.replaceChildren();
+    const empresa=equipeEmpresasCache.find(e=>e.id===empresaId);
+    if(!empresa)return;
+    const vinculos=new Set(equipeVinculosCache
+      .filter(v=>v.empresa_id===empresaId).map(v=>v.cidade_id));
+    const cidades=equipeCidadesCache.filter(c=>c.status==='ativo' &&
+      c.consorcio_id===empresa.consorcio_id && vinculos.has(c.id));
+    if(!cidades.length){
+      panel.textContent='Nenhum município ativo vinculado a esta empresa.';
+      return;
+    }
+    for(const cidade of cidades){
+      const label=document.createElement('label');
+      label.style.cssText='display:flex;align-items:center;gap:6px;font-size:12px';
+      const input=document.createElement('input');
+      input.type='checkbox';input.value=cidade.nome;
+      input.checked=preSelecionadas.includes(cidade.nome);
+      label.append(input,document.createTextNode(' '+cidade.nome));
+      panel.append(label);
+    }
+  }
+
+  window.abrirModalEquipe=async function(id){
     if(!mayManageTeams()){warn('Sem permissão para gerenciar equipes.');return;}
+    equipeModalCarregado=false;
     previousAbrirEquipe(id);
     const overlay=document.getElementById('modal-eq-overlay');
-    if (!overlay || overlay.style.display==='none') return;
-    try {
-      const cities=await sbSelect('cidades','select=id,nome,consorcio_id&order=nome.asc');
-      if(!Array.isArray(cities))return;
-      const eq=id?getEquipes().find(e=>e.id===id):null;
-      const check=document.querySelector('#modal-eq-body input[type=checkbox]');
-      const panel=check?.parentElement?.parentElement;
-      if(!panel)return;
-      const validCities=cities.filter(c=>CU?.perfil==='master'||!CU?.consorcio_id||c.consorcio_id===CU.consorcio_id);
-      panel.innerHTML=validCities.map(c=>'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="'+escapeHTML(c.nome)+'" '+(eq?.cidades?.includes(c.nome)?'checked':'')+'> '+escapeHTML(c.nome)+'</label>').join('');
-    }catch(e){console.warn('[V19] cidades da equipe:',e.message);}
+    if(!overlay||overlay.style.display==='none')return;
+    const select=document.getElementById('eq-empresa');
+    const saveButton=document.querySelector('#modal-eq-overlay button[onclick="salvarEquipe()"]');
+    if(saveButton)saveButton.disabled=true;
+    try{
+      const [cidades,vinculos]=await Promise.all([
+        sbSelect('cidades','select=id,nome,consorcio_id,status&order=nome.asc'),
+        sbSelect('empresa_cidades','select=empresa_id,cidade_id')
+      ]);
+      if(!Array.isArray(cidades)||!Array.isArray(vinculos))
+        throw new Error('Municípios ou vínculos empresariais indisponíveis.');
+      if(!overlay.isConnected||overlay.style.display==='none')return;
+      equipeCidadesCache=cidades;equipeVinculosCache=vinculos;
+      equipeEmpresasCache=getEmpresas().filter(e=>equipePermitida(e));
+      const equipe=id?getEquipes().find(e=>e.id===id):null;
+      select.replaceChildren();
+      for(const empresa of equipeEmpresasCache){
+        const opt=new Option(empresa.nome,empresa.id);
+        select.add(opt);
+      }
+      const selected=equipeEmpresasCache.some(e=>e.id===equipe?.empresa_id)
+        ?equipe.empresa_id:equipeEmpresasCache[0]?.id;
+      if(!selected)throw new Error('Nenhuma empresa autorizada para esta equipe.');
+      select.value=selected;
+      select.disabled=CU?.perfil==='empresa';
+      select.addEventListener('change',()=>renderCidadesEmpresa(select.value));
+      renderCidadesEmpresa(select.value,equipe?.cidades||[]);
+      equipeModalCarregado=true;
+      if(saveButton)saveButton.disabled=false;
+    }catch(e){
+      console.error('[V19] catalogo de equipes:',e);
+      warn('Não foi possível preparar empresas/municípios: '+e.message);
+    }
   };
 
-  window.salvarEquipe = async function () {
-    if(!mayManageTeams()){warn('Sem permissão para salvar equipes.');return;}
+  window.salvarEquipe=async function(){
+    if(!mayManageTeams()||!equipeModalCarregado){
+      warn('Aguarde o carregamento dos municípios e empresas autorizadas.');return;
+    }
     const nome=document.getElementById('eq-nome')?.value?.trim();
     const tecnico=document.getElementById('eq-tecnico')?.value?.trim()||'';
     const membros=Number(document.getElementById('eq-membros')?.value);
-    const empresaNome=document.getElementById('eq-empresa')?.value;
-    const emps=getEmpresas();
-    const empresa=CU.perfil==='empresa' ?
-      emps.find(e=>e.id===CU.empresa_id) : emps.find(e=>e.nome===empresaNome);
-    if (!nome || !empresa || !Number.isInteger(membros) || membros<1 || membros>100) {
-      warn('Preencha nome, empresa autorizada e número válido de membros.');return;
+    const empresaId=document.getElementById('eq-empresa')?.value;
+    const empresa=equipeEmpresasCache.find(e=>e.id===empresaId);
+    if(!nome||!empresa||!Number.isInteger(membros)||membros<1||membros>100){
+      warn('Preencha nome, empresa autorizada e quantidade de membros entre 1 e 100.');
+      return;
     }
-    const cons=empresa.consorcio_id||CU.consorcio_id;
-    if(!validUUID(cons)) {warn('Consórcio da equipe não identificado.');return;}
-    const cidades=[...document.querySelectorAll('#modal-eq-body input[type=checkbox]:checked')].map(e=>e.value);
+    const cidades=[...document.querySelectorAll('#modal-eq-cidades-v19 input[type=checkbox]:checked')]
+      .map(el=>el.value);
     const id=typeof _eqEditId==='undefined'?null:_eqEditId;
-    const row={nome,consorcio_id:cons,empresa_id:empresa.id,tecnico_lider:tecnico,
-      membros,cidades,status:'ativa'};
     const btn=document.querySelector('#modal-eq-overlay button[onclick="salvarEquipe()"]');
     if(btn?.disabled)return;
-    if(btn) {btn.disabled=true;btn.textContent='Salvando…';}
+    if(btn){btn.disabled=true;btn.textContent='Salvando…';}
     try{
-      const payload=id?
-        await sbFetch('equipes?id=eq.'+escPath(id)+'&select=id','PATCH',row):
-        await sbFetch('equipes?select=id','POST',row);
-      if(!Array.isArray(payload)||payload.length!==1) throw new Error('A gravação da equipe não foi confirmada.');
-      fecharModalEquipe();
+      const resposta=await sbFetch('rpc/v19_gerenciar_equipe','POST',{
+        p_acao:id?'editar':'criar',p_equipe_id:id,
+        p_empresa_id:empresa.id,p_nome:nome,p_tecnico_lider:tecnico,
+        p_membros:membros,p_cidades:cidades
+      });
+      if(resposta?.ok!==true||!validUUID(resposta.equipe_id)||
+         resposta.empresa_id!==empresa.id||(id&&resposta.equipe_id!==id))
+        throw new Error('Operação não confirmada pelo Supabase.');
+      fecharModalEquipe();equipeModalCarregado=false;
       showToast('✅ Equipe salva no Supabase.','ok');
-      const b=document.getElementById('main-body'),t=document.getElementById('topbar-title'),a=document.getElementById('topbar-actions');
+      const b=document.getElementById('main-body'),
+        t=document.getElementById('topbar-title'),
+        a=document.getElementById('topbar-actions');
       await window.vEquipes(b,t,a);
-    }catch(e){warn(e.message);}
-    finally {if(btn){btn.disabled=false;btn.textContent='💾 Salvar equipe';}}
+    }catch(e){warn('Não foi possível confirmar o salvamento: '+e.message);}
+    finally{if(btn){btn.disabled=false;btn.textContent='💾 Salvar equipe';}}
   };
 
   // Nenhum perfil deve receber falso toast de "SLA salvo" via localStorage.
