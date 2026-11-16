@@ -514,7 +514,7 @@ tbody tr:last-child td{border-bottom:none;}
   </div>
   <div class="dw-footer">
     <button class="btn btn-ghost" onclick="closeDrawer()">Fechar</button>
-    <button class="btn btn-ghost" onclick="if(CC){const w=window.open('','_blank');w.document.write('<pre>'+JSON.stringify(CC,null,2)+'</pre>');w.print();}">🖨 Imprimir</button>
+    <button class="btn btn-ghost" onclick="v19ImprimirChamado()" title="Abrir ficha formatada para imprimir ou salvar em PDF">🖨 Imprimir</button>
     <button class="btn btn-save" id="dw-btn-salvar" style="display:none" disabled onclick="salvarDrawer()" title="Salvar correções de dados no Supabase">💾 Salvar</button>
   </div>
 </div>
@@ -5508,5 +5508,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-chamado-ajustes.js" defer></script>
 <!-- Etapa 641: edição auditada de dados operacionais via RPC, sem PATCH direto. -->
 <script src="./v19-chamado-edicao.js" defer></script>
+<!-- Etapa 647: ficha de impressão A4, sem JSON bruto. -->
+<script src="./v19-chamado-impressao.js" defer></script>
 </body>
 </html>
