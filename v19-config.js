@@ -52,6 +52,8 @@ window.vConfigPortal=async function(b,t,a,consId){
     portalRow=rows[0]||{consorcio_id:chosen,portal_ativo:false,abertura_portal_ativo:false,
       consulta_protocolo_ativo:false,gps_obrigatorio:false,mostrar_empresa:false,
       notificacao_whatsapp:false,telefone_contato:'',whatsapp_contato:'',prazo_medio_texto:''};
+    const alvoNome=consorcios.find(c=>c.id===chosen)?.nome||'';
+    const podeAtivarBeta=CU?.perfil==='master'&&alvoNome==='TESTE V19 - Consorcio Beta';
     const servicosAtivosNoBanco=!!(
       portalRow.portal_ativo || portalRow.abertura_portal_ativo ||
       portalRow.consulta_protocolo_ativo || portalRow.notificacao_whatsapp);
@@ -63,11 +65,11 @@ window.vConfigPortal=async function(b,t,a,consId){
       '<div style="margin-bottom:18px">'+escolha(chosen,'v19MudarConsPortal')+'</div>'+
       '<h3 style="font-size:15px;margin-bottom:8px">Serviços do portal cidadão</h3>'+
       (servicosAtivosNoBanco
-        ? '<div role="alert" style="border:1px solid #b45309;border-radius:8px;padding:10px;margin:12px 0;color:#92400e;background:#fffbeb;font-size:12px">ATENÇÃO: o banco informa serviços públicos ATIVOS neste consórcio, embora sua ativação ainda esteja bloqueada. Salvar nesta tela desativa os serviços públicos; não publique o portal antes da homologação.</div>'
+        ? '<div role="alert" style="border:1px solid #b45309;border-radius:8px;padding:10px;margin:12px 0;color:#92400e;background:#fffbeb;font-size:12px">ATENÇÃO: há serviços públicos ativos neste consórcio. A API pode continuar desligada por configuração independente. Confirme o estado antes de qualquer teste.</div>'
         : '')+
-      check('v19-portal-ativo','portal_ativo','Portal público ativo',true)+
-      check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados',true)+
-      check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo',true)+
+      check('v19-portal-ativo','portal_ativo','Portal público ativo',!podeAtivarBeta)+
+      check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados',!podeAtivarBeta)+
+      check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo',!podeAtivarBeta)+
       check('v19-portal-gps','gps_obrigatorio','GPS obrigatório para abertura')+
       check('v19-portal-empresa','mostrar_empresa','Exibir a empresa responsável')+
       check('v19-portal-whatsapp','notificacao_whatsapp','Notificações por WhatsApp (integração pendente)',true)+
@@ -76,8 +78,8 @@ window.vConfigPortal=async function(b,t,a,consId){
         '<label>WhatsApp de contato<input id="v19-portal-numero" style="width:100%" maxlength="40" value="'+esc(portalRow.whatsapp_contato||'')+'"></label>'+
       '</div><label style="display:block;margin-top:14px">Prazo médio (texto público)<input id="v19-portal-prazo" '+
       'style="display:block;width:100%" maxlength="150" value="'+esc(portalRow.prazo_medio_texto||'')+'"></label>'+
-      '<p style="font-size:11px;color:var(--gray-500);margin:14px 0">Salvar grava somente os campos permitidos pela RPC no Supabase V19. '+
-      'Ativação do portal, abertura de chamados, consulta pública e notificações WhatsApp permanecem bloqueadas até homologação.</p>'+
+      '<p style="font-size:11px;color:var(--gray-500);margin:14px 0">As opções de ativação são reservadas ao perfil Master e somente ao consórcio TESTE V19 - Consorcio Beta. '+
+      'A ativação efetiva ainda depende da Edge Function e de testes autorizados. Não ative sem orientação. WhatsApp segue bloqueado.</p>'+
       '<button class="btn btn-save" id="v19-portal-salvar" onclick="v19SalvarPortal()">💾 Salvar configurações</button></div>';
   }catch(e){b.innerHTML='<div class="card" style="color:var(--red)">'+esc(e.message)+'</div>';}
 };
@@ -90,13 +92,13 @@ window.v19SalvarPortal=async function(){
   const sessao=SB_SESSION?.user?.id;
   const g=id=>!!document.getElementById(id)?.checked;
   const v=id=>document.getElementById(id)?.value?.trim()||null;
+  const podeAtivarBeta=CU?.perfil==='master'&&consorcios.some(c=>c.id===alvo&&c.nome==='TESTE V19 - Consorcio Beta');
   const payload={
     p_consorcio_id:alvo,
-    // Campos bloqueados na UI NAO podem reenviar "true" do banco.
-    // O backend somente permite false ate a homologacao do portal.
-    p_portal_ativo:false,
-    p_abertura_portal_ativo:false,
-    p_consulta_protocolo_ativo:false,
+    // Apenas Master pode ativar o consorcio Beta de homologacao.
+    p_portal_ativo:podeAtivarBeta?g('v19-portal-ativo'):false,
+    p_abertura_portal_ativo:podeAtivarBeta?g('v19-portal-abertura'):false,
+    p_consulta_protocolo_ativo:podeAtivarBeta?g('v19-portal-consulta'):false,
     p_gps_obrigatorio:g('v19-portal-gps'),
     p_mostrar_empresa:g('v19-portal-empresa'),
     p_notificacao_whatsapp:false,
@@ -104,6 +106,13 @@ window.v19SalvarPortal=async function(){
     p_whatsapp_contato:v('v19-portal-numero'),
     p_prazo_medio_texto:v('v19-portal-prazo')
   };
+  if((payload.p_abertura_portal_ativo||payload.p_consulta_protocolo_ativo)&&!payload.p_portal_ativo){
+    showToast('Primeiro marque Portal público ativo; a abertura e consulta dependem desta opção.','erro');return;
+  }
+  if(payload.p_abertura_portal_ativo&&payload.p_gps_obrigatorio){
+    showToast('GPS obrigatório ainda não está homologado para abertura pública.','erro');return;
+  }
+  if(payload.p_portal_ativo&&!window.confirm('ATENÇÃO: isto habilita o portal Beta no banco de homologação. A Edge Function tem um bloqueio independente. Você recebeu autorização explícita para ligar o portal de testes?'))return;
   btn.disabled=true;btn.textContent='Salvando…';
   try{
     // Não usar INSERT/PATCH direto: validações e isolamento pertencem à RPC homologada.
@@ -115,12 +124,14 @@ window.v19SalvarPortal=async function(){
       'select=*&consorcio_id=eq.'+encodeURIComponent(alvo)+'&limit=1');
     if(!Array.isArray(rows)||rows.length!==1||rows[0].consorcio_id!==alvo)
       throw new Error('Salvamento confirmado, mas a consulta de verificação falhou. Atualize a página antes de repetir.');
-    if(rows[0].portal_ativo || rows[0].abertura_portal_ativo ||
-       rows[0].consulta_protocolo_ativo || rows[0].notificacao_whatsapp)
-      throw new Error('O banco ainda indica serviços públicos ativos. Não habilite o portal; verifique as flags no Supabase.');
+    if(!!rows[0].portal_ativo!==payload.p_portal_ativo ||
+       !!rows[0].abertura_portal_ativo!==payload.p_abertura_portal_ativo ||
+       !!rows[0].consulta_protocolo_ativo!==payload.p_consulta_protocolo_ativo ||
+       !!rows[0].notificacao_whatsapp)
+      throw new Error('A leitura do banco não corresponde às flags solicitadas; confira a configuração antes de tentar novamente.');
     if(selectedCons!==alvo || SB_SESSION?.user?.id!==sessao)return;
     portalRow=rows[0];
-    showToast('✅ Configurações verificadas no banco. Serviços públicos desativados.','ok');
+    showToast(payload.p_portal_ativo?'Configuração Beta confirmada no banco; a API possui bloqueio independente.':'Configurações confirmadas no banco. Serviços públicos desativados.','ok');
     const corpo=document.getElementById('main-body'),
       titulo=document.getElementById('topbar-title'),
       acoes=document.getElementById('topbar-actions');
