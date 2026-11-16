@@ -1966,8 +1966,14 @@ function abrirDrawer(id){
       ${c.created_at&&c.completed_at?`<div class="drow"><span class="dlbl">Tempo total</span><span class="dval" style="color:var(--brand)">${v19FormatarTempoAtendimento(c.created_at,c.completed_at)}</span></div>`:''}
     </div></div>`;
   if(window.v19PrepararEdicaoChamado)window.v19PrepararEdicaoChamado(c);
-  const hist=DB.historico[id]||[];
-  document.getElementById('dw-tc-historico').innerHTML=`<div class="card-title">Timeline do chamado</div>${hist.map((h,i)=>`<div class="tl-item"><div class="tl-dot-col"><div class="tl-dot" style="background:${h.c}"></div>${i<hist.length-1?'<div class="tl-line"></div>':''}</div><div class="tl-body"><div class="tl-s">${h.s}</div><div class="tl-m">${h.m}</div>${h.o?`<div class="tl-o">${h.o}</div>`:''}</div></div>`).join('')}`;
+  // Evitar renderizar histórico local desatualizado: fonte única é o Supabase.
+  // Ao selecionar a aba, showDTab chama v19CarregarHistoricoChamado uma vez.
+  const boxHistorico=document.getElementById('dw-tc-historico');
+  boxHistorico.replaceChildren();
+  const dicaHistorico=document.createElement('p');
+  dicaHistorico.style.cssText='font-size:12px;color:var(--gray-500)';
+  dicaHistorico.textContent='Abra a aba Histórico para consultar os eventos reais no Supabase.';
+  boxHistorico.appendChild(dicaHistorico);
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
   document.body.style.overflow='hidden';
