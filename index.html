@@ -3206,7 +3206,7 @@ function vRelatorios(b,t,a){
         <label>Empresa (chamados e estoque)</label>
         <select id="rf-empresa">
           <option value="">Todas as empresas</option>
-          ${empresas.map(e=>`<option>${e}</option>`).join('')}
+          ${empresas.map(e=>`<option>${escaparCidadeHTML(e)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
