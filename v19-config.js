@@ -112,6 +112,9 @@ window.v19SalvarPortal=async function(){
   if(payload.p_abertura_portal_ativo&&payload.p_gps_obrigatorio){
     showToast('GPS obrigatório ainda não está homologado para abertura pública.','erro');return;
   }
+  if(!podeAtivarBeta && (portalRow?.portal_ativo || portalRow?.abertura_portal_ativo || portalRow?.consulta_protocolo_ativo)){
+    showToast('Este portal possui serviços ativos. Para evitar desligamento acidental, peça ao Master que salve estas configurações.','erro');return;
+  }
   if(payload.p_portal_ativo&&!window.confirm('ATENÇÃO: isto habilita o portal Beta no banco de homologação. A Edge Function tem um bloqueio independente. Você recebeu autorização explícita para ligar o portal de testes?'))return;
   btn.disabled=true;btn.textContent='Salvando…';
   try{
