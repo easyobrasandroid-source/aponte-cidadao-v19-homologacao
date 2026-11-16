@@ -373,6 +373,10 @@
       };
       window._rfBuscar();
     }catch(e){
+      if(t.textContent!=='Relatórios'||!b.isConnected||
+         SB_SESSION?.user?.id!==sessao||
+         CU?.perfil!==perfil||CU?.consorcio_id!==consorcio||
+         CU?.empresa_id!==empresa)return;
       b.innerHTML='<div class="tcard" style="padding:2rem;color:var(--red)">'+esc(e.message)+'</div>';
       showToast(esc(e.message),'erro');
     }
