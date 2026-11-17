@@ -4796,22 +4796,11 @@ function saveSLAConfig(){
   showToast('✅ SLA salvo — prazos por consórcio e área aplicados em todos os chamados.','ok');
 }
 
-// ═══ CONFIG PORTAL ═══
+// Se o modulo operacional nao carregar, nunca apresentar formulario ficticio.
 function vConfigPortal(b,t,a){
   t.textContent='Configurações do portal público';
-  a.innerHTML=`<button class="btn btn-ghost" onclick="goPage('pg-portal')">👁 Ver portal</button><button class="btn btn-save" onclick="alert('Configurações salvas!')">💾 Salvar</button>`;
-  b.innerHTML=`<div style="background:var(--brand-light);border:1px solid #B3CDEE;border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--brand)">🔗 <strong>URL pública:</strong><span style="font-family:'JetBrains Mono',monospace">https://apontecidadao.com.br/ciscaparao</span><button class="btn btn-primary" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="navigator.clipboard?.writeText('https://apontecidadao.com.br/ciscaparao');alert('Link copiado!')">📋 Copiar</button></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div class="card"><div class="card-title">⚙️ Funcionalidades</div>${[['Consulta pública de protocolo','Cidadão consulta status pelo número',true],['Abertura de chamado pelo portal','Cidadão abre chamados pelo site',true],['GPS obrigatório no mobile','Exigir GPS para abertura',false],['Exibir empresa responsável','Mostrar empresa na consulta',false],['Notificação por WhatsApp','Enviar atualizações ao cidadão',true]].map(([tt,d,on])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-50)"><div><div style="font-size:13px;font-weight:600">${tt}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${d}</div></div><div class="toggle ${on?'':'off'}" onclick="this.classList.toggle('off')"></div></div>`).join('')}</div>
-    <div class="card"><div class="card-title">💬 Mensagens ao cidadão</div>
-      <div class="field"><label>Quando consulta está desabilitada</label><textarea style="font-family:'Inter',sans-serif;font-size:12px;padding:9px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);width:100%;resize:none;min-height:60px;outline:none">Para consultar, ligue: (33) 3721-0000</textarea></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>Telefone</label><input value="(33) 3721-0000"></div>
-        <div class="field"><label>WhatsApp</label><input value="(33) 99900-0000"></div>
-      </div>
-      <div class="field" style="margin-top:10px"><label>Prazo médio ao cidadão</label><input value="Até 48 horas úteis"></div>
-    </div>
-  </div>`;
+  a.innerHTML='';
+  b.innerHTML='<div class="card">Configurações do portal indisponíveis. Atualize a página ou contate o administrador.</div>';
 }
 
 // ═══ NOVO CHAMADO INTERNO ═══
@@ -5592,6 +5581,15 @@ window.addEventListener('DOMContentLoaded', ()=>{
   DB = getDB();  // sempre vazio; o banco preenche
   // Priorizar link de convite/recuperação antes da sessão anterior.
   if(window.v19HandleAuthCallback && window.v19HandleAuthCallback()) return;
+  // Um link publico aberto pela tela administrativa sempre entra no portal,
+  // mesmo quando existe uma sessao interna em outra aba do navegador.
+  const paramsPortal=new URLSearchParams(location.search);
+  const idPortal=paramsPortal.get('consorcio_id')||'';
+  if(paramsPortal.get('pagina')==='portal' &&
+     /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(idPortal)){
+    goPage('pg-portal');
+    return;
+  }
   if(!SUPA_CONFIGURADO){
     const cid=new URLSearchParams(location.search).get('consorcio_id')||'';
     if(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(cid)){
@@ -5660,7 +5658,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19.js" defer></script>
 <script src="./v19-fotos.js?v=663-historico-unico" defer></script>
 <script src="./v19-relatorios.js" defer></script>
-<script src="./v19-config.js" defer></script>
+<script src="./v19-config.js?v=664-portal-final" defer></script>
 <script src="./v19-tipos.js" defer></script>
 <script src="./v19-assumir.js" defer></script>
 <script src="./v19-designacao.js" defer></script>
