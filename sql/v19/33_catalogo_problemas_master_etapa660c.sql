@@ -74,10 +74,13 @@ BEGIN
     OR p_consorcio_id IS NULL THEN
    RAISE EXCEPTION 'ACESSO_NAO_AUTORIZADO' USING ERRCODE='42501';
  END IF;
- SELECT count(*),max(u.perfil),max(u.consorcio_id)
-  INTO v_n,v_perfil,v_consorcio
- FROM public.usuarios u
+ SELECT count(*) INTO v_n FROM public.usuarios u
  WHERE u.auth_user_id=auth.uid() AND u.status='ativo';
+ IF v_n=1 THEN
+   SELECT u.perfil,u.consorcio_id INTO v_perfil,v_consorcio
+   FROM public.usuarios u
+   WHERE u.auth_user_id=auth.uid() AND u.status='ativo';
+ END IF;
  IF v_n <> 1 OR v_perfil NOT IN
    ('master','consorcio','prefeitura','empresa','garantia')
     OR (v_perfil <> 'master' AND v_consorcio IS DISTINCT FROM p_consorcio_id)
