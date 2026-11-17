@@ -6,6 +6,7 @@ const uuid=v=>/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(String(v||''
 let internoSeq=0,internoCons='',internos=[];
 let publicoCons='',publicos=[];
 let masterCons='',masterSeq=0,masterBusy=false;
+const filtroSeq=new Map();
 const statusGrid=(id,mensagem)=>{
   const el=document.getElementById(id);
   if(el){el.replaceChildren();const p=document.createElement('p');p.textContent=mensagem;p.style.cssText='font-size:12px;color:var(--gray-500)';el.append(p);}
@@ -74,6 +75,8 @@ window.v19PopularFiltroTipos=async function(selectId,cidadeSelectId){
   const select=document.getElementById(selectId);
   if(!select||!CU||!SB_SESSION?.user?.id)return;
   const sessao=SB_SESSION.user.id;
+  const requisicao=(filtroSeq.get(selectId)||0)+1;
+  filtroSeq.set(selectId,requisicao);
   const cidadeEl=document.getElementById(cidadeSelectId),cidade=String(cidadeEl?.value||'');
   const escolhido=select.value;
   select.disabled=true;
@@ -102,6 +105,7 @@ window.v19PopularFiltroTipos=async function(selectId,cidadeSelectId){
       .map(c=>c.tipo).filter(Boolean))]
       .filter(nome=>!ativos.has(nome)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
     if(!select.isConnected||select!==document.getElementById(selectId)||
+       filtroSeq.get(selectId)!==requisicao||
        SB_SESSION?.user?.id!==sessao||String(cidadeEl?.value||'')!==cidade)return;
     select.replaceChildren(new Option('Todos os tipos',''));
     const ag=document.createElement('optgroup');ag.label='Tipos ativos';
@@ -117,6 +121,7 @@ window.v19PopularFiltroTipos=async function(selectId,cidadeSelectId){
     select.disabled=false;
   }catch(e){
     if(select.isConnected&&select===document.getElementById(selectId)&&
+       filtroSeq.get(selectId)===requisicao&&String(cidadeEl?.value||'')===cidade&&
        SB_SESSION?.user?.id===sessao){
       console.warn('[V19] Filtro de tipos:',e);
       select.replaceChildren(new Option('Catálogo indisponível',''));
@@ -207,7 +212,7 @@ function tabelaMaster(rows){
     const excluir=document.createElement('button');excluir.className='btn btn-ghost';
     excluir.type='button';excluir.textContent='Excluir';excluir.style.margin='3px';
     excluir.style.color='var(--red)';
-    excluir.onclick=()=>window.v19SalvarTipoMaster('excluir',r.id);
+    excluir.onclick=()=>window.v19SalvarTipoMaster('excluir',r.id,r.nome);
     tdActions.append(edit,toggle,excluir);
     tr.append(tdName,tdOrdem,tdStatus,tdActions);tbody.append(tr);
   }
@@ -252,7 +257,7 @@ window.v19TiposMasterPage=async function(b,t,a,consId){
   }
 };
 
-window.v19SalvarTipoMaster=async function(acao,id){
+window.v19SalvarTipoMaster=async function(acao,id,nomeOriginal){
   if(masterBusy||CU?.perfil!=='master'||!uuid(masterCons))return;
   if(acao!=='criar'&&!uuid(id))return;
   const nome=acao==='criar'?document.getElementById('v19-tipo-novo')?.value?.trim():
@@ -265,7 +270,7 @@ window.v19SalvarTipoMaster=async function(acao,id){
     showToast('Informe um nome de 2 a 120 caracteres e uma ordem de 0 a 9999.','erro');return;
   }
   if(acao==='desativar'&&!confirm('Desativar este tipo para NOVOS chamados deste consórcio? Os antigos serão preservados.'))return;
-  if(acao==='excluir'&&!confirm('EXCLUIR definitivamente “'+nome+'” do catálogo deste consórcio? Chamados antigos permanecem salvos, mas esta opção não poderá ser reativada.'))return;
+  if(acao==='excluir'&&!confirm('EXCLUIR definitivamente “'+(nomeOriginal||nome)+'” do catálogo deste consórcio? Chamados antigos permanecem salvos, mas esta opção não poderá ser reativada.'))return;
   const consorcio=masterCons,sessao=SB_SESSION?.user?.id;
   masterBusy=true;
   try{
