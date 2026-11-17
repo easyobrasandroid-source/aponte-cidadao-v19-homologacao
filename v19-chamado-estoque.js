@@ -208,8 +208,11 @@
             addMessage(preview,'Registrando consumo',
               'Aguardando confirmacao transacional do Supabase V19…');
             try {
+              const chave=window.crypto?.randomUUID?.();
+              if(!chave)throw new Error('Navegador sem gerador seguro de ID de requisição.');
               const response=await sbFetch(
-                'rpc/v19_consumir_material_chamado_empresa','POST',{
+                'rpc/v19_consumir_material_chamado_idempotente','POST',{
+                  p_requisicao_id:chave,
                   p_chamado_id:callId,
                   p_material_id:r.material_id,
                   p_quantidade:qtyNum
