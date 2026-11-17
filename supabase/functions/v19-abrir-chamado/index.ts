@@ -477,8 +477,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
       const tipos_problema = rowsTipos
         .filter((r): r is JsonRecord => r !== null && typeof r === "object" &&
-          !Array.isArray(r) && typeof (r as JsonRecord).nome === "string" &&
-          (r as JsonRecord).nome.length >= 2 && (r as JsonRecord).nome.length <= 120)
+          !Array.isArray(r) && typeof r.nome === "string" &&
+          r.nome.trim().length >= 2 && r.nome.length <= 120)
         .slice(0, 100)
         .map((r) => String(r.nome));
       if (!tipos_problema.length) {
