@@ -719,7 +719,10 @@ const V19_WRITABLE_RPCS = new Set([
  // Etapa 634: criar/editar/excluir equipes exclusivamente por RPC autenticada.
  'v19_gerenciar_equipe',
  // Etapa 641: correção de dados de chamados por RPC autenticada e auditada.
- 'v19_editar_dados_chamado'
+ 'v19_editar_dados_chamado',
+ // Etapa 660D.1: catalogo de problemas por consorcio; consulta POST
+ // e gestao RPC restrita exclusivamente ao Master pelo banco.
+ 'v19_listar_tipos_problema','v19_gerenciar_tipo_problema'
 ]);
 // Bloqueio por padrao: nao permitir que o frontend legado grave em tabelas
 // antes de existir RPC especifica homologada. GET segue sujeito ao RLS.
