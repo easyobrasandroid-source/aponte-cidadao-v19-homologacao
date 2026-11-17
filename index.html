@@ -5027,6 +5027,8 @@ async function _v19PhotonBuscar(consulta,cidade,signal){
 }
 
 function _v19LimparSugestoes(prefix){
+  // Trocar município invalida também callbacks de GPS ainda pendentes.
+  ++v19GPSCaptureSequence;
   ++_v19GeoSequence;
   if(_v19GeoTimer)clearTimeout(_v19GeoTimer);
   if(_v19GeoAbort)_v19GeoAbort.abort();
