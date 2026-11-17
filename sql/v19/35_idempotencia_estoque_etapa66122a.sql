@@ -72,11 +72,16 @@ BEGIN
   IF p_requisicao_id IS NULL THEN
     RAISE EXCEPTION 'REQUISICAO_ID_OBRIGATORIO' USING ERRCODE='22023';
   END IF;
-  SELECT count(*),max(u.empresa_id)
-    INTO v_n,v_empresa_atual
+  SELECT count(*)
+    INTO v_n
   FROM public.usuarios u
   WHERE u.auth_user_id=v_auth AND u.status='ativo'
     AND u.perfil='empresa';
+  SELECT u.empresa_id INTO v_empresa_atual
+  FROM public.usuarios u
+  WHERE u.auth_user_id=v_auth AND u.status='ativo'
+    AND u.perfil='empresa'
+  LIMIT 1;
   IF v_n<>1 OR v_empresa_atual IS DISTINCT FROM p_empresa_id THEN
     RAISE EXCEPTION 'EMPRESA_DO_ESTOQUE_NAO_PERTENCE_A_CONTA'
       USING ERRCODE='42501';
@@ -158,11 +163,16 @@ BEGIN
   IF p_requisicao_id IS NULL THEN
     RAISE EXCEPTION 'REQUISICAO_ID_OBRIGATORIO' USING ERRCODE='22023';
   END IF;
-  SELECT count(*),max(u.empresa_id),max(u.consorcio_id)
-    INTO v_n,v_empresa_atual,v_consorcio_atual
+  SELECT count(*) INTO v_n
   FROM public.usuarios u
   WHERE u.auth_user_id=v_auth AND u.status='ativo'
     AND u.perfil='empresa';
+  SELECT u.empresa_id,u.consorcio_id
+    INTO v_empresa_atual,v_consorcio_atual
+  FROM public.usuarios u
+  WHERE u.auth_user_id=v_auth AND u.status='ativo'
+    AND u.perfil='empresa'
+  LIMIT 1;
   IF v_n<>1 OR v_empresa_atual IS NULL OR v_consorcio_atual IS NULL THEN
     RAISE EXCEPTION 'CONSUMO_EXCLUSIVO_DA_EMPRESA' USING ERRCODE='42501';
   END IF;
