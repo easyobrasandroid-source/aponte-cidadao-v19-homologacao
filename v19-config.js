@@ -159,6 +159,8 @@ window.vSLA=async function(b,t,a,consId){
   t.textContent='Configuração de SLA'; a.innerHTML='';
   b.innerHTML='<div class="card">Lendo prazos do Supabase…</div>';
   try{
+    // Ferramentas internas de diagnostico nao aparecem no uso diario.
+    const modoDiagnostico=new URLSearchParams(location.search).get('diagnostico')==='1';
     consorcios=await carregarConsorcios();
     selectedCons=valid(consId)?consId:(valid(selectedCons)?selectedCons:consorcios[0]?.id);
     if(!selectedCons||!consorcios.some(c=>c.id===selectedCons))
@@ -194,8 +196,8 @@ window.vSLA=async function(b,t,a,consId){
       '</div>'+
       '<button class="btn btn-save" id="v19-sla-salvar" onclick="v19SalvarSLA()">💾 Salvar prazos gerais</button>'+
       '</div>':
-      (!padrao?'<p style="font-size:12px;color:var(--amber);margin-top:14px">Este consórcio ainda não possui uma regra geral de SLA. Os prazos do Consórcio Alfa não são compartilhados. Cadastre uma regra própria deste consórcio por procedimento de homologação específico.</p>':'')+
-      (!admin()&&padrao?'<div style="border-top:1px solid #E5E7EB;margin-top:16px;padding-top:12px">'+
+      (!padrao?'<p style="font-size:12px;color:var(--amber);margin-top:14px">Este consórcio ainda não possui uma regra geral de SLA. Os prazos do Consórcio Alfa não são compartilhados. Solicite ao administrador o cadastro da regra geral de SLA para este consórcio.</p>':'')+
+      (modoDiagnostico&&!admin()&&padrao?'<div style="border-top:1px solid #E5E7EB;margin-top:16px;padding-top:12px">'+
       '<p style="font-size:12px;color:var(--gray-500)">Homologação V19: este diagnóstico envia valores inválidos (0 dias) para testar se a RPC rejeita seu perfil. Nenhuma regra pode ser salva com esses valores.</p>'+
       '<button class="btn btn-ghost" id="v19-sla-teste-bloqueio" onclick="v19TestarBloqueioSLARPC()">🔒 Testar bloqueio de edição pelo banco</button>'+
       '<div id="v19-sla-resultado-bloqueio" style="font-size:12px;margin-top:8px"></div></div>':'');
@@ -209,7 +211,7 @@ window.vSLA=async function(b,t,a,consId){
       '</tr></thead><tbody id="v19-sla-linhas">'+
       (rules.length?rules.map(row).join(''):'<tr><td colspan="5">Nenhuma regra de SLA cadastrada.</td></tr>')+
       '</tbody></table></div>'+edicao+
-      (CU?.perfil==='consorcio'&&CU.consorcio_id===selectedCons?
+      (modoDiagnostico&&CU?.perfil==='consorcio'&&CU.consorcio_id===selectedCons?
         '<div style="border-top:1px solid #E5E7EB;padding-top:12px;margin-top:15px">'+
         '<p style="font-size:12px;color:var(--gray-500)">Homologação de isolamento: o teste tenta editar o Consórcio Beta com valores inválidos (zero dias). Nenhum prazo pode ser alterado com esses valores.</p>'+
         '<button class="btn btn-ghost" id="v19-sla-teste-consorcio" onclick="v19TestarIsolamentoConsorcio()">🔒 Testar bloqueio entre consórcios</button>'+
