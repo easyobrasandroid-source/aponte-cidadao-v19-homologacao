@@ -245,6 +245,8 @@ GRANT EXECUTE ON FUNCTION public.v19_consumir_material_chamado_idempotente(
 ) TO authenticated;
 
 COMMIT;
+-- Disponibilizar novas assinaturas e grants imediatamente no PostgREST.
+NOTIFY pgrst, 'reload schema';
 
 -- Diagnostic read-only. Resultado: tabela privada e duas RPCs protegidas.
 SELECT
