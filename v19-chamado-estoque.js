@@ -207,12 +207,26 @@
               .forEach(el=>{el.disabled=true;});
             addMessage(preview,'Registrando consumo',
               'Aguardando confirmacao transacional do Supabase V19…');
+            // Mantem chave da operacao sem confirmacao entre recargas nesta aba.
+            const chavePendente='v19-consumo-pendente-'+session+'-'+callId+'-'+r.material_id;
             try {
+              const dados={
+                p_chamado_id:callId,
+                p_material_id:r.material_id,
+                p_quantidade:qtyNum
+              };
+              const assinatura=JSON.stringify(dados);
+              const anterior=JSON.parse(sessionStorage.getItem(chavePendente)||'null');
+              if(anterior && anterior.assinatura!==assinatura)
+                throw new Error('Consumo anterior deste material sem confirmação. Confira o histórico antes de registrar outra quantidade.');
+              const chave=anterior?.id || window.crypto?.randomUUID?.();
+              if(!chave)throw new Error('Navegador sem gerador seguro de ID de requisição.');
+              if(!anterior)sessionStorage.setItem(chavePendente,
+                JSON.stringify({id:chave,assinatura}));
               const response=await sbFetch(
-                'rpc/v19_consumir_material_chamado_empresa','POST',{
-                  p_chamado_id:callId,
-                  p_material_id:r.material_id,
-                  p_quantidade:qtyNum
+                'rpc/v19_consumir_material_chamado_idempotente','POST',{
+                  p_requisicao_id:chave,
+                  ...dados
                 }
               );
               const before=Number(response?.saldo_anterior);
@@ -232,6 +246,7 @@
               if(!validResponse){
                 throw new Error('Resposta da baixa inconsistente. Confira o estoque e o chamado.');
               }
+              sessionStorage.removeItem(chavePendente);
               if(request!==modalId || !activeSession(session,company,callId) ||
                  !document.getElementById('v19-consumo-preview'))return;
               results.replaceChildren();
@@ -255,6 +270,10 @@
                 });
               }
             }catch(e){
+              // Erro HTTP definitivo: a RPC rejeitou sem gravar.
+              // Falha de rede / resposta incerta: preservar o mesmo ID.
+              if([400,401,403,409,422].includes(e?.status))
+                sessionStorage.removeItem(chavePendente);
               if(request!==modalId || !activeSession(session,company,callId) ||
                  !document.getElementById('v19-consumo-preview'))return;
               preview.replaceChildren();
