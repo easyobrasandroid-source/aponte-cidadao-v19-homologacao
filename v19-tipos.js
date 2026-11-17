@@ -69,8 +69,8 @@ window.v19TipoInternoAtivo=(cons,tipo)=>internoCons===cons&&internos.includes(ti
 
 
 // Usado nos filtros dos chamados e relatórios de TODOS os perfis autorizados.
-// Incluir problemas ativos ainda sem chamados e tipos antigos somente quando
-// existirem ocorrências históricas no próprio escopo do usuário.
+// Incluir apenas problemas ativos, mesmo sem chamados. Tipos removidos não são
+// opções de filtro; registros antigos permanecem preservados no banco.
 window.v19PopularFiltroTipos=async function(selectId,cidadeSelectId){
   const select=document.getElementById(selectId);
   if(!select||!CU||!SB_SESSION?.user?.id)return;
@@ -99,24 +99,14 @@ window.v19PopularFiltroTipos=async function(selectId,cidadeSelectId){
     resultados.forEach(rows=>rows.filter(r=>r.ativo).forEach(r=>{
       if(!ativos.has(r.nome)||ativos.get(r.nome)>r.ordem)ativos.set(r.nome,r.ordem);
     }));
-    const antigos=[...new Set((DB.chamados||[])
-      .filter(c=>(!cidade||c.cidade===cidade)&&
-        (CU.perfil==='master'||c.consorcio_id===CU.consorcio_id))
-      .map(c=>c.tipo).filter(Boolean))]
-      .filter(nome=>!ativos.has(nome)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
     if(!select.isConnected||select!==document.getElementById(selectId)||
        filtroSeq.get(selectId)!==requisicao||
        SB_SESSION?.user?.id!==sessao||String(cidadeEl?.value||'')!==cidade)return;
     select.replaceChildren(new Option('Todos os tipos',''));
-    const ag=document.createElement('optgroup');ag.label='Tipos ativos';
+    // O filtro acompanha SOMENTE o catálogo ativo do(s) consórcio(s)
+    // autorizado(s). Tipos desativados/excluídos nunca entram aqui.
     [...ativos].sort((a,b)=>a[1]-b[1]||a[0].localeCompare(b[0],'pt-BR'))
-      .forEach(([nome])=>ag.append(new Option(nome,nome)));
-    if(ag.children.length)select.append(ag);
-    if(antigos.length){
-      const hg=document.createElement('optgroup');hg.label='Tipos históricos de chamados existentes';
-      antigos.forEach(nome=>hg.append(new Option(nome+' (histórico)',nome)));
-      select.append(hg);
-    }
+      .forEach(([nome])=>select.add(new Option(nome,nome)));
     if(escolhido&&[...select.options].some(op=>op.value===escolhido))select.value=escolhido;
     select.disabled=false;
   }catch(e){
