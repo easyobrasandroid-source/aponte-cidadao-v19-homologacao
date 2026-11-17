@@ -190,7 +190,11 @@
         showToast('Use JPG, PNG ou WEBP com até 5 MB.','erro');return;
       }
       const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
-      const unique=crypto?.randomUUID?.() || String(Date.now())+'-'+Math.random().toString(36).slice(2);
+      const unique=crypto?.randomUUID?.();
+      if(!validUUID(unique)){
+        showToast('Identificador seguro de foto indisponível neste navegador. Atualize o navegador antes de enviar.','erro');
+        return;
+      }
       const storagePath=cons+'/'+protocolo+'/'+unique+'.'+ext;
       showToast('Enviando foto para o Supabase…','aviso');
       try{
