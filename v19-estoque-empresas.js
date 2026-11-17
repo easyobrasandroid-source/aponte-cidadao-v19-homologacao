@@ -313,8 +313,11 @@
                   form.dataset.busy='1';submit.disabled=true;
                   info.textContent='Registrando movimentação no estoque da empresa…';
                   try {
-                    const response=await sbFetch('rpc/v19_movimentar_estoque_empresa',
+                    const chave=window.crypto?.randomUUID?.();
+                    if(!chave)throw new Error('Navegador sem gerador seguro de ID de requisição.');
+                    const response=await sbFetch('rpc/v19_movimentar_estoque_idempotente',
                       'POST',{
+                        p_requisicao_id:chave,
                         p_material_id:r.material_id,
                         p_empresa_id:r.empresa_id,
                         p_tipo:direction,
