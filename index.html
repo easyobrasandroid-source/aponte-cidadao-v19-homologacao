@@ -522,11 +522,11 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="modal-header"><div class="modal-title">✅ Marcar como Concluído</div><button class="modal-close" onclick="closeModalConcluir()">✕</button></div>
     <div class="modal-body">
       <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:9px;padding:12px;color:#065F46;font-size:12px;line-height:1.6">
-        <strong>Concluir no Supabase V19 de homologação</strong>
+        <strong>Confirmar conclusão do chamado</strong>
         <div id="v19-conclusao-alvo" style="margin-top:6px;word-break:break-word"></div>
         <div style="margin-top:8px">Data, hora e responsável serão registrados pelo servidor. O histórico será criado automaticamente.</div>
       </div>
-      <div style="font-size:11px;color:#64748b;margin-top:10px">Observações personalizadas de conclusão serão integradas posteriormente.</div>
+      
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalConcluir()">Cancelar</button>
@@ -844,7 +844,7 @@ async function carregarCidadesPortal(){
     if(!resposta.ok){
       const erro=await resposta.json().catch(()=>null);
       if(resposta.status===503 && erro?.erro==='ABERTURA_EM_HOMOLOGACAO'){
-        const mensagem='Portal público temporariamente indisponível: sistema em homologação. Nenhum chamado pode ser registrado neste momento.';
+        const mensagem='O portal está temporariamente indisponível. Tente novamente mais tarde.';
         if(aviso)aviso.textContent=mensagem;
         v19EstadoFormularioPublico(false,mensagem);
         return;
@@ -1169,7 +1169,7 @@ async function doLogin(){
   const em=document.getElementById('loginEmail').value.trim(), se=document.getElementById('loginSenha').value;
   const errEl=document.getElementById('loginError'), btn=document.getElementById('btnLogin');
   errEl.style.display='none';
-  if(!SUPA_CONFIGURADO){ errEl.textContent='Ambiente de homologação ainda não configurado (CONFIG.API_URL / ANON_KEY).'; errEl.style.display='block'; return; }
+  if(!SUPA_CONFIGURADO){ errEl.textContent='Serviço indisponível. Contate o administrador.'; errEl.style.display='block'; return; }
   if(!em||!se){ errEl.textContent='Informe e-mail e senha.'; errEl.style.display='block'; return; }
   if(btn){ btn.disabled=true; btn._txt=btn.textContent; btn.textContent='Entrando…'; }
   const res = await sbLogin(em, se);
@@ -2492,7 +2492,7 @@ async function confirmarConclusao(){
   const rpc=masterGarantia?'v19_gerenciar_garantia_master':
     garantia?'v19_concluir_garantia':'v19_atualizar_status_chamado';
   if(!window.confirm('Concluir definitivamente o protocolo '+c.protocolo+
-    ' no Supabase V19 de homologação? O banco gravará data, responsável e histórico.'))return;
+    '? O sistema gravará data, responsável e histórico.'))return;
   v19StatusBusy=true;
   const botao=document.getElementById('v19-btn-confirmar-conclusao');
   if(botao){botao.disabled=true;botao.textContent='Concluindo...';}
@@ -5598,7 +5598,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     }
     goPage('pg-login');
     const e=document.getElementById('loginError');
-    if(e){ e.textContent='⚙️ Configure a URL e a anon key do projeto de HOMOLOGAÇÃO no topo do arquivo (CONFIG) antes de usar.'; e.style.display='block'; }
+    if(e){ e.textContent='Serviço indisponível. Contate o administrador.'; e.style.display='block'; }
     return;
   }
   // Portal público pendente de RPC própria de municípios.
