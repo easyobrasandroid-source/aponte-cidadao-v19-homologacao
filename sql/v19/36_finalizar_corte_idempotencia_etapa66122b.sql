@@ -46,6 +46,8 @@ REVOKE ALL ON FUNCTION public.v19_consumir_material_chamado_empresa(
 ) FROM PUBLIC,anon,authenticated;
 
 COMMIT;
+-- Disponibilizar novas assinaturas e grants imediatamente no PostgREST.
+NOTIFY pgrst, 'reload schema';
 
 SELECT
  p.oid::regprocedure::text AS funcao,
