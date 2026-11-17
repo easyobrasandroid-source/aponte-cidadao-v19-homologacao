@@ -709,6 +709,9 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_listar_estoques_por_empresa',
  // Etapa 552: escrita SOMENTE por RPC transacional restrita a empresa.
  'v19_movimentar_estoque_empresa',
+ // Etapa 661.22: wrappers idempotentes; originais só até corte controlado.
+ 'v19_movimentar_estoque_idempotente',
+ 'v19_consumir_material_chamado_idempotente',
  // Etapa 564: cadastro com quantidade inicial via transacao empresarial.
  'v19_criar_material_empresa_com_saldo',
  // Etapa 576: BAIXA REAL apenas pela empresa dona do chamado e do estoque.
@@ -5668,11 +5671,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <!-- Dashboard completo V19: modulo opcional, somente leitura; ?dashboard=legacy reverte visualmente -->
 <script src="./v19-dashboard.js" defer></script>
 <!-- Etapa 550: painel de consulta empresarial. Escritas ainda bloqueadas. -->
-<script src="./v19-estoque-empresas.js" defer></script>
+<script src="./v19-estoque-empresas.js?v=66122-idempotencia" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
 <!-- Etapa 576: baixa transacional pela empresa responsavel, via RPC V19. -->
-<script src="./v19-chamado-estoque.js" defer></script>
+<script src="./v19-chamado-estoque.js?v=66122-idempotencia" defer></script>
 <!-- Etapa 583: editar e estornar consumos reais via RPCs da empresa de origem. -->
 <script src="./v19-chamado-ajustes.js" defer></script>
 <!-- Etapa 641: edição auditada de dados operacionais via RPC, sem PATCH direto. -->
