@@ -436,12 +436,12 @@
 
   // Nenhum perfil deve receber falso toast de "SLA salvo" via localStorage.
   window.saveSLAConfig = function () {
-    warn('Edição de SLA ainda não está conectada ao banco na V19. Nenhuma alteração foi salva.');
+    warn('Use a tela Configuração de SLA para salvar prazos no servidor.');
   };
   const previousVSLA=window.vSLA;
   window.vSLA = function (b,t,a) {
     previousVSLA(b,t,a);
-    a.innerHTML='<span style="color:var(--gray-500);font-size:12px">Configuração de SLA: leitura provisória. Edição desabilitada até sincronização com o banco.</span>';
+    a.innerHTML='<span style="color:var(--gray-500);font-size:12px">Configurações indisponíveis. Atualize a página.</span>';
     b.querySelectorAll('input,select').forEach(el=>el.disabled=true);
   };
 

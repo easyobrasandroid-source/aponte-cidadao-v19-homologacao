@@ -308,7 +308,7 @@
     title.textContent = 'Usuários — V19';
     actions.textContent='';
     if (!admin()) {card(body,'Acesso restrito','Somente Master ou Gestor de Consórcio podem consultar esta administração.',true);return;}
-    if (!session()) {card(body,'Sessão ausente ou projeto incorreto','Faça login novamente na V19 de homologação.',true);return;}
+    if (!session()) {card(body,'Sessão ausente ou projeto incorreto','Faça login novamente para continuar.',true);return;}
     card(body,'Carregando usuários da V19…','Consultando registros reais e permissões.');
     const [users,cons,emp,city,status] = await Promise.all([
       sbSelect('usuarios','select=id,auth_user_id,consorcio_id,cidade_id,empresa_id,nome,email,perfil,org,status,telefone,cpf,cargo,v19_convite_pendente&order=nome.asc'),

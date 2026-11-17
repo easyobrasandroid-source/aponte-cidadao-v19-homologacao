@@ -17,6 +17,18 @@ async function carregarConsorcios(){
   if(!Array.isArray(one)||one.length!==1)throw new Error('Consórcio não encontrado.');
   return one;
 }
+function urlPublica(id){
+  if(!valid(id))throw new Error('Consórcio inválido.');
+  const url=new URL(location.origin+location.pathname);
+  url.searchParams.set('consorcio_id',id);url.searchParams.set('pagina','portal');
+  return url.href;
+}
+window.v19CopiarLinkPortal=async function(){
+  if(!valid(selectedCons))return;
+  const link=urlPublica(selectedCons),campo=document.getElementById('v19-url-publica');
+  try{await navigator.clipboard.writeText(link);showToast('Link do portal copiado.','ok');}
+  catch(e){if(campo){campo.focus();campo.select();}showToast('Selecione o endereço e copie-o.','aviso');}
+};
 const escolha=(selected,action)=>'<label style="font-size:12px;font-weight:600">Consórcio: </label>'+
   '<select id="v19-config-cons" onchange="'+action+'(this.value)" style="max-width:320px">'+
   consorcios.map(c=>'<option value="'+esc(c.id)+'" '+(selected===c.id?'selected':'')+'>'+esc(c.nome)+'</option>').join('')+'</select>';
@@ -45,41 +57,38 @@ window.vConfigPortal=async function(b,t,a,consId){
     const chosen=valid(consId)?consId:valid(selectedCons)?selectedCons:consorcios[0]?.id;
     if(!chosen)throw new Error('Nenhum consórcio disponível.');
     selectedCons=chosen;
+    const linkPublico=urlPublica(chosen);
+    a.innerHTML='<a class="btn btn-ghost" href="'+esc(linkPublico)+
+      '" target="_blank" rel="noopener noreferrer">↗ Abrir portal público</a>';
     const rows=await sbSelect('portal_configuracoes',
       'select=*&consorcio_id=eq.'+encodeURIComponent(chosen)+'&limit=1');
-    if(!Array.isArray(rows))throw new Error('A tabela portal_configuracoes não está disponível. Aplique o pacote V19 em homologação.');
+    if(!Array.isArray(rows))throw new Error('Configurações do portal indisponíveis. Contate o administrador.');
     if(t.textContent!=='Configurações do portal público'||!b.isConnected)return;
     portalRow=rows[0]||{consorcio_id:chosen,portal_ativo:false,abertura_portal_ativo:false,
       consulta_protocolo_ativo:false,gps_obrigatorio:false,mostrar_empresa:false,
       notificacao_whatsapp:false,telefone_contato:'',whatsapp_contato:'',prazo_medio_texto:''};
-    const alvoNome=consorcios.find(c=>c.id===chosen)?.nome||'';
-    const podeAtivarBeta=CU?.perfil==='master'&&alvoNome==='TESTE V19 - Consorcio Beta';
-    const servicosAtivosNoBanco=!!(
-      portalRow.portal_ativo || portalRow.abertura_portal_ativo ||
-      portalRow.consulta_protocolo_ativo || portalRow.notificacao_whatsapp);
+    const podeGerenciar=admin();
     const check=(id,field,label,bloqueado=false)=>'<label style="display:flex;align-items:center;gap:9px;font-size:13px;padding:8px 0">'+
       '<input type="checkbox" id="'+id+'" '+(portalRow[field]?'checked':'')+
-      (bloqueado?' disabled title="Ativação pendente de homologação"':'')+'> '+esc(label)+
-      (bloqueado?' <span style="font-size:11px;color:var(--gray-500)">(em homologação)</span>':'')+'</label>';
+      (bloqueado?' disabled title="Sem permissão para editar"':'')+'> '+esc(label)+'</label>';
     b.innerHTML='<div class="card" style="max-width:760px">'+
       '<div style="margin-bottom:18px">'+escolha(chosen,'v19MudarConsPortal')+'</div>'+
       '<h3 style="font-size:15px;margin-bottom:8px">Serviços do portal cidadão</h3>'+
-      (servicosAtivosNoBanco
-        ? '<div role="alert" style="border:1px solid #b45309;border-radius:8px;padding:10px;margin:12px 0;color:#92400e;background:#fffbeb;font-size:12px">ATENÇÃO: há serviços públicos ativos neste consórcio. A API pode continuar desligada por configuração independente. Confirme o estado antes de qualquer teste.</div>'
-        : '')+
-      check('v19-portal-ativo','portal_ativo','Portal público ativo',!podeAtivarBeta)+
-      check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados',!podeAtivarBeta)+
-      check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo',!podeAtivarBeta)+
+      '<div style="margin:14px 0 18px;padding:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px">'+
+      '<label for="v19-url-publica" style="font-size:12px;font-weight:600;display:block;margin-bottom:7px">Link público deste consórcio</label>'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<input id="v19-url-publica" readonly value="'+esc(linkPublico)+'" style="flex:1;min-width:210px;padding:9px;border:1px solid #CBD5E1;border-radius:7px;font-size:12px">'+
+      '<button type="button" class="btn btn-ghost" onclick="v19CopiarLinkPortal()">📋 Copiar link</button></div></div>'+
+      check('v19-portal-ativo','portal_ativo','Portal público ativo',!podeGerenciar)+
+      check('v19-portal-abertura','abertura_portal_ativo','Permitir abertura de chamados',!podeGerenciar)+
+      check('v19-portal-consulta','consulta_protocolo_ativo','Permitir consulta de protocolo',!podeGerenciar)+
       check('v19-portal-gps','gps_obrigatorio','GPS obrigatório para abertura')+
       check('v19-portal-empresa','mostrar_empresa','Exibir a empresa responsável')+
-      check('v19-portal-whatsapp','notificacao_whatsapp','Notificações por WhatsApp (integração pendente)',true)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">'+
         '<label>Telefone de contato<input id="v19-portal-telefone" style="width:100%" maxlength="40" value="'+esc(portalRow.telefone_contato||'')+'"></label>'+
         '<label>WhatsApp de contato<input id="v19-portal-numero" style="width:100%" maxlength="40" value="'+esc(portalRow.whatsapp_contato||'')+'"></label>'+
       '</div><label style="display:block;margin-top:14px">Prazo médio (texto público)<input id="v19-portal-prazo" '+
       'style="display:block;width:100%" maxlength="150" value="'+esc(portalRow.prazo_medio_texto||'')+'"></label>'+
-      '<p style="font-size:11px;color:var(--gray-500);margin:14px 0">As opções de ativação são reservadas ao perfil Master e somente ao consórcio TESTE V19 - Consorcio Beta. '+
-      'A ativação efetiva ainda depende da Edge Function e de testes autorizados. Não ative sem orientação. WhatsApp segue bloqueado.</p>'+
       '<button class="btn btn-save" id="v19-portal-salvar" onclick="v19SalvarPortal()">💾 Salvar configurações</button></div>';
   }catch(e){b.innerHTML='<div class="card" style="color:var(--red)">'+esc(e.message)+'</div>';}
 };
@@ -92,13 +101,11 @@ window.v19SalvarPortal=async function(){
   const sessao=SB_SESSION?.user?.id;
   const g=id=>!!document.getElementById(id)?.checked;
   const v=id=>document.getElementById(id)?.value?.trim()||null;
-  const podeAtivarBeta=CU?.perfil==='master'&&consorcios.some(c=>c.id===alvo&&c.nome==='TESTE V19 - Consorcio Beta');
   const payload={
     p_consorcio_id:alvo,
-    // Apenas Master pode ativar o consorcio Beta de homologacao.
-    p_portal_ativo:podeAtivarBeta?g('v19-portal-ativo'):false,
-    p_abertura_portal_ativo:podeAtivarBeta?g('v19-portal-abertura'):false,
-    p_consulta_protocolo_ativo:podeAtivarBeta?g('v19-portal-consulta'):false,
+    p_portal_ativo:g('v19-portal-ativo'),
+    p_abertura_portal_ativo:g('v19-portal-abertura'),
+    p_consulta_protocolo_ativo:g('v19-portal-consulta'),
     p_gps_obrigatorio:g('v19-portal-gps'),
     p_mostrar_empresa:g('v19-portal-empresa'),
     p_notificacao_whatsapp:false,
@@ -112,10 +119,8 @@ window.v19SalvarPortal=async function(){
   if(payload.p_abertura_portal_ativo&&payload.p_gps_obrigatorio){
     showToast('GPS obrigatório ainda não está homologado para abertura pública.','erro');return;
   }
-  if(!podeAtivarBeta && (portalRow?.portal_ativo || portalRow?.abertura_portal_ativo || portalRow?.consulta_protocolo_ativo)){
-    showToast('Este portal possui serviços ativos. Para evitar desligamento acidental, peça ao Master que salve estas configurações.','erro');return;
-  }
-  if(payload.p_portal_ativo&&!window.confirm('ATENÇÃO: isto habilita o portal Beta no banco de homologação. A Edge Function tem um bloqueio independente. Você recebeu autorização explícita para ligar o portal de testes?'))return;
+  if(payload.p_portal_ativo && !portalRow?.portal_ativo &&
+     !window.confirm('Ativar este portal para visitantes com o link público?'))return;
   btn.disabled=true;btn.textContent='Salvando…';
   try{
     // Não usar INSERT/PATCH direto: validações e isolamento pertencem à RPC homologada.
@@ -134,7 +139,7 @@ window.v19SalvarPortal=async function(){
       throw new Error('A leitura do banco não corresponde às flags solicitadas; confira a configuração antes de tentar novamente.');
     if(selectedCons!==alvo || SB_SESSION?.user?.id!==sessao)return;
     portalRow=rows[0];
-    showToast(payload.p_portal_ativo?'Configuração Beta confirmada no banco; a API possui bloqueio independente.':'Configurações confirmadas no banco. Serviços públicos desativados.','ok');
+    showToast('Configurações do portal salvas com sucesso.','ok');
     const corpo=document.getElementById('main-body'),
       titulo=document.getElementById('topbar-title'),
       acoes=document.getElementById('topbar-actions');
@@ -154,6 +159,8 @@ window.vSLA=async function(b,t,a,consId){
   t.textContent='Configuração de SLA'; a.innerHTML='';
   b.innerHTML='<div class="card">Lendo prazos do Supabase…</div>';
   try{
+    // Ferramentas internas de diagnostico nao aparecem no uso diario.
+    const modoDiagnostico=new URLSearchParams(location.search).get('diagnostico')==='1';
     consorcios=await carregarConsorcios();
     selectedCons=valid(consId)?consId:(valid(selectedCons)?selectedCons:consorcios[0]?.id);
     if(!selectedCons||!consorcios.some(c=>c.id===selectedCons))
@@ -189,8 +196,8 @@ window.vSLA=async function(b,t,a,consId){
       '</div>'+
       '<button class="btn btn-save" id="v19-sla-salvar" onclick="v19SalvarSLA()">💾 Salvar prazos gerais</button>'+
       '</div>':
-      (!padrao?'<p style="font-size:12px;color:var(--amber);margin-top:14px">Este consórcio ainda não possui uma regra geral de SLA. Os prazos do Consórcio Alfa não são compartilhados. Cadastre uma regra própria deste consórcio por procedimento de homologação específico.</p>':'')+
-      (!admin()&&padrao?'<div style="border-top:1px solid #E5E7EB;margin-top:16px;padding-top:12px">'+
+      (!padrao?'<p style="font-size:12px;color:var(--amber);margin-top:14px">Este consórcio ainda não possui uma regra geral de SLA. Os prazos do Consórcio Alfa não são compartilhados. Solicite ao administrador o cadastro da regra geral de SLA para este consórcio.</p>':'')+
+      (modoDiagnostico&&!admin()&&padrao?'<div style="border-top:1px solid #E5E7EB;margin-top:16px;padding-top:12px">'+
       '<p style="font-size:12px;color:var(--gray-500)">Homologação V19: este diagnóstico envia valores inválidos (0 dias) para testar se a RPC rejeita seu perfil. Nenhuma regra pode ser salva com esses valores.</p>'+
       '<button class="btn btn-ghost" id="v19-sla-teste-bloqueio" onclick="v19TestarBloqueioSLARPC()">🔒 Testar bloqueio de edição pelo banco</button>'+
       '<div id="v19-sla-resultado-bloqueio" style="font-size:12px;margin-top:8px"></div></div>':'');
@@ -204,7 +211,7 @@ window.vSLA=async function(b,t,a,consId){
       '</tr></thead><tbody id="v19-sla-linhas">'+
       (rules.length?rules.map(row).join(''):'<tr><td colspan="5">Nenhuma regra de SLA cadastrada.</td></tr>')+
       '</tbody></table></div>'+edicao+
-      (CU?.perfil==='consorcio'&&CU.consorcio_id===selectedCons?
+      (modoDiagnostico&&CU?.perfil==='consorcio'&&CU.consorcio_id===selectedCons?
         '<div style="border-top:1px solid #E5E7EB;padding-top:12px;margin-top:15px">'+
         '<p style="font-size:12px;color:var(--gray-500)">Homologação de isolamento: o teste tenta editar o Consórcio Beta com valores inválidos (zero dias). Nenhum prazo pode ser alterado com esses valores.</p>'+
         '<button class="btn btn-ghost" id="v19-sla-teste-consorcio" onclick="v19TestarIsolamentoConsorcio()">🔒 Testar bloqueio entre consórcios</button>'+
