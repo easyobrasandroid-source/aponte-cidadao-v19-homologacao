@@ -2,7 +2,9 @@
 -- Catálogo de tipos de problema POR CONSORCIO, gerenciamento exclusivo Master.
 -- GARANTIA LED NAO E EDITAVEL: fluxo atual de garantia nao muda.
 -- SOMENTE no Supabase V19 de homologacao: xurrhczvyqpwyjemight.
--- Executar SOMENTE depois do merge e da publicacao do frontend/Edge desta etapa.
+-- Ordem segura: (1) instalar ESTE SQL V19 (sementes compativeis com tela atual),
+-- (2) publicar a Edge Function atualizada V19, (3) integrar/deploy do frontend V19.
+-- Nao executar em V18 e nao ativar os portais em homologacao.
 -- A transacao aborta integralmente caso a RPC publica diverja da versao esperada.
 
 BEGIN;
