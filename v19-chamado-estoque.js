@@ -331,8 +331,8 @@
           'Quantidade: '+dec(item.quantidade)+' · Valor: '+money(item.total)+
           ' · Registro vinculado ao estoque de origem');
       });
-      addMessage(target,'Edição e estorno indisponíveis',
-        'As alterações serão liberadas somente para a empresa de origem após homologação.');
+      addMessage(target,'Ajustes do consumo',
+        'Edição e estorno são restritos à empresa que realizou o consumo.');
     } catch(e) {
       if(current!==renderId)return;
       target.replaceChildren();
@@ -343,8 +343,8 @@
 
   // Manter INATIVAS as rotas legadas de edicao/estorno/confirmacao:
   // nunca permitir gravar pelas RPCs antigas ainda referenciadas no HTML.
-  window.editarMaterialChamado=()=>message('Edição em homologação na V19. Nada foi alterado.');
-  window.removerMaterialChamado=()=>message('Estorno em homologação na V19. Nada foi alterado.');
-  window.confirmarMatChamado=()=>message('Consumo em homologação na V19. Nada foi alterado.');
-  window.abrirModalMaterialChamado=()=>message('Utilize o consumo empresarial por chamado da etapa 576.');
+  window.editarMaterialChamado=()=>message('Acesse as ações de materiais do chamado para editar um consumo autorizado.');
+  window.removerMaterialChamado=()=>message('Acesse as ações de materiais do chamado para estornar um consumo autorizado.');
+  window.confirmarMatChamado=()=>message('Registre o consumo pelo formulário empresarial do chamado.');
+  window.abrirModalMaterialChamado=()=>message('Registre o consumo pela opção Materiais deste chamado.');
 })();
