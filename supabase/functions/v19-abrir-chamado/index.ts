@@ -315,10 +315,7 @@ function payloadFrom(input: JsonRecord): JsonRecord | null {
   if (!requestKey || !consortium || !city ||
       !name || name.trim().length < 2 || name.length > 120 ||
       phone.length < 10 || phone.length > 13 ||
-      !type || ![
-        "Lâmpada apagada", "Lâmpada piscando", "Acesa durante o dia",
-        "Lâmpada com defeito", "Poste danificado", "Outro",
-      ].includes(type) ||
+      !type || type.trim().length < 2 || type.trim().length > 120 ||
       (area !== "Urbana" && area !== "Rural") ||
       typeof amount !== "number" || !Number.isInteger(amount) || amount < 1 || amount > 999 ||
       [bairro, endereco, referencia, observacoes].some((x) => x === null ? false : typeof x !== "string") ||
@@ -459,7 +456,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
           municipio: r.municipio,
           uf: typeof r.uf === "string" ? r.uf : "",
         }));
-      return reply(200, { ok: true, municipios }, origin);
+      // A lista de problemas e compartilhada por todas as cidades do
+      // mesmo consorcio e e gerenciada exclusivamente pelo Master.
+      // Usar service_role somente na Edge; a RPC exige flags do portal.
+      const tiposResponse = await fetch(
+        supabaseUrl.replace(/\\/+$/, "") + "/rest/v1/rpc/v19_listar_tipos_portal",
+        {
+          method: "POST",
+          headers: serviceHeaders(serviceRoleKey, { "content-type": "application/json" }),
+          body: JSON.stringify({ p_consorcio_id: consortiumId }),
+        },
+      );
+      if (!tiposResponse.ok) {
+        console.warn("[V19 portal] catalogo de problemas indisponivel", { httpStatus: tiposResponse.status });
+        return reply(503, { ok: false, erro: "CATALOGO_TIPOS_INDISPONIVEL" }, origin);
+      }
+      const rowsTipos: unknown = await tiposResponse.json().catch(() => null);
+      if (!Array.isArray(rowsTipos)) {
+        return reply(503, { ok: false, erro: "CATALOGO_TIPOS_INDISPONIVEL" }, origin);
+      }
+      const tipos_problema = rowsTipos
+        .filter((r): r is JsonRecord => r !== null && typeof r === "object" &&
+          !Array.isArray(r) && typeof (r as JsonRecord).nome === "string" &&
+          (r as JsonRecord).nome.length >= 2 && (r as JsonRecord).nome.length <= 120)
+        .slice(0, 100)
+        .map((r) => String(r.nome));
+      if (!tipos_problema.length) {
+        return reply(503, { ok: false, erro: "CATALOGO_TIPOS_VAZIO" }, origin);
+      }
+      return reply(200, { ok: true, municipios, tipos_problema }, origin);
     }
 
     // Consulta de andamento pública: somente protocolo V19P integral, escopo
