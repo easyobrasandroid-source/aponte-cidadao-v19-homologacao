@@ -6,6 +6,7 @@ const uuid=v=>/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(String(v||''
 let internoSeq=0,internoCons='',internos=[];
 let publicoCons='',publicos=[];
 let masterCons='',masterSeq=0,masterBusy=false;
+const filtroSeq=new Map();
 const statusGrid=(id,mensagem)=>{
   const el=document.getElementById(id);
   if(el){el.replaceChildren();const p=document.createElement('p');p.textContent=mensagem;p.style.cssText='font-size:12px;color:var(--gray-500)';el.append(p);}
@@ -65,6 +66,69 @@ window.v19CarregarTiposInternos=async function(){
   }
 };
 window.v19TipoInternoAtivo=(cons,tipo)=>internoCons===cons&&internos.includes(tipo);
+
+
+// Usado nos filtros dos chamados e relatórios de TODOS os perfis autorizados.
+// Incluir problemas ativos ainda sem chamados e tipos antigos somente quando
+// existirem ocorrências históricas no próprio escopo do usuário.
+window.v19PopularFiltroTipos=async function(selectId,cidadeSelectId){
+  const select=document.getElementById(selectId);
+  if(!select||!CU||!SB_SESSION?.user?.id)return;
+  const sessao=SB_SESSION.user.id;
+  const requisicao=(filtroSeq.get(selectId)||0)+1;
+  filtroSeq.set(selectId,requisicao);
+  const cidadeEl=document.getElementById(cidadeSelectId),cidade=String(cidadeEl?.value||'');
+  const escolhido=select.value;
+  select.disabled=true;
+  select.replaceChildren(new Option('Consultando catálogo…',''));
+  try{
+    let ids=[];
+    if(CU.perfil==='master'){
+      if(cidade){
+        ids=[...new Set((DB.chamados||[]).filter(c=>c.cidade===cidade&&uuid(c.consorcio_id)).map(c=>c.consorcio_id))];
+      }else{
+        const cs=await sbSelect('consorcios','select=id,status&status=eq.ativo&order=nome.asc');
+        if(!Array.isArray(cs))throw new Error('Lista de consórcios indisponível.');
+        ids=cs.filter(c=>c.status==='ativo'&&uuid(c.id)).map(c=>c.id);
+      }
+    }else if(uuid(CU.consorcio_id))ids=[CU.consorcio_id];
+    else throw new Error('Não foi possível identificar o consórcio autorizado.');
+
+    const resultados=await Promise.all([...new Set(ids)].map(id=>lerCatalogo(id)));
+    const ativos=new Map();
+    resultados.forEach(rows=>rows.filter(r=>r.ativo).forEach(r=>{
+      if(!ativos.has(r.nome)||ativos.get(r.nome)>r.ordem)ativos.set(r.nome,r.ordem);
+    }));
+    const antigos=[...new Set((DB.chamados||[])
+      .filter(c=>(!cidade||c.cidade===cidade)&&
+        (CU.perfil==='master'||c.consorcio_id===CU.consorcio_id))
+      .map(c=>c.tipo).filter(Boolean))]
+      .filter(nome=>!ativos.has(nome)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    if(!select.isConnected||select!==document.getElementById(selectId)||
+       filtroSeq.get(selectId)!==requisicao||
+       SB_SESSION?.user?.id!==sessao||String(cidadeEl?.value||'')!==cidade)return;
+    select.replaceChildren(new Option('Todos os tipos',''));
+    const ag=document.createElement('optgroup');ag.label='Tipos ativos';
+    [...ativos].sort((a,b)=>a[1]-b[1]||a[0].localeCompare(b[0],'pt-BR'))
+      .forEach(([nome])=>ag.append(new Option(nome,nome)));
+    if(ag.children.length)select.append(ag);
+    if(antigos.length){
+      const hg=document.createElement('optgroup');hg.label='Tipos históricos de chamados existentes';
+      antigos.forEach(nome=>hg.append(new Option(nome+' (histórico)',nome)));
+      select.append(hg);
+    }
+    if(escolhido&&[...select.options].some(op=>op.value===escolhido))select.value=escolhido;
+    select.disabled=false;
+  }catch(e){
+    if(select.isConnected&&select===document.getElementById(selectId)&&
+       filtroSeq.get(selectId)===requisicao&&String(cidadeEl?.value||'')===cidade&&
+       SB_SESSION?.user?.id===sessao){
+      console.warn('[V19] Filtro de tipos:',e);
+      select.replaceChildren(new Option('Catálogo indisponível',''));
+      select.disabled=true;
+    }
+  }
+};
 
 window.v19LimparTiposPublicos=function(){
   publicoCons='';publicos=[];pubProb='';
@@ -145,7 +209,11 @@ function tabelaMaster(rows){
     const toggle=document.createElement('button');toggle.className='btn btn-ghost';toggle.type='button';
     toggle.textContent=r.ativo?'Desativar':'Ativar';toggle.style.margin='3px';
     toggle.onclick=()=>window.v19SalvarTipoMaster(r.ativo?'desativar':'ativar',r.id);
-    tdActions.append(edit,toggle);
+    const excluir=document.createElement('button');excluir.className='btn btn-ghost';
+    excluir.type='button';excluir.textContent='Excluir';excluir.style.margin='3px';
+    excluir.style.color='var(--red)';
+    excluir.onclick=()=>window.v19SalvarTipoMaster('excluir',r.id,r.nome);
+    tdActions.append(edit,toggle,excluir);
     tr.append(tdName,tdOrdem,tdStatus,tdActions);tbody.append(tr);
   }
 }
@@ -179,7 +247,7 @@ window.v19TiposMasterPage=async function(b,t,a,consId){
       '<label>Ordem<br><input id="v19-tipo-nova-ordem" type="number" min="0" max="9999" step="1" value="100" style="padding:8px;width:85px"></label>'+
       '<button type="button" class="btn btn-save" onclick="v19SalvarTipoMaster(\'criar\')">Adicionar</button></div>'+
       '<div style="overflow:auto"><table><thead><tr><th>Problema</th><th>Ordem</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="v19-tipos-master-tbody"></tbody></table></div>'+
-      '<p style="font-size:11px;color:var(--gray-500);margin-top:12px">Desativar oculta o tipo de novas ocorrências, mas preserva chamados e relatórios históricos. Ao renomear, os chamados existentes mantêm o nome anterior.</p></div>';
+      '<p style="font-size:11px;color:var(--gray-500);margin-top:12px">Desativar mantém a opção para reativação. Excluir retira o tipo do catálogo; chamados antigos e relatórios históricos permanecem preservados.</p></div>';
     document.getElementById('v19-master-consorcio').onchange=e=>{
       if(uuid(e.target.value))window.v19TiposMasterPage(b,t,a,e.target.value);
     };
@@ -189,7 +257,7 @@ window.v19TiposMasterPage=async function(b,t,a,consId){
   }
 };
 
-window.v19SalvarTipoMaster=async function(acao,id){
+window.v19SalvarTipoMaster=async function(acao,id,nomeOriginal){
   if(masterBusy||CU?.perfil!=='master'||!uuid(masterCons))return;
   if(acao!=='criar'&&!uuid(id))return;
   const nome=acao==='criar'?document.getElementById('v19-tipo-novo')?.value?.trim():
@@ -202,6 +270,7 @@ window.v19SalvarTipoMaster=async function(acao,id){
     showToast('Informe um nome de 2 a 120 caracteres e uma ordem de 0 a 9999.','erro');return;
   }
   if(acao==='desativar'&&!confirm('Desativar este tipo para NOVOS chamados deste consórcio? Os antigos serão preservados.'))return;
+  if(acao==='excluir'&&!confirm('EXCLUIR definitivamente “'+(nomeOriginal||nome)+'” do catálogo deste consórcio? Chamados antigos permanecem salvos, mas esta opção não poderá ser reativada.'))return;
   const consorcio=masterCons,sessao=SB_SESSION?.user?.id;
   masterBusy=true;
   try{

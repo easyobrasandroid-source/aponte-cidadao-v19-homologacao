@@ -1844,13 +1844,13 @@ function vChamados(b,t,a){
   }
   const selTipo = document.getElementById('filt-tipo');
   if(selTipo){
-    const tipos = [...new Set(DB.chamados.map(c=>c.tipo))].sort();
-    tipos.forEach(tp=>{
-      const opt=document.createElement('option');
-      opt.value=tp; opt.textContent=tp;
-      selTipo.appendChild(opt);
-    });
+    // Mesmo catálogo do filtro de relatórios, para os perfis autorizados.
+    void window.v19PopularFiltroTipos?.('filt-tipo','filt-cidade');
   }
+  selCidade?.addEventListener('change',()=>{
+    if(selTipo)selTipo.value='';
+    void window.v19PopularFiltroTipos?.('filt-tipo','filt-cidade');
+  });
   const selEmp = document.getElementById('filt-empresa');
   if(selEmp){
     const emps = [...new Set(DB.chamados.map(c=>c.empresa))].sort();
@@ -3298,7 +3298,8 @@ function vRelatorios(b,t,a){
     ...DB.chamados.map(c=>c.empresa).filter(Boolean),
     ...getMats().map(m=>m.empresa_nome).filter(Boolean)
   ])].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'));
-  const tipos=[...new Set(DB.chamados.map(c=>c.tipo))].sort();
+  // Tipos não são derivados apenas dos chamados: o catálogo do Master
+  // inclui também problemas ativos ainda não utilizados.
   const bairros=[...new Set(DB.chamados.map(c=>c.bairro).filter(Boolean))].sort();
 
   // ── Filtragem — exposta no window para os onclick do innerHTML ──
@@ -3446,9 +3447,8 @@ function vRelatorios(b,t,a){
       </div>
       <div class="field">
         <label>Tipo de chamado</label>
-        <select id="rf-tipo">
-          <option value="">Todos os tipos</option>
-          ${tipos.map(tp=>`<option>${tp}</option>`).join('')}
+        <select id="rf-tipo" disabled>
+          <option value="">Consultando catálogo…</option>
         </select>
       </div>
       <div class="field">
@@ -3567,6 +3567,13 @@ function vRelatorios(b,t,a){
     </div>
   </div>`;
 
+  // Inclui tipos ativos ainda sem chamados e tipos históricos em separado.
+  // O catálogo é consultado no servidor respeitando o consórcio de CU.
+  void window.v19PopularFiltroTipos?.('rf-tipo','rf-cidade');
+  document.getElementById('rf-cidade')?.addEventListener('change',()=>{
+    const sel=document.getElementById('rf-tipo');if(sel)sel.value='';
+    void window.v19PopularFiltroTipos?.('rf-tipo','rf-cidade');
+  });
   // Rodar busca inicial com todos os dados
   window._rfBuscar();
 }
