@@ -409,7 +409,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="form-section" style="padding:1rem 1.5rem">
         <div style="font-size:12px;font-weight:700;margin-bottom:8px">Verificação de segurança</div>
         <div id="v19-pub-turnstile"></div>
-        <div id="v19-pub-verificacao" role="status" style="font-size:11px;color:var(--gray-500);margin-top:6px">Carregando verificação...</div>
+        <div id="v19-pub-verificacao" role="status" style="font-size:11px;color:var(--gray-500);margin-top:6px">Aguardando verificação de segurança.</div>
       </div>
       <div class="form-footer"><span style="font-size:11px;color:var(--gray-400)">🔒 Seus dados serão tratados para o atendimento da solicitação.</span><button id="v19-pub-enviar" class="btn btn-save" type="button" onclick="submeterChamado()" disabled>Registrar chamado →</button></div>
     </div>
@@ -5376,6 +5376,8 @@ function v19InitTurnstile(){
     if(v19PortalWidgetId===undefined||v19PortalWidgetId===null){
       v19PortalWidgetId=null;
       if(aviso)aviso.textContent='Não foi possível carregar a verificação. Atualize a página.';
+    }else if(aviso&&!v19PortalToken){
+      aviso.textContent='Marque a opção acima para concluir a verificação de segurança.';
     }
   }catch(e){
     v19PortalWidgetId=null;
