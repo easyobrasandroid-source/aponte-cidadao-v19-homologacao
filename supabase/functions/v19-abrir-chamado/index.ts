@@ -460,7 +460,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // mesmo consorcio e e gerenciada exclusivamente pelo Master.
       // Usar service_role somente na Edge; a RPC exige flags do portal.
       const tiposResponse = await fetch(
-        supabaseUrl.replace(/\\/+$/, "") + "/rest/v1/rpc/v19_listar_tipos_portal",
+        supabaseUrl.replace(/\/+$/, "") + "/rest/v1/rpc/v19_listar_tipos_portal",
         {
           method: "POST",
           headers: serviceHeaders(serviceRoleKey, { "content-type": "application/json" }),
