@@ -321,6 +321,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="sbi" id="sb-equipes" onclick="showView('equipes',this)"><span class="ico">👷</span> Equipes</div>
       <div class="sbi" onclick="showView('sla',this)"><span class="ico">⏱</span> SLA</div>
       <div class="sbi" id="sb-configportal" onclick="showView('configportal',this)"><span class="ico">⚙️</span> Config. portal</div>
+      <div class="sbi" id="sb-tipos" style="display:none" onclick="showView('tipos',this)"><span class="ico">📝</span> Tipos de problema</div>
     </div>
     <div class="sb-footer"><div class="sb-logout" onclick="doLogout()">🚪 Sair</div></div>
   </nav>
@@ -380,12 +381,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="form-section">
         <div class="form-sec-title"><span class="form-sec-num">3</span>Tipo de problema</div>
         <div class="prob-grid" id="pubProbGrid">
-          <div class="prob-opt on" onclick="selPub(this,'Lâmpada apagada')"><span class="po-ico">💡</span><div class="po-name">Apagada</div></div>
-          <div class="prob-opt" onclick="selPub(this,'Lâmpada piscando')"><span class="po-ico">⚡</span><div class="po-name">Piscando</div></div>
-          <div class="prob-opt" onclick="selPub(this,'Acesa durante o dia')"><span class="po-ico">☀️</span><div class="po-name">Acesa de dia</div></div>
-          <div class="prob-opt" onclick="selPub(this,'Lâmpada com defeito')"><span class="po-ico">⚠️</span><div class="po-name">Com defeito</div></div>
-          <div class="prob-opt" onclick="selPub(this,'Poste danificado')"><span class="po-ico">🔧</span><div class="po-name">Poste danificado</div></div>
-          <div class="prob-opt" onclick="selPub(this,'Outro')"><span class="po-ico">···</span><div class="po-name">Outro</div></div>
+          <p style="font-size:12px;color:var(--gray-500)">Aguardando catálogo do consórcio…</p>
         </div>
         <div class="frow frow2">
           <div class="field"><label>Quantidade de lâmpadas</label><select id="pub-qtd"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>Mais de 5</option><option>Não sei</option></select></div>
@@ -819,6 +815,7 @@ async function carregarCidadesPortal(){
   const sel=document.getElementById('pub-cidade');
   const aviso=document.getElementById('pub-cidades-status');
   if(!sel)return;
+  window.v19LimparTiposPublicos?.();
   v19EstadoFormularioPublico(false,'Verificando disponibilidade do portal público...');
   sel.replaceChildren(new Option('Nenhum município disponível',''));
   sel.disabled=true;
@@ -849,8 +846,9 @@ async function carregarCidadesPortal(){
       throw new Error('Consulta de municípios falhou (HTTP '+resposta.status+').');
     }
     const dados=await resposta.json();
-    if(dados?.ok!==true||!Array.isArray(dados.municipios))
+    if(dados?.ok!==true||!Array.isArray(dados.municipios)||!Array.isArray(dados.tipos_problema))
       throw new Error('Resposta inválida do catálogo.');
+    window.v19PreencherTiposPublicos?.(id,dados.tipos_problema);
     const rows=dados.municipios;
     if(!rows.length){
       const mensagem='Este consórcio ainda não possui municípios habilitados para abertura pública.';
@@ -1145,7 +1143,7 @@ function saveDB(d){
   return;
 }
 
-let DB=getDB(), CU=null, CC=null, pubProb='Lâmpada apagada', intProb='Lâmpada apagada';
+let DB=getDB(), CU=null, CC=null, pubProb='', intProb='';
 let NAV_FILTERS={status:'',cidade:'',periodo:'',area:'',label:''}; // Filtros de navegação entre telas
 const stm={'Em execução':'tag-exec','Recebido':'tag-blue','Em programação':'tag-prog','Aguard. material':'tag-mat','Em atraso':'tag-atraso','Concluído':'tag-conc','Novo':'tag-novo','Aguardando Garantia LED':'tag-garantia'};
 
@@ -1255,6 +1253,7 @@ function setupUI(u){
   // Master e Gestor Consórcio podem configurar; demais perfis não veem o atalho.
   document.getElementById('sb-configportal').style.display=
     ['master','consorcio'].includes(u.perfil)?'flex':'none';
+  document.getElementById('sb-tipos').style.display=u.perfil==='master'?'flex':'none';
 }
 
 // ═══ VIEWS ═══
@@ -1266,7 +1265,7 @@ function showView(view,el){
   const b=document.getElementById('main-body'),t=document.getElementById('topbar-title'),a=document.getElementById('topbar-actions');
   ({dashboard:()=>vDashboard(b,t,a),chamados:()=>vChamados(b,t,a),mapa:()=>{vMapa(b,t,a);setTimeout(()=>{if(typeof filtrarMapa==='function')filtrarMapa();},800);},
     estoque:()=>vEstoque(b,t,a),relatorios:()=>vRelatorios(b,t,a),impressao:()=>vImpressao(b,t,a),
-    usuarios:()=>vUsuarios(b,t,a),empresas:()=>vEmpresas(b,t,a),equipes:()=>vEquipes(b,t,a),sla:()=>vSLA(b,t,a),configportal:()=>vConfigPortal(b,t,a)})[view]?.();
+    usuarios:()=>vUsuarios(b,t,a),empresas:()=>vEmpresas(b,t,a),equipes:()=>vEquipes(b,t,a),sla:()=>vSLA(b,t,a),configportal:()=>vConfigPortal(b,t,a),tipos:()=>window.v19TiposMasterPage(b,t,a)})[view]?.();
 }
 
 // ═══ NAVEGAÇÃO DASHBOARD→CHAMADOS ═══
@@ -4884,7 +4883,7 @@ async function vNovoChamado(){
       <div class="gps-btn" onclick="captureGPS('geocode-status-int')"><span>📍</span>Usar minha localização atual (GPS)</div>
       <div id="geocode-status-int" class="geocode-status"></div>
       <div class="frow frow2" style="margin-bottom:10px">
-        <div class="field"><label>Cidade</label><select id="int-cidade" onchange="v19AtualizarEmpresasAbertura();_v19LimparSugestoes('int')" ${CU.perfil==='prefeitura'?'disabled':''}>${cityOptions}</select></div>
+        <div class="field"><label>Cidade</label><select id="int-cidade" onchange="v19AtualizarEmpresasAbertura();_v19LimparSugestoes('int');window.v19CarregarTiposInternos?.()" ${CU.perfil==='prefeitura'?'disabled':''}>${cityOptions}</select></div>
         <div class="field"><label>Bairro</label><input type="text" id="int-bairro" placeholder="Nome do bairro"></div>
       </div>
       <div class="frow frow32">
@@ -4902,12 +4901,7 @@ async function vNovoChamado(){
     <div class="form-section">
       <div class="form-sec-title"><span class="form-sec-num">2</span>Tipo de problema</div>
       <div class="prob-grid" id="intProbGrid">
-        <div class="prob-opt on" onclick="selInt(this,'Lâmpada apagada')"><span class="po-ico">💡</span><div class="po-name">Apagada</div></div>
-        <div class="prob-opt" onclick="selInt(this,'Lâmpada piscando')"><span class="po-ico">⚡</span><div class="po-name">Piscando</div></div>
-        <div class="prob-opt" onclick="selInt(this,'Acesa durante o dia')"><span class="po-ico">☀️</span><div class="po-name">Acesa de dia</div></div>
-        <div class="prob-opt" onclick="selInt(this,'Lâmpada com defeito')"><span class="po-ico">⚠️</span><div class="po-name">Com defeito</div></div>
-        <div class="prob-opt" onclick="selInt(this,'Poste danificado')"><span class="po-ico">🔧</span><div class="po-name">Poste danificado</div></div>
-        <div class="prob-opt" onclick="selInt(this,'Outro')"><span class="po-ico">···</span><div class="po-name">Outro</div></div>
+        <p style="font-size:12px;color:var(--gray-500)">Carregando tipos do consórcio…</p>
       </div>
       <div class="frow frow2">
         <div class="field"><label>Quantidade de lâmpadas</label><select id="int-qtd"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>Mais de 5</option></select></div>
@@ -4928,6 +4922,7 @@ async function vNovoChamado(){
   </div>
 </div></div>`;
   v19AtualizarEmpresasAbertura();
+  void window.v19CarregarTiposInternos?.();
 }
 function selInt(el,p){document.querySelectorAll('#intProbGrid .prob-opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');intProb=p;}
 // ── Autocomplete — Google Places (primário) + Nominatim (fallback) ──
@@ -5183,6 +5178,9 @@ async function salvarChamadoInterno(){
   if(!['Urbana','Rural'].includes(area)||!Number.isInteger(qtd)||qtd<1||qtd>999){
     showToast('Área ou quantidade inválida.','erro');return;
   }
+  if(!window.v19TipoInternoAtivo?.(city.consorcio_id,intProb)){
+    showToast('Selecione um tipo de problema ativo deste consórcio.','erro');return;
+  }
   v19AberturaInternaOcupada=true;
   if(botao){botao.disabled=true;botao.textContent='Registrando no Supabase…';}
   let lat=null,lng=null,loc_src='manual';
@@ -5341,7 +5339,8 @@ function v19AtualizarBotaoPortal(){
   const botao=document.getElementById('v19-pub-enviar');
   const cidade=document.getElementById('pub-cidade');
   if(!botao)return;
-  botao.disabled=!v19PortalCatalogoDisponivel||v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken;
+  botao.disabled=!v19PortalCatalogoDisponivel||v19PortalEnviando||!cidade||cidade.disabled||!cidade.value||!v19PortalToken||
+    !window.v19TipoPublicoAtivo?.();
   botao.textContent=v19PortalEnviando?'Registrando e enviando anexo...':'Registrar chamado →';
 }
 function v19InitTurnstile(){
@@ -5435,6 +5434,9 @@ async function submeterChamado(){
   const endereco=valor('pub-end'),bairro=valor('pub-bairro');
   if(!endereco&&!hasCoords){
     alert('Informe o endereço ou utilize a localização GPS para identificar o problema.');return;
+  }
+  if(!window.v19TipoPublicoAtivo?.()){
+    alert('Selecione um tipo de problema ativo deste consórcio.');return;
   }
   if(!v19PortalToken){
     alert('Conclua a verificação de segurança antes de enviar o chamado.');return;
@@ -5646,6 +5648,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-fotos.js" defer></script>
 <script src="./v19-relatorios.js" defer></script>
 <script src="./v19-config.js" defer></script>
+<script src="./v19-tipos.js" defer></script>
 <script src="./v19-assumir.js" defer></script>
 <script src="./v19-designacao.js" defer></script>
 <!-- V19 etapa 70: interface integrada de usuarios, previa SEM GRAVACOES -->

@@ -10,7 +10,7 @@ const CAMPOS={
   endereco:{label:'Rua / endereço',max:300},
   referencia:{label:'Ponto de referência',max:300},
   area:{label:'Área',tipo:'select',opcoes:['Urbana','Rural']},
-  tipo:{label:'Tipo de ocorrência',max:120},
+  tipo:{label:'Tipo de ocorrência',tipo:'select',opcoes:[],max:120},
   qtd:{label:'Quantidade de lâmpadas',tipo:'integer',min:1,max:999},
   observacoes:{label:'Observações',tipo:'textarea',max:2500},
   solicitante_nome:{label:'Nome do solicitante',max:200},
@@ -107,6 +107,9 @@ window.v19AbrirEdicaoChamado=function(){
   const bot=document.getElementById('dw-btn-salvar');
   if(bot){bot.style.display='';bot.disabled=false;bot.title='Salvar alterações no Supabase';}
   editandoId=c._supaId;
+  // Tipos historicos permanecem visiveis, mas novas selecoes sao feitas
+  // somente entre os tipos ativos do mesmo consorcio.
+  void window.v19CarregarTiposEdicao?.(c);
 };
 window.v19CancelarEdicaoChamado=function(){
   if(busy)return;
