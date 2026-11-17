@@ -332,24 +332,58 @@
     const sessao=SB_SESSION?.user?.id;
     const perfil=CU?.perfil,consorcio=CU?.consorcio_id,
       empresa=CU?.empresa_id;
+    // A RPC de estoque autoriza somente Master, Consórcio e Empresa.
+    // Prefeitura e Garantia podem consultar chamados (sob RLS), mas nunca
+    // requisitar ou exportar posições empresariais de estoque.
+    const podeConsultarEstoque=['master','consorcio','empresa'].includes(perfil);
+    const soChamados=['prefeitura','garantia'].includes(perfil);
     try {
-      // GET de RPC STABLE: acesso validado pelo JWT no Supabase.
-      // Nenhuma movimentação, alteração de saldos ou gravação nesta consulta.
+      if(!podeConsultarEstoque&&!soChamados)
+        throw new Error('Perfil não autorizado para relatórios.');
+      if(soChamados&&(!uuid(consorcio)||
+          (perfil==='prefeitura'&&!uuid(CU?.cidade_id))))
+        throw new Error('Vínculo do usuário inválido para relatórios.');
+      // Chamados seguem estritamente o RLS do Supabase: Prefeitura vê seu
+      // município; Garantia vê apenas as ocorrências que o banco autorizar.
       const [ok,saldos]=await Promise.all([
         carregarChamadosDoBanco(),
-        sbFetch('rpc/v19_relatorio_estoque_empresarial')
+        podeConsultarEstoque
+          ? sbFetch('rpc/v19_relatorio_estoque_empresarial')
+          : Promise.resolve([])
       ]);
       if(!ok)throw new Error('Chamados do banco não confirmados; relatório cancelado.');
       if(t.textContent!=='Relatórios'||!b.isConnected||
          SB_SESSION?.user?.id!==sessao||
          CU?.perfil!==perfil||CU?.consorcio_id!==consorcio||
          CU?.empresa_id!==empresa)return;
-      const mats=mapearEstoquesEmpresariais(saldos);
+      const mats=podeConsultarEstoque?mapearEstoquesEmpresariais(saldos):[];
       DB.materiais=mats;
       originalRelatorios(b,t,a);
+      if(!podeConsultarEstoque){
+        // Ocultar controles de estoque em perfis que consultam apenas
+        // chamados. Não mostrar o painel de estoque com zero fictício.
+        document.getElementById('rf-matStatus')?.closest('.field')?.remove();
+        const empresaLabel=document.getElementById('rf-empresa')
+          ?.closest('.field')?.querySelector('label');
+        if(empresaLabel)empresaLabel.textContent='Empresa (chamados)';
+        const cardEstoque=document.getElementById('btn-pdf-estoque')?.closest('.card');
+        if(cardEstoque){
+          const grupo=cardEstoque.parentElement;
+          cardEstoque.remove();
+          if(grupo)grupo.style.gridTemplateColumns='repeat(2,minmax(0,1fr))';
+        }
+      }
       const buscarAntes=window._rfBuscar;
       window._rfBuscar=function(){
         buscarAntes();
+        if(!podeConsultarEstoque){
+          _exportMats=[];
+          const grid=document.getElementById('rf-preview')?.firstElementChild;
+          if(grid&&grid.children.length===4){
+            grid.lastElementChild.remove();
+            grid.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
+          }
+        }
         const data=Array.isArray(_exportChamados)?_exportChamados:[];
         // "Resultado" do SLA só é avaliável após a conclusão. Chamados
         // abertos (mesmo vencidos) NÃO são "conclusões não apuráveis".
