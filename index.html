@@ -694,15 +694,11 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_registrar_foto','v19_salvar_config_portal',
  // A RPC de estoque empresarial e SOMENTE LEITURA, mas usa POST no PostgREST.
  'v19_listar_estoques_por_empresa',
- // Etapa 552: escrita SOMENTE por RPC transacional restrita a empresa.
- 'v19_movimentar_estoque_empresa',
- // Etapa 661.22: wrappers idempotentes; originais só até corte controlado.
+ // Etapa 661.22: somente wrappers idempotentes no cliente V19.
  'v19_movimentar_estoque_idempotente',
  'v19_consumir_material_chamado_idempotente',
  // Etapa 564: cadastro com quantidade inicial via transacao empresarial.
  'v19_criar_material_empresa_com_saldo',
- // Etapa 576: BAIXA REAL apenas pela empresa dona do chamado e do estoque.
- 'v19_consumir_material_chamado_empresa',
  // Etapa 583: editar e estornar consumos pelo estoque de origem.
  'v19_editar_material_chamado_empresa',
  'v19_remover_material_chamado_empresa',
