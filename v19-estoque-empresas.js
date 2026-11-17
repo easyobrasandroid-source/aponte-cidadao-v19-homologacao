@@ -312,26 +312,41 @@
                   if (!confirmed) return;
                   form.dataset.busy='1';submit.disabled=true;
                   info.textContent='Registrando movimentação no estoque da empresa…';
+                  // Persistir ID e parametros na aba: uma tentativa ambigua
+                  // reaproveita o MESMO identificador, inclusive apos F5.
+                  const chavePendente='v19-mov-pendente-'+identity+'-'+r.estoque_id;
                   try {
-                    const chave=window.crypto?.randomUUID?.();
+                    const observacao=String(note.value||'').trim().slice(0,500) ||
+                      'Movimentação manual pela tela empresarial V19';
+                    const dados={
+                      p_material_id:r.material_id,
+                      p_empresa_id:r.empresa_id,
+                      p_tipo:direction,
+                      p_quantidade:quantity,
+                      p_observacao:observacao
+                    };
+                    const assinatura=JSON.stringify(dados);
+                    const anterior=JSON.parse(sessionStorage.getItem(chavePendente)||'null');
+                    if(anterior && anterior.assinatura!==assinatura)
+                      throw new Error('Há movimentação anterior sem confirmação neste estoque. Confira o histórico antes de iniciar outra operação.');
+                    const chave=anterior?.id || window.crypto?.randomUUID?.();
                     if(!chave)throw new Error('Navegador sem gerador seguro de ID de requisição.');
+                    if(!anterior)sessionStorage.setItem(chavePendente,
+                      JSON.stringify({id:chave,assinatura}));
                     const response=await sbFetch('rpc/v19_movimentar_estoque_idempotente',
-                      'POST',{
-                        p_requisicao_id:chave,
-                        p_material_id:r.material_id,
-                        p_empresa_id:r.empresa_id,
-                        p_tipo:direction,
-                        p_quantidade:quantity,
-                        p_observacao:String(note.value||'').trim().slice(0,500) ||
-                          'Movimentação manual pela tela empresarial V19'
-                      });
+                      'POST',{p_requisicao_id:chave,...dados});
                     if (response?.ok!==true || response.empresa_id!==r.empresa_id ||
                         response.estoque_id!==r.estoque_id) {
                       throw new Error('Operação não confirmada. Consulte o saldo antes de tentar novamente.');
                     }
+                    sessionStorage.removeItem(chavePendente);
                     // Nunca reenviar automaticamente em caso de resposta de rede ambígua.
                     window.vEstoque(body,title,actions);
                   } catch(e) {
+                    // Erro 4xx implica rejeicao da RPC, sem commit.
+                    // Em falha de rede/5xx, manter a chave para reconciliar.
+                    if([400,401,403,409,422].includes(e?.status))
+                      sessionStorage.removeItem(chavePendente);
                     info.textContent='Falha ou confirmação indisponível: '+
                       (e?.message||'Verifique o estoque antes de repetir.');
                     submit.disabled=true;
