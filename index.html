@@ -44,9 +44,6 @@ body{font-family:'Inter',sans-serif;background:#F0F2F5;color:var(--gray-900);fon
 .login-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--brand),#2D6FD4);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px;transition:all .15s;}
 .login-btn:hover{background:linear-gradient(135deg,var(--brand-dark),var(--brand));transform:translateY(-1px);}
 .login-error{background:var(--red-light);border:1px solid #FECACA;border-radius:var(--radius-sm);padding:9px 12px;font-size:12px;color:var(--red);font-weight:500;margin-bottom:12px;display:none;}
-.login-quick{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;padding-top:14px;border-top:1px solid var(--gray-200);}
-.lq{padding:6px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);background:var(--gray-50);font-size:10px;font-weight:600;cursor:pointer;color:var(--gray-600);font-family:'Inter',sans-serif;text-align:center;transition:all .12s;}
-.lq:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-light);}
 .app-shell{display:flex;height:100vh;overflow:hidden;}
 .sidebar{width:210px;background:#fff;border-right:1px solid var(--gray-200);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
 .sb-logo{padding:.875rem 1rem;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:9px;}
@@ -280,16 +277,6 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="lf"><label>Senha</label><input type="password" id="loginSenha" value="" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="login-btn" id="btnLogin" onclick="doLogin()">Entrar no sistema</button>
     <div style="text-align:right;margin-top:6px"><span style="font-size:11px;color:var(--brand);cursor:pointer;font-weight:600" onclick="esqueciSenha()">Esqueci minha senha</span></div>
-    <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px;text-align:center">Acesso rápido (preenche o e-mail — digite a senha)</div>
-    <div class="login-quick">
-      <div class="lq" onclick="quickLogin('master@aponte.test')">👑 Master</div>
-      <div class="lq" onclick="quickLogin('consorcio@aponte.test')">🏛 Consórcio CIS Caparaó</div>
-      <div class="lq" onclick="quickLogin('prefef@aponte.test')">🏛 Pref. Espera Feliz</div>
-      <div class="lq" onclick="quickLogin('prefman@aponte.test')">🏛 Pref. Manhuaçu</div>
-      <div class="lq" onclick="quickLogin('empresaa@aponte.test')">🏢 Vagalume</div>
-      <div class="lq" onclick="quickLogin('empresab@aponte.test')">🏢 Eletroluz</div>
-      <div class="lq" onclick="quickLogin('garantia@aponte.test')" style="border-color:#0E7A4B;color:#0E7A4B">🔧 Garantia LED</div>
-    </div>
     <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--gray-400)">Portal público? <span style="color:var(--brand);cursor:pointer;font-weight:600" onclick="goPage('pg-portal')">Clique aqui →</span></div>
   </div>
 </div>
@@ -301,7 +288,7 @@ tbody tr:last-child td{border-bottom:none;}
   <nav class="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-icon">🔆</div>
-      <div><div class="sb-logo-name">Aponte Cidadão</div><div class="sb-logo-role" id="sb-cons">CIS Caparaó</div></div>
+      <div><div class="sb-logo-name">Aponte Cidadão</div><div class="sb-logo-role" id="sb-cons">Gestão de iluminação pública</div></div>
     </div>
     <div class="sb-user">
       <div class="sb-av" id="sb-av" style="background:var(--brand)">NA</div>
@@ -1190,11 +1177,6 @@ async function doLogin(){
   carregarCidades().catch(()=>{});   // aquece o catálogo de cidades (dropdowns + cidade_id)
   setupUI(CU); showView('dashboard'); goPage('pg-app');
   if(btn){ btn.disabled=false; btn.textContent=btn._txt||'Entrar no sistema'; }
-}
-function quickLogin(em,se){
-  document.getElementById('loginEmail').value=em;
-  document.getElementById('loginSenha').value=se||'';
-  doLogin();
 }
 async function esqueciSenha(){
   const em=document.getElementById('loginEmail').value.trim();
