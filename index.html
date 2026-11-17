@@ -4954,6 +4954,8 @@ function _renderSuggestions(sug, results, suggestionsId){
       const labelEl=document.getElementById(prefix+'-minimap-label');
       if(labelEl) labelEl.textContent=labels[res.tipo]||'📍 Localização encontrada';
       // Nunca reutilizar coordenadas anteriores sem nova confirmacao.
+      // A sugestao escolhida invalida captura GPS anterior ainda pendente.
+      ++v19GPSCaptureSequence;
       window._gpsLat=null;window._gpsLng=null;window._locSrc=null;
       mostrarMinimap(res.lat,res.lng,res.label,prefix);
     };
@@ -5027,6 +5029,8 @@ async function _v19PhotonBuscar(consulta,cidade,signal){
 }
 
 function _v19LimparSugestoes(prefix){
+  // Trocar município invalida também callbacks de GPS ainda pendentes.
+  ++v19GPSCaptureSequence;
   ++_v19GeoSequence;
   if(_v19GeoTimer)clearTimeout(_v19GeoTimer);
   if(_v19GeoAbort)_v19GeoAbort.abort();
@@ -5238,29 +5242,55 @@ async function salvarChamadoInterno(){
 
 // ═══ PORTAL PÚBLICO ═══
 function selPub(el,p){document.querySelectorAll('#pubProbGrid .prob-opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');pubProb=p;}
+// Sequencia impede que uma resposta GPS antiga sobrescreva a captura mais nova.
+let v19GPSCaptureSequence=0;
 function captureGPS(statusId){
   statusId=statusId||'geocode-status-pub';
   const prefix=statusId.includes('int')?'int':'pub';
   const el=document.getElementById(statusId);
+  const tentativa=++v19GPSCaptureSequence;
+  // Invalidar IMEDIATAMENTE coordenadas anteriores ao solicitar outro GPS.
+  // Um erro/negacao nunca pode reaproveitar um ponto antigo no mesmo formulario.
+  window._gpsLat=null;
+  window._gpsLng=null;
+  window._locSrc=null;
   if(!navigator.geolocation){
     if(el){el.style.display='block';el.style.color='var(--amber)';el.textContent='⚠ GPS não suportado neste navegador. Preencha o endereço manualmente.';}
     return;
   }
   if(el){el.style.display='block';el.style.color='var(--green)';el.textContent='🔄 Capturando localização...';}
-  navigator.geolocation.getCurrentPosition(
-    async p=>{
-      const lat=p.coords.latitude,lng=p.coords.longitude,acc=Math.round(p.coords.accuracy);
-      window._gpsLat=lat;window._gpsLng=lng;
-      console.log('[GPS] capturado:',lat,lng,'precisao:',acc);
-      if(el){el.textContent=`✅ GPS capturado: ${lat.toFixed(5)}, ${lng.toFixed(5)} (precisão: ±${acc}m)`;}
-      // V19 HOMOLOGACAO: GPS preservado; preenchimento automatico de rua suspenso.
-      mostrarMinimap(lat, lng, `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`, prefix);
-    },
-    ()=>{
-      if(el){el.style.color='var(--amber)';el.textContent='⚠ Não foi possível acessar sua localização. Você pode continuar preenchendo manualmente.';}
-    },
-    {timeout:10000,enableHighAccuracy:true}
-  );
+  try {
+    navigator.geolocation.getCurrentPosition(
+      p=>{
+        if(tentativa!==v19GPSCaptureSequence)return;
+        const lat=Number(p.coords.latitude),lng=Number(p.coords.longitude);
+        const acc=Math.round(Number(p.coords.accuracy));
+        if(!Number.isFinite(lat)||!Number.isFinite(lng)||
+           lat< -90||lat>90||lng< -180||lng>180){
+          if(el){el.style.color='var(--amber)';el.textContent='⚠ Coordenadas inválidas. Você pode preencher o endereço manualmente.';}
+          return;
+        }
+        window._gpsLat=lat;
+        window._gpsLng=lng;
+        window._locSrc='gps_mobile';
+        console.log('[GPS] capturado:',lat,lng,'precisao:',acc);
+        if(el){el.style.color='var(--green)';el.textContent=`✅ GPS capturado: ${lat.toFixed(5)}, ${lng.toFixed(5)} (precisão: ±${acc}m)`;}
+        // GPS preservado; preenchimento automatico de rua permanece suspenso.
+        mostrarMinimap(lat,lng,`GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,prefix);
+      },
+      ()=>{
+        if(tentativa!==v19GPSCaptureSequence)return;
+        // Mantem o ponto NULO, inclusive quando o usuario nega permissao.
+        window._gpsLat=null;window._gpsLng=null;window._locSrc=null;
+        if(el){el.style.display='block';el.style.color='var(--amber)';el.textContent='⚠ Não foi possível acessar sua localização. Você pode continuar preenchendo manualmente.';}
+      },
+      {timeout:10000,enableHighAccuracy:true}
+    );
+  }catch(e){
+    if(tentativa!==v19GPSCaptureSequence)return;
+    window._gpsLat=null;window._gpsLng=null;window._locSrc=null;
+    if(el){el.style.display='block';el.style.color='var(--amber)';el.textContent='⚠ GPS indisponível. Preencha o endereço manualmente.';}
+  }
 }
 function gerarProto(){
   const n=new Date();
