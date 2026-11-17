@@ -9,6 +9,92 @@
   const noticeError = e => showToast(html(e?.message || String(e)), 'erro');
   let lastPhotoQuery=0;
 
+  // Somente identificadores de envio, sem foto/token/dados pessoais.
+  // Pendencias sobrevivem ao F5 apenas nesta aba e para a mesma conta Auth.
+  const PHOTO_PENDING_PREFIX='v19-foto-registro-pendente:';
+  const tiposFoto=['antes','durante','depois','ocorrencia'];
+  const recoveries=new Set();
+  const usuarioAtual=()=>String(SB_SESSION?.user?.id||'');
+  const chavePendentes=()=>PHOTO_PENDING_PREFIX+usuarioAtual();
+  const pathFotoValido=path=>/^[a-f0-9-]{36}\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.(jpg|png|webp)$/i.test(String(path||''));
+
+  function lerPendentesFoto(){
+    if(!validUUID(usuarioAtual()))return [];
+    try {
+      const values=JSON.parse(sessionStorage.getItem(chavePendentes())||'[]');
+      return (Array.isArray(values)?values:[]).filter(p=>
+        p && validUUID(p.chamadoId) && validUUID(p.consorcioId) &&
+        pathFotoValido(p.storagePath) && tiposFoto.includes(p.tipo) &&
+        p.storagePath.startsWith(p.consorcioId+'/'+p.chamadoId+'/')
+      ).slice(-30);
+    }catch(_){return [];}
+  }
+  function salvarPendentesFoto(values){
+    if(!validUUID(usuarioAtual()))return;
+    try {
+      const data=values.slice(-30);
+      if(data.length)sessionStorage.setItem(chavePendentes(),JSON.stringify(data));
+      else sessionStorage.removeItem(chavePendentes());
+    }catch(_){
+      // Falha de armazenamento nunca deve justificar novo upload automático.
+    }
+  }
+  function adicionarPendenteFoto(item){
+    salvarPendentesFoto(lerPendentesFoto().filter(p=>p.storagePath!==item.storagePath).concat(item));
+  }
+  function confirmarPendenteFoto(path){
+    salvarPendentesFoto(lerPendentesFoto().filter(p=>p.storagePath!==path));
+  }
+  function pendentesDoChamado(chamadoId){
+    return lerPendentesFoto().filter(p=>p.chamadoId===chamadoId);
+  }
+  async function registroExisteFoto(chamadoId,storagePath){
+    const rows=await sbSelect('chamado_fotos',
+      'select=id,storage_path&chamado_id=eq.'+encodeURIComponent(chamadoId)+
+      '&storage_path=eq.'+encodeURIComponent(storagePath)+'&limit=1');
+    if(!Array.isArray(rows))throw new Error('Não foi possível confirmar os metadados da fotografia.');
+    return rows.some(row=>validUUID(row.id)&&row.storage_path===storagePath);
+  }
+  async function registrarMetadadosFoto(item){
+    // Sempre checar primeiro: timeout anterior pode ter gravado os metadados.
+    if(await registroExisteFoto(item.chamadoId,item.storagePath))return true;
+    try {
+      const resultado=await sbFetch('rpc/v19_registrar_foto','POST',{
+        p_chamado_id:item.chamadoId,
+        p_storage_path:item.storagePath,
+        p_tipo:item.tipo
+      });
+      if(validUUID(resultado))return true;
+    }catch(e){
+      // Erro de rede/resposta ambígua: checar novamente, nunca duplicar o upload.
+      try { if(await registroExisteFoto(item.chamadoId,item.storagePath))return true; }
+      catch(_){/* Manter pendência e aviso ao operador. */}
+      throw e;
+    }
+    return await registroExisteFoto(item.chamadoId,item.storagePath);
+  }
+  window.v19RecuperarRegistroFoto=async function(storagePath){
+    const chamado=CC?._supaId,consorcio=CC?.consorcio_id;
+    if(!validUUID(usuarioAtual())||!validUUID(chamado)||!validUUID(consorcio))return;
+    const item=pendentesDoChamado(chamado).find(p=>
+      p.storagePath===storagePath&&p.consorcioId===consorcio);
+    if(!item||recoveries.has(storagePath))return;
+    recoveries.add(storagePath);
+    showToast('Verificando o registro da foto já enviada (sem novo upload)…','aviso');
+    try {
+      if(!await registrarMetadadosFoto(item)){
+        throw new Error('O registro ainda não foi confirmado.');
+      }
+      confirmarPendenteFoto(item.storagePath);
+      showToast('✅ Foto recuperada e registrada sem novo envio.','ok');
+      if(CC?._supaId===chamado)await renderFotosChamado();
+    }catch(e){
+      console.error('[V19] recuperação de registro fotográfico:',e);
+      noticeError(new Error('Registro ainda pendente. O arquivo não será reenviado. Verifique o Storage/RPC antes de repetir. '+(e?.message||'')));
+    }finally {recoveries.delete(storagePath);}
+  };
+
+
   async function obterUrlAssinada(path) {
     const resposta=await fetch(SUPA_URL+'/storage/v1/object/sign/chamado-fotos/'+pathUrl(path),{
       method:'POST',headers:sbHeaders(),body:JSON.stringify({expiresIn:1800})
@@ -64,8 +150,14 @@
             '<div style="font-size:11px;color:var(--gray-400)">Nenhuma foto cadastrada.</div>')+
           '</section>';
       }).join('');
+      const pendencias=pendentesDoChamado(chamada._supaId).filter(p=>p.consorcioId===chamada.consorcio_id);
+      const avisos=pendencias.length
+        ? '<div style="border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;padding:10px;margin:8px 0;font-size:12px;color:#92400e">'+
+          '<strong>Registro de foto pendente ('+pendencias.length+')</strong><p>O arquivo foi enviado ao Storage, mas o registro não foi confirmado. Não envie a mesma imagem de novo.</p>'+
+          pendencias.map(p=>'<button type="button" class="btn btn-ghost" style="margin:4px 6px 0 0;border:1px solid #f59e0b" onclick="v19RecuperarRegistroFoto(\''+html(p.storagePath)+'\')">Verificar / recuperar registro</button>').join('')+
+          '</div>' : '';
       box.innerHTML='<div class="card-title" style="margin-bottom:8px">Registro fotográfico no Supabase</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'+groups+'</div>';
+        avisos+'<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'+groups+'</div>';
     } catch(e) {
       if(seq===lastPhotoQuery)box.innerHTML='<div class="card-title">Registro fotográfico</div>'+
         '<p style="color:var(--red)">'+html(e.message)+'</p>'+
@@ -81,6 +173,11 @@
       showToast('Tipo de foto inválido.','erro');return;
     }
     const protocolo=CC._supaId,cons=CC.consorcio_id;
+    if(pendentesDoChamado(protocolo).some(p=>p.consorcioId===cons)){
+      showToast('Há um registro fotográfico pendente neste chamado. Use “Verificar / recuperar registro” antes de outro upload.','erro');
+      void renderFotosChamado();
+      return;
+    }
     const input=document.createElement('input');
     input.type='file'; input.accept='image/jpeg,image/png,image/webp';
     input.style.display='none';document.body.appendChild(input);
@@ -93,7 +190,11 @@
         showToast('Use JPG, PNG ou WEBP com até 5 MB.','erro');return;
       }
       const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
-      const unique=crypto?.randomUUID?.() || String(Date.now())+'-'+Math.random().toString(36).slice(2);
+      const unique=crypto?.randomUUID?.();
+      if(!validUUID(unique)){
+        showToast('Identificador seguro de foto indisponível neste navegador. Atualize o navegador antes de enviar.','erro');
+        return;
+      }
       const storagePath=cons+'/'+protocolo+'/'+unique+'.'+ext;
       showToast('Enviando foto para o Supabase…','aviso');
       try{
@@ -107,12 +208,20 @@
           const body=await r.text().catch(()=>'');
           throw new Error('Falha no envio ao Storage (HTTP '+r.status+'). '+body.slice(0,140));
         }
-        // Registra metadados pela RPC autenticada: não liberar POST direto em tabelas.
-        const registered=await sbFetch('rpc/v19_registrar_foto','POST',{
-          p_chamado_id:protocolo,p_storage_path:storagePath,p_tipo:tipo
-        });
-        if(!validUUID(registered))
-          throw new Error('Arquivo enviado, mas a RPC não confirmou o registro. Não reenvie antes de conferir o Storage.');
+        // A partir de HTTP 2xx, guardar o caminho antes da RPC.
+        // Se a resposta falhar ou a página atualizar, recuperar metadados
+        // do MESMO arquivo, sem reenviar bytes nem gerar um novo path.
+        const item={chamadoId:protocolo,consorcioId:cons,storagePath,tipo};
+        adicionarPendenteFoto(item);
+        let registrado=false;
+        try { registrado=await registrarMetadadosFoto(item); }
+        catch(e) {console.warn('[V19] foto enviada sem confirmacao de metadados:',e);}
+        if(!registrado){
+          showToast('⚠ Arquivo enviado, mas o registro está pendente. Use “Verificar / recuperar registro” na aba Fotos; não reenvie a imagem.','erro');
+          if(CC?._supaId===protocolo)await renderFotosChamado();
+          return;
+        }
+        confirmarPendenteFoto(storagePath);
         showToast('✅ Foto salva no Supabase.','ok');
         if(CC?._supaId===protocolo)await renderFotosChamado();
       }catch(e){console.error('[V19] foto:',e);noticeError(e);}
