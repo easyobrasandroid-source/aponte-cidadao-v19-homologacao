@@ -4954,6 +4954,8 @@ function _renderSuggestions(sug, results, suggestionsId){
       const labelEl=document.getElementById(prefix+'-minimap-label');
       if(labelEl) labelEl.textContent=labels[res.tipo]||'📍 Localização encontrada';
       // Nunca reutilizar coordenadas anteriores sem nova confirmacao.
+      // A sugestao escolhida invalida captura GPS anterior ainda pendente.
+      ++v19GPSCaptureSequence;
       window._gpsLat=null;window._gpsLng=null;window._locSrc=null;
       mostrarMinimap(res.lat,res.lng,res.label,prefix);
     };
