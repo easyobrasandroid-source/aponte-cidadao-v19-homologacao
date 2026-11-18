@@ -97,6 +97,65 @@
       };
     });
   }
+  // Um chamado em Concluído é atendimento final; em Aguardando Garantia LED é parcial.
+  // Um caso nunca aparece em ambas as classes. Não equivale a contagem de viagens.
+  function situacaoAtendimento(c){
+    if(!uuid(c?.empresa_id))return 'Sem empresa responsável';
+    if(c.status==='Concluído')return 'Concluído';
+    if(c.status==='Aguardando Garantia LED')return 'Parcial — Garantia LED';
+    return 'Não computado';
+  }
+  function resumoAtendimentos(dados){
+    const grupos=new Map(),vistos=new Set();
+    let concluidos=0,parciais=0,semEmpresa=0;
+    for(const c of dados){
+      const id=c._supaId||c.protocolo;
+      if(!id||vistos.has(id))throw new Error('Chamado duplicado ou sem identificação no relatório.');
+      vistos.add(id);
+      if(!['Concluído','Aguardando Garantia LED'].includes(c.status))continue;
+      if(!uuid(c.empresa_id)){semEmpresa++;continue;}
+      const parcial=c.status==='Aguardando Garantia LED';
+      if(parcial)parciais++;else concluidos++;
+      let g=grupos.get(c.empresa_id);
+      if(!g){
+        g={empresa_id:c.empresa_id,consorcio_id:c.consorcio_id||null,
+          empresa:c.empresa||'Empresa sem nome',concluidos:0,parciais:0,total:0};
+        grupos.set(c.empresa_id,g);
+      }
+      // A mesma empresa não pode pertencer a dois consórcios no mesmo relatório.
+      if(g.consorcio_id!==c.consorcio_id)
+        throw new Error('Vínculo de consórcio divergente em chamados da mesma empresa.');
+      g.total++;
+      if(parcial)g.parciais++;else g.concluidos++;
+    }
+    return {total:concluidos+parciais,concluidos,parciais,semEmpresa,
+      grupos:[...grupos.values()].sort((a,b)=>a.empresa.localeCompare(b.empresa,'pt-BR')||
+        a.empresa_id.localeCompare(b.empresa_id))};
+  }
+  window.v19ResumoAtendimentos=resumoAtendimentos;
+  function tabelaAtendimentos(dados){
+    const r=resumoAtendimentos(dados);
+    const consorcios=Array.isArray(window.v19RelatoriosConsorcios)?
+      window.v19RelatoriosConsorcios:[];
+    const nomeCons=id=>consorcios.find(c=>c.id===id)?.nome||id||'Não informado';
+    let linhas=r.grupos.map(g=>
+      '<tr><td>'+esc(g.empresa)+'</td><td>'+esc(nomeCons(g.consorcio_id))+
+      '</td><td>'+g.concluidos+'</td><td>'+g.parciais+
+      '</td><td><strong>'+g.total+'</strong></td></tr>').join('');
+    if(!linhas)linhas='<tr><td colspan="5">Nenhum atendimento computável para os filtros selecionados.</td></tr>';
+    return '<table><thead><tr><th>Empresa</th><th>Consórcio</th><th>Concluídos</th>'+
+      '<th>Parciais (Garantia LED)</th><th>Total atendido</th></tr></thead><tbody>'+
+      linhas+'<tr><th colspan="2">Total filtrado</th><th>'+r.concluidos+
+      '</th><th>'+r.parciais+'</th><th>'+r.total+'</th></tr></tbody></table>';
+  }
+  function avisoAtendimentos(dados){
+    const r=resumoAtendimentos(dados);
+    return 'Atendimentos computados: '+r.total+' = '+r.concluidos+
+      ' concluídos + '+r.parciais+' parciais (Aguardando Garantia LED). '+
+      (r.semEmpresa? r.semEmpresa+' chamados atendidos sem empresa vinculada, não atribuídos. ':'')+
+      'Um chamado conta no máximo uma vez pelo status atual. '+
+      'Não comprova deslocamentos repetidos. Período filtrado pela data de abertura do chamado, não pela data da visita.';
+  }
   function source(tipo){
     if(tipo==='estoque'){
       if(!Array.isArray(_exportMats))throw new Error('Clique em Buscar para aplicar os filtros de estoque.');
@@ -120,6 +179,7 @@
       const a=statusSLA(c);
       return {'Protocolo':c.protocolo,'Cidade':c.cidade,'Problema':c.tipo,
         'Empresa':c.empresa,'Status':c.status,
+        'Atendimento da empresa':situacaoAtendimento(c),
         'Aberto em':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
         'Concluído em':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
         'Prazo registrado (dias corridos)':dias(c._slaHoras),
@@ -130,6 +190,8 @@
     return dados.map(c=>({
       'Protocolo':c.protocolo,'Cidade':c.cidade,'Bairro':c.bairro,
       'Endereço':c.endereco,'Tipo':c.tipo,'Status':c.status,'Empresa':c.empresa,
+      'Atendimento da empresa':situacaoAtendimento(c),
+      ...(paraExcel?{'ID da empresa':c.empresa_id||'','ID do consórcio':c.consorcio_id||''}:{}),
       'Data abertura':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
       'Data conclusão':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
       'Área':c.area,'Origem':c.origem,'Prazo registrado (dias corridos)':dias(c._slaHoras),
@@ -154,7 +216,9 @@
       ws['!autofilter']={ref:ws['!ref']};
       const larguras={
         'Protocolo':43,'Cidade':24,'Bairro':34,'Endereço':38,'Tipo':41,
-        'Status':19,'Empresa':35,'Data abertura':23,'Data conclusão':23,
+        'Status':19,'Empresa':35,'Atendimento da empresa':28,
+        'ID da empresa':40,'ID do consórcio':40,
+        'Data abertura':23,'Data conclusão':23,
         'Aberto em':23,'Concluído em':23,'Área':12,'Origem':18,
         'Prazo registrado (dias corridos)':36,
         'Situação SLA (dias corridos)':37,
@@ -177,6 +241,27 @@
         }
       }
       XLSX.utils.book_append_sheet(wb,ws,label[tipo]);
+      if(tipo==='chamados'){
+        const r=resumoAtendimentos(dados);
+        const consorcios=Array.isArray(window.v19RelatoriosConsorcios)?
+          window.v19RelatoriosConsorcios:[];
+        const linhas=r.grupos.map(g=>({
+          'Empresa':g.empresa,
+          'Consórcio':consorcios.find(c=>c.id===g.consorcio_id)?.nome||g.consorcio_id||'',
+          'ID da empresa':g.empresa_id,'Concluídos':g.concluidos,
+          'Parciais (Garantia LED)':g.parciais,'Total atendido':g.total
+        }));
+        linhas.push({'Empresa':'TOTAL FILTRADO','Consórcio':'','ID da empresa':'',
+          'Concluídos':r.concluidos,'Parciais (Garantia LED)':r.parciais,
+          'Total atendido':r.total});
+        linhas.push({'Empresa':'METODOLOGIA',
+          'Consórcio':'Um chamado por status atual; não equivale a viagens. Filtro de período pela abertura.'});
+        if(r.semEmpresa)linhas.push({'Empresa':'SEM EMPRESA VINCULADA',
+          'Consórcio':r.semEmpresa+' chamados atendidos sem atribuição; não entram na contagem empresarial.'});
+        const resumoWs=XLSX.utils.json_to_sheet(linhas);
+        resumoWs['!cols']=[{wch:36},{wch:55},{wch:40},{wch:15},{wch:25},{wch:20}];
+        XLSX.utils.book_append_sheet(wb,resumoWs,'Atendimentos por empresa');
+      }
       if(tipo==='sla'){
         // Só conclusões com prazo e datas suficientes entram na taxa de SLA.
         // Chamados abertos (inclusive vencidos) não são conclusões não apuráveis.
@@ -232,7 +317,9 @@
           abertos.length+(abertos.length===1?' não concluído (':' não concluídos (')+
           vencidos+(vencidos===1?' vencido pelo SLA); ':' vencidos pelo SLA); ')+concluidos.length+
           (concluidos.length===1?' concluído.':' concluídos.')+
-          ' Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>';
+          ' Prazos em dias corridos; registros sem prazo não têm SLA apurável.</div>'+
+          '<div class="sla-summary"><b>Atendimentos por empresa:</b> '+
+          esc(avisoAtendimentos(dados))+'</div>'+tabelaAtendimentos(dados);
         const campo=(rotulo,valor)=>'<div class="sla-field"><b>'+esc(rotulo)+'</b><span>'+
           esc(valor===null||valor===undefined||valor===''?'—':valor)+'</span></div>';
         conteudo='<div class="sla-cards">'+dados.map(c=>{
@@ -242,7 +329,8 @@
             '<div class="sla-grid">'+
             campo('Cidade',c.cidade)+campo('Bairro',c.bairro)+
             campo('Endereço',c.endereco)+campo('Tipo de chamado',c.tipo)+
-            campo('Empresa responsável',c.empresa)+campo('Área',c.area)+
+            campo('Empresa responsável',c.empresa)+
+            campo('Atendimento da empresa',situacaoAtendimento(c))+campo('Área',c.area)+
             campo('Origem',c.origem)+campo('Prazo (dias corridos)',dias(c._slaHoras))+
             campo('Data de abertura',fmtData(c.created_at))+
             campo('Data de conclusão',fmtData(c.completed_at))+
@@ -345,10 +433,16 @@
         throw new Error('Vínculo do usuário inválido para relatórios.');
       // Chamados seguem estritamente o RLS do Supabase: Prefeitura vê seu
       // município; Garantia vê apenas as ocorrências que o banco autorizar.
-      const [ok,saldos]=await Promise.all([
-        carregarChamadosDoBanco(),
+      // Carrega todas as páginas autorizadas (RLS). A tabela de empresas
+      // complementa os nomes/UUIDs sem atribuir atendimentos a terceiros.
+      const [ok,saldos,consorciosLista,empresasLista]=await Promise.all([
+        carregarChamadosDoBanco(true),
         podeConsultarEstoque
           ? sbFetch('rpc/v19_relatorio_estoque_empresarial')
+          : Promise.resolve([]),
+        perfil==='master'?sbSelect('consorcios','select=id,nome&order=nome.asc'):Promise.resolve([]),
+        ['master','consorcio','empresa'].includes(perfil)
+          ? sbSelect('empresas','select=id,nome,consorcio_id&order=nome.asc').catch(()=>[])
           : Promise.resolve([])
       ]);
       if(!ok)throw new Error('Chamados do banco não confirmados; relatório cancelado.');
@@ -357,6 +451,8 @@
          CU?.perfil!==perfil||CU?.consorcio_id!==consorcio||
          CU?.empresa_id!==empresa)return;
       const mats=podeConsultarEstoque?mapearEstoquesEmpresariais(saldos):[];
+      window.v19RelatoriosConsorcios=Array.isArray(consorciosLista)?consorciosLista:[];
+      window.v19RelatoriosEmpresas=Array.isArray(empresasLista)?empresasLista:[];
       DB.materiais=mats;
       originalRelatorios(b,t,a);
       if(!podeConsultarEstoque){
@@ -385,6 +481,33 @@
           }
         }
         const data=Array.isArray(_exportChamados)?_exportChamados:[];
+        const relatorio=document.getElementById('rf-preview');
+        if(relatorio){
+          const r=resumoAtendimentos(data);
+          const cartao=document.createElement('div');
+          cartao.style.cssText='margin-top:14px;border-top:1px solid var(--gray-200);padding-top:12px';
+          const total=document.createElement('div');
+          total.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px';
+          const kpi=(titulo,valor,cor)=>{
+            const el=document.createElement('div');el.style.cssText='padding:10px;border:1px solid var(--gray-200);border-radius:8px;text-align:center';
+            const num=document.createElement('strong');num.style.cssText='display:block;font-size:23px;color:'+cor;num.textContent=String(valor);
+            const lab=document.createElement('span');lab.style.cssText='display:block;font-size:11px';lab.textContent=titulo;
+            el.append(num,lab);return el;
+          };
+          total.append(kpi('Atendimentos computados',r.total,'var(--brand)'),
+            kpi('Concluídos',r.concluidos,'var(--green)'),
+            kpi('Parciais / Garantia LED',r.parciais,'#b45309'));
+          const titulo=document.createElement('h4');
+          titulo.textContent='Atendimentos por empresa — mesmos filtros acima';
+          titulo.style.cssText='font-size:13px;margin:12px 0';
+          const tabela=document.createElement('div');
+          tabela.style.cssText='overflow-x:auto;font-size:12px';
+          tabela.innerHTML=tabelaAtendimentos(data);
+          const nota=document.createElement('p');nota.style.cssText='font-size:11px;color:var(--gray-600);margin-top:8px';
+          nota.textContent=avisoAtendimentos(data);
+          cartao.append(total,titulo,tabela,nota);
+          relatorio.appendChild(cartao);
+        }
         // "Resultado" do SLA só é avaliável após a conclusão. Chamados
         // abertos (mesmo vencidos) NÃO são "conclusões não apuráveis".
         const naoConcluidos=data.filter(c=>c.status!=='Concluído');
