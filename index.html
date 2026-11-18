@@ -1151,7 +1151,17 @@ let NAV_FILTERS={status:'',cidade:'',periodo:'',area:'',label:''}; // Filtros de
 const stm={'Em execução':'tag-exec','Recebido':'tag-blue','Em programação':'tag-prog','Aguard. material':'tag-mat','Em atraso':'tag-atraso','Concluído':'tag-conc','Novo':'tag-novo','Aguardando Garantia LED':'tag-garantia'};
 
 // ═══ NAVEGAÇÃO ═══
+// O endereço do portal é próprio do cidadão e não deve ser reutilizado
+// depois de sair de uma sessão administrativa ou escolher o login.
+function v19LimparEnderecoPortal(){
+  const url=new URL(location.href);
+  if(!url.searchParams.has('consorcio_id')&&url.searchParams.get('pagina')!=='portal')return;
+  url.searchParams.delete('consorcio_id');
+  if(url.searchParams.get('pagina')==='portal')url.searchParams.delete('pagina');
+  history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+}
 function goPage(id){
+  if(id==='pg-login')v19LimparEnderecoPortal();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo(0,0);
@@ -1212,6 +1222,7 @@ function encerrarSessaoExpirada(){
   saveSession(null);
   limparEstadoOperacional();
   try{ alert('Sua sessão expirou. Entre novamente para continuar.'); }catch(e){}
+  v19LimparEnderecoPortal();
   location.reload();                // garante que nada do estado anterior siga na tela
 }
 async function doLogout(){
@@ -1219,6 +1230,9 @@ async function doLogout(){
   // SEGURANÇA: limpa memória E cache do navegador para que o próximo usuário
   // NÃO veja dados antigos (chamados/empresas/materiais) de outra sessão.
   limparEstadoOperacional();
+  // Remove os parâmetros de portal do consórcio antes de recarregar,
+  // sem alterar as flags ou a disponibilidade do portal público.
+  v19LimparEnderecoPortal();
   // Recarrega para zerar também o estado em memória (DB, CC, CU) e voltar ao login limpo.
   location.reload();
 }
