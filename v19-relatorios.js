@@ -145,8 +145,12 @@
     if(!linhas)linhas='<tr><td colspan="5">Nenhum atendimento computável para os filtros selecionados.</td></tr>';
     return '<table><thead><tr><th>Empresa</th><th>Consórcio</th><th>Concluídos</th>'+
       '<th>Parciais (Garantia LED)</th><th>Total de chamados atendidos</th></tr></thead><tbody>'+
-      linhas+'<tr><th colspan="2">Total filtrado</th><th>'+r.concluidos+
-      '</th><th>'+r.parciais+'</th><th>'+r.total+'</th></tr></tbody></table>';
+      linhas+'<tr style="background:#f1f5f9">'+
+      '<td colspan="2" style="text-align:left;font-weight:700;border-top:2px solid #94a3b8">Total filtrado</td>'+
+      '<td style="text-align:left;font-weight:700;border-top:2px solid #94a3b8">'+r.concluidos+'</td>'+
+      '<td style="text-align:left;font-weight:700;border-top:2px solid #94a3b8">'+r.parciais+'</td>'+
+      '<td style="text-align:left;font-weight:700;border-top:2px solid #94a3b8">'+r.total+'</td>'+
+      '</tr></tbody></table>';
   }
   function avisoAtendimentos(dados){
     const r=resumoAtendimentos(dados);
