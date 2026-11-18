@@ -277,7 +277,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="lf"><label>Senha</label><input type="password" id="loginSenha" value="" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="login-btn" id="btnLogin" onclick="doLogin()">Entrar no sistema</button>
     <div style="text-align:right;margin-top:6px"><span style="font-size:11px;color:var(--brand);cursor:pointer;font-weight:600" onclick="esqueciSenha()">Esqueci minha senha</span></div>
-    <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--gray-400)">Portal público? <span style="color:var(--brand);cursor:pointer;font-weight:600" onclick="goPage('pg-portal')">Clique aqui →</span></div>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--gray-500)">Portal público: utilize o link fornecido pelo seu consórcio.</div>
   </div>
 </div>
 </div>
@@ -1161,6 +1161,13 @@ function v19LimparEnderecoPortal(){
   history.replaceState(history.state,'',url.pathname+url.search+url.hash);
 }
 function goPage(id){
+  // Sem o UUID de um consórcio, o portal não tem contexto para listar municípios.
+  // Redirecionar para o login em vez de exibir "Link incompleto" em página vazia.
+  if(id==='pg-portal'){
+    const consorcioId=new URLSearchParams(location.search).get('consorcio_id')||'';
+    if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(consorcioId))
+      id='pg-login';
+  }
   if(id==='pg-login')v19LimparEnderecoPortal();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
