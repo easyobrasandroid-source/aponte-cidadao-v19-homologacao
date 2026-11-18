@@ -999,6 +999,20 @@ async function sbGetChamados(){
     return data;
   } catch(e){ console.warn('[Supabase] buscar chamados:', e.message); return null; }
 }
+// Relatórios: paginação integral sob RLS, para não confundir 500 linhas com o total.
+// Falha de rede ou sessão interrompe o relatório; nunca apresenta total parcial.
+async function sbGetChamadosRelatorio(){
+  const todos=[],pagina=500, usuario=SB_SESSION?.user?.id;
+  if(!usuario)throw new Error('Faça login para consultar os relatórios.');
+  for(let offset=0;offset<100000;offset+=pagina){
+    if(SB_SESSION?.user?.id!==usuario)throw new Error('A sessão mudou durante a consulta dos chamados.');
+    const parte=await sbFetch('chamados?order=created_at.desc,id.desc&limit='+pagina+'&offset='+offset);
+    if(!Array.isArray(parte))throw new Error('Página de chamados inválida.');
+    todos.push(...parte);
+    if(parte.length<pagina)return todos;
+  }
+  throw new Error('Volume superior ao limite de exportação desta versão; não apresentar totais incompletos.');
+}
 
 // Payload normalizado. Na atualização, comparar com a fotografia original para
 // não enviar campos administrativos/imutáveis ou apagar dados que não foram editados.
@@ -1407,9 +1421,9 @@ function v19StatusSLALinha(c){
 window.v19StatusSLA=v19StatusSLALinha;
 
 // ═══ CHAMADOS ═══
-async function carregarChamadosDoBanco(){
+async function carregarChamadosDoBanco(todosParaRelatorio=false){
   try{
-    const sbChamados = await sbGetChamados();
+    const sbChamados = todosParaRelatorio?await sbGetChamadosRelatorio():await sbGetChamados();
     // O banco é a ÚNICA fonte de verdade: se a resposta não for uma lista válida
     // (erro/offline), NÃO mexe no que está na tela. Lista vazia é resultado válido
     // e SUBSTITUI o estado — banco vazio ⇒ tela vazia (sem resquício local).
@@ -3270,27 +3284,48 @@ function vRelatorios(b,t,a){
   a.innerHTML=`<span style="font-size:11px;color:var(--gray-400)">Dados em tempo real do sistema</span>`;
 
   // ── Estado dos filtros (escopo da view) ──
-  let RF={cidade:'',empresa:'',tipo:'',status:'',bairro:'',dtIni:'',dtFim:'',sla:'',matStatus:'',area:''};
+  let RF={cidade:'',consorcio:'',empresa:'',tipo:'',status:'',bairro:'',dtIni:'',dtFim:'',sla:'',matStatus:'',area:''};
 
   // ── Dados únicos para os selects ──
   const cidades=[...new Set(DB.chamados.map(c=>c.cidade))].sort();
-  // Empresas com estoque aparecem mesmo sem chamados abertos.
-  const empresas=[...new Set([
-    ...DB.chamados.map(c=>c.empresa).filter(Boolean),
-    ...getMats().map(m=>m.empresa_nome).filter(Boolean)
-  ])].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'));
+  // Cada empresa é identificada pelo UUID, mesmo com nomes repetidos.
+  // Catálogo traz também empresas cadastradas sem chamados; dados vêm do RLS.
+  const catalogoConsorcios=Array.isArray(window.v19RelatoriosConsorcios)?
+    window.v19RelatoriosConsorcios:[];
+  const conhecidos=new Map();
+  [...(window.v19RelatoriosEmpresas||[]),
+   ...DB.chamados.map(c=>({id:c.empresa_id,nome:c.empresa,consorcio_id:c.consorcio_id})),
+   ...getMats().map(m=>({id:m.empresa_id,nome:m.empresa_nome,consorcio_id:m.consorcio_id}))
+  ].forEach(e=>{
+    if(e.id && /^[0-9a-f-]{36}$/i.test(e.id)){
+      const anterior=conhecidos.get(e.id);
+      if(!anterior || (!anterior.nome && e.nome))
+        conhecidos.set(e.id,{id:e.id,nome:e.nome||'Empresa sem nome',consorcio_id:e.consorcio_id});
+    }
+  });
+  const empresas=[...conhecidos.values()].sort((a,b)=>
+    String(a.nome).localeCompare(String(b.nome),'pt-BR')||
+    String(a.consorcio_id).localeCompare(String(b.consorcio_id)));
   // Tipos não são derivados apenas dos chamados: o catálogo do Master
   // inclui também problemas ativos ainda não utilizados.
   const bairros=[...new Set(DB.chamados.map(c=>c.bairro).filter(Boolean))].sort();
 
   // ── Filtragem — exposta no window para os onclick do innerHTML ──
   window._rfFiltrarChamados=function(){
+    // Segunda camada de escopo visual; o RLS do Supabase permanece obrigatório.
     let r=[...DB.chamados];
+    if(CU?.perfil==='consorcio')r=r.filter(c=>c.consorcio_id===CU.consorcio_id);
+    if(CU?.perfil==='empresa')r=r.filter(c=>c.consorcio_id===CU.consorcio_id && c.empresa_id===CU.empresa_id);
+    if(CU?.perfil==='prefeitura')r=r.filter(c=>c.consorcio_id===CU.consorcio_id && c.cidade_id===CU.cidade_id);
+    if(CU?.perfil==='garantia')r=r.filter(c=>c.consorcio_id===CU.consorcio_id &&
+      (c.status==='Aguardando Garantia LED'||(c.status==='Concluído'&&c.garantia_tipo)));
     if(RF.cidade)  r=r.filter(c=>c.cidade===RF.cidade);
-    if(RF.empresa) r=r.filter(c=>c.empresa===RF.empresa);
+    if(RF.consorcio) r=r.filter(c=>c.consorcio_id===RF.consorcio);
+    if(RF.empresa) r=r.filter(c=>c.empresa_id===RF.empresa);
     if(RF.tipo)    r=r.filter(c=>c.tipo===RF.tipo);
     if(RF.status){
       if(RF.status==='andamento') r=r.filter(c=>['Em execução','Em programação','Recebido'].includes(c.status));
+      else if(RF.status==='atendidos') r=r.filter(c=>['Concluído','Aguardando Garantia LED'].includes(c.status) && c.empresa_id);
       else r=r.filter(c=>c.status===RF.status);
     }
     if(RF.bairro)  r=r.filter(c=>c.bairro===RF.bairro);
@@ -3307,9 +3342,9 @@ function vRelatorios(b,t,a){
   const criticoEstoque=m=>m.disp<(m.min||0)||
     (pctEstoque(m)!==null&&pctEstoque(m)<20);
   window._rfFiltrarEstoque=function(){
-    const mats=RF.empresa
-      ? getMats().filter(m=>m.empresa_nome===RF.empresa)
-      : getMats();
+    const mats=getMats().filter(m=>
+      (!RF.empresa||m.empresa_id===RF.empresa) &&
+      (!RF.consorcio||m.consorcio_id===RF.consorcio));
     if(RF.matStatus==='critico')return mats.filter(criticoEstoque);
     if(RF.matStatus==='atencao')return mats.filter(m=>{
       const p=pctEstoque(m);
@@ -3322,15 +3357,15 @@ function vRelatorios(b,t,a){
     return mats;
   };
   window._rfLimpar=function(){
-    ['rf-cidade','rf-empresa','rf-tipo','rf-status','rf-bairro','rf-dtIni','rf-dtFim','rf-sla','rf-matStatus','rf-area'].forEach(id=>{
+    ['rf-cidade','rf-consorcio','rf-empresa','rf-tipo','rf-status','rf-bairro','rf-dtIni','rf-dtFim','rf-sla','rf-matStatus','rf-area'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.value='';
     });
-    RF={cidade:'',empresa:'',tipo:'',status:'',bairro:'',dtIni:'',dtFim:'',sla:'',matStatus:'',area:''};
+    RF={cidade:'',consorcio:'',empresa:'',tipo:'',status:'',bairro:'',dtIni:'',dtFim:'',sla:'',matStatus:'',area:''};
     window._rfBuscar();
   };
   window._rfLerFiltros=function(){
     const g=id=>document.getElementById(id)?.value||'';
-    RF.cidade=g('rf-cidade');RF.empresa=g('rf-empresa');RF.tipo=g('rf-tipo');
+    RF.cidade=g('rf-cidade');RF.consorcio=g('rf-consorcio');RF.empresa=g('rf-empresa');RF.tipo=g('rf-tipo');
     RF.status=g('rf-status');RF.bairro=g('rf-bairro');RF.dtIni=g('rf-dtIni');
     RF.dtFim=g('rf-dtFim');RF.sla=g('rf-sla');RF.matStatus=g('rf-matStatus');
     RF.area=g('rf-area');
@@ -3423,7 +3458,7 @@ function vRelatorios(b,t,a){
         <label>Empresa (chamados e estoque)</label>
         <select id="rf-empresa">
           <option value="">Todas as empresas</option>
-          ${empresas.map(e=>`<option>${escaparCidadeHTML(e)}</option>`).join('')}
+          ${empresas.map(e=>`<option value="${e.id}" data-consorcio="${e.consorcio_id||''}">${escaparCidadeHTML(e.nome)}${CU?.perfil==='master'?' · '+escaparCidadeHTML(catalogoConsorcios.find(x=>x.id===e.consorcio_id)?.nome||e.consorcio_id||'Sem consórcio'):''}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -3444,6 +3479,7 @@ function vRelatorios(b,t,a){
           <option value="Em atraso">Em atraso</option>
           <option value="Concluído">Concluído</option>
           <option value="Aguardando Garantia LED">Ag. Garantia LED</option>
+          <option value="atendidos">Atendidos (finalizados + garantia)</option>
         </select>
       </div>
       <div class="field">
@@ -3454,6 +3490,7 @@ function vRelatorios(b,t,a){
         </select>
       </div>
     </div>
+    ${CU?.perfil==='master'?'<div class="field" style="margin-bottom:8px;max-width:400px"><label>Consórcio</label><select id="rf-consorcio"><option value="">Todos os consórcios</option>'+catalogoConsorcios.map(c=>'<option value="'+c.id+'">'+escaparCidadeHTML(c.nome)+'</option>').join('')+'</select></div>':''}
     <!-- LINHA 2 -->
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
       <div class="field"><label>Data inicial</label><input type="date" id="rf-dtIni"></div>
@@ -3551,6 +3588,21 @@ function vRelatorios(b,t,a){
   // Inclui tipos ativos ainda sem chamados e tipos históricos em separado.
   // O catálogo é consultado no servidor respeitando o consórcio de CU.
   void window.v19PopularFiltroTipos?.('rf-tipo','rf-cidade');
+  document.getElementById('rf-consorcio')?.addEventListener('change',()=>{
+    const cons=document.getElementById('rf-consorcio')?.value||'';
+    const empresa=document.getElementById('rf-empresa');
+    if(empresa){
+      for(const opt of empresa.options){
+        if(!opt.value)continue;
+        opt.hidden=!!cons&&opt.dataset.consorcio!==cons;
+      }
+      if(empresa.selectedOptions[0]?.hidden)empresa.value='';
+    }
+    const cidade=document.getElementById('rf-cidade');
+    if(cidade)cidade.value='';
+    const tipo=document.getElementById('rf-tipo');if(tipo)tipo.value='';
+    void window.v19PopularFiltroTipos?.('rf-tipo','rf-cidade');
+  });
   document.getElementById('rf-cidade')?.addEventListener('change',()=>{
     const sel=document.getElementById('rf-tipo');if(sel)sel.value='';
     void window.v19PopularFiltroTipos?.('rf-tipo','rf-cidade');
