@@ -3312,7 +3312,13 @@ function vRelatorios(b,t,a){
 
   // ── Filtragem — exposta no window para os onclick do innerHTML ──
   window._rfFiltrarChamados=function(){
+    // Segunda camada de escopo visual; o RLS do Supabase permanece obrigatório.
     let r=[...DB.chamados];
+    if(CU?.perfil==='consorcio')r=r.filter(c=>c.consorcio_id===CU.consorcio_id);
+    if(CU?.perfil==='empresa')r=r.filter(c=>c.consorcio_id===CU.consorcio_id && c.empresa_id===CU.empresa_id);
+    if(CU?.perfil==='prefeitura')r=r.filter(c=>c.consorcio_id===CU.consorcio_id && c.cidade_id===CU.cidade_id);
+    if(CU?.perfil==='garantia')r=r.filter(c=>c.consorcio_id===CU.consorcio_id &&
+      (c.status==='Aguardando Garantia LED'||(c.status==='Concluído'&&c.garantia_tipo)));
     if(RF.cidade)  r=r.filter(c=>c.cidade===RF.cidade);
     if(RF.consorcio) r=r.filter(c=>c.consorcio_id===RF.consorcio);
     if(RF.empresa) r=r.filter(c=>c.empresa_id===RF.empresa);
