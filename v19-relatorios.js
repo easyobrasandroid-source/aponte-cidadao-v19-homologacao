@@ -144,17 +144,17 @@
       '</td><td><strong>'+g.total+'</strong></td></tr>').join('');
     if(!linhas)linhas='<tr><td colspan="5">Nenhum atendimento computável para os filtros selecionados.</td></tr>';
     return '<table><thead><tr><th>Empresa</th><th>Consórcio</th><th>Concluídos</th>'+
-      '<th>Parciais (Garantia LED)</th><th>Total atendido</th></tr></thead><tbody>'+
+      '<th>Parciais (Garantia LED)</th><th>Total de chamados atendidos</th></tr></thead><tbody>'+
       linhas+'<tr><th colspan="2">Total filtrado</th><th>'+r.concluidos+
       '</th><th>'+r.parciais+'</th><th>'+r.total+'</th></tr></tbody></table>';
   }
   function avisoAtendimentos(dados){
     const r=resumoAtendimentos(dados);
-    return 'Atendimentos computados: '+r.total+' = '+r.concluidos+
+    return 'Total de chamados atendidos: '+r.total+' = '+r.concluidos+
       ' concluídos + '+r.parciais+' parciais (Aguardando Garantia LED). '+
       (r.semEmpresa? r.semEmpresa+' chamados atendidos sem empresa vinculada, não atribuídos. ':'')+
       'Um chamado conta no máximo uma vez pelo status atual. '+
-      'Não comprova deslocamentos repetidos. Período filtrado pela data de abertura do chamado, não pela data da visita.';
+      'Contagem exclusivamente por número de chamado, sem multiplicar por visitas. Período filtrado pela data de abertura do chamado.';
   }
   function source(tipo){
     if(tipo==='estoque'){
@@ -249,11 +249,11 @@
           'Empresa':g.empresa,
           'Consórcio':consorcios.find(c=>c.id===g.consorcio_id)?.nome||g.consorcio_id||'',
           'ID da empresa':g.empresa_id,'Concluídos':g.concluidos,
-          'Parciais (Garantia LED)':g.parciais,'Total atendido':g.total
+          'Parciais (Garantia LED)':g.parciais,'Total de chamados atendidos':g.total
         }));
         linhas.push({'Empresa':'TOTAL FILTRADO','Consórcio':'','ID da empresa':'',
           'Concluídos':r.concluidos,'Parciais (Garantia LED)':r.parciais,
-          'Total atendido':r.total});
+          'Total de chamados atendidos':r.total});
         linhas.push({'Empresa':'METODOLOGIA',
           'Consórcio':'Um chamado por status atual; não equivale a viagens. Filtro de período pela abertura.'});
         if(r.semEmpresa)linhas.push({'Empresa':'SEM EMPRESA VINCULADA',
@@ -494,7 +494,7 @@
             const lab=document.createElement('span');lab.style.cssText='display:block;font-size:11px';lab.textContent=titulo;
             el.append(num,lab);return el;
           };
-          total.append(kpi('Atendimentos computados',r.total,'var(--brand)'),
+          total.append(kpi('Total de chamados atendidos',r.total,'var(--brand)'),
             kpi('Concluídos',r.concluidos,'var(--green)'),
             kpi('Parciais / Garantia LED',r.parciais,'#b45309'));
           const titulo=document.createElement('h4');
