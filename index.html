@@ -5064,7 +5064,7 @@ async function _v19PhotonBuscar(consulta,cidade,signal){
   const url=new URL(V19_PHOTON_ENDPOINT);
   url.searchParams.set('q',q+', '+c+', Brasil');
   url.searchParams.set('limit','8');
-  url.searchParams.set('lang','pt');
+  url.searchParams.set('lang','default');
   const res=await fetch(url.toString(),{method:'GET',mode:'cors',signal,
     credentials:'omit',cache:'default'});
   if(!res.ok)throw new Error('Busca de enderecos indisponivel (HTTP '+res.status+').');
