@@ -1,0 +1,128 @@
+/* Aponte Cidadão V19 — personalização APENAS da página pública de abertura.
+   Estilos confinados a #pg-portal: não afetam login, painéis, chamados ou relatórios. */
+#pg-portal .v19-portal-marca[hidden]{display:none!important}
+#pg-portal .v19-portal-marca{
+  --cor1:#163f7a;--cor2:#0d659b;--cor3:#0a3965;
+  position:relative;isolation:isolate;overflow:hidden;
+  background:linear-gradient(117deg,var(--cor1) 2%,var(--cor2) 76%,var(--cor3) 120%);
+  color:#fff;border-bottom:4px solid rgba(255,255,255,.13);
+}
+#pg-portal[data-v19-consorcio="cisverde"] .v19-portal-marca{
+  --cor1:#087b4c;--cor2:#00a15e;--cor3:#005c44;
+  border-bottom-color:#a4e6c9;
+}
+#pg-portal[data-v19-consorcio="ciscaparao"] .v19-portal-marca{
+  border-bottom:4px solid #0895c5;
+}
+#pg-portal .v19-portal-marca::before,
+#pg-portal .v19-portal-marca::after{
+  content:"";position:absolute;border:1px solid rgba(255,255,255,.12);
+  border-radius:50%;pointer-events:none;z-index:-1;
+}
+#pg-portal .v19-portal-marca::before{
+  width:430px;height:430px;right:-140px;top:-250px;
+  box-shadow:0 0 0 50px rgba(255,255,255,.025),0 0 0 100px rgba(255,255,255,.025);
+}
+#pg-portal .v19-portal-marca::after{
+  width:330px;height:330px;right:135px;bottom:-285px;
+}
+#pg-portal .v19-portal-marca-inner{
+  max-width:1100px;margin:0 auto;padding:25px 28px;
+  min-height:182px;display:flex;justify-content:space-between;align-items:center;
+  gap:24px;position:relative;
+}
+#pg-portal .v19-portal-marca-esquerda{
+  display:flex;align-items:center;gap:22px;min-width:0;max-width:790px;z-index:1;
+}
+#pg-portal .v19-portal-marca-simbolo{
+  width:98px;height:98px;flex:0 0 98px;border-radius:22px;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.4);
+  box-shadow:0 12px 30px rgba(0,0,0,.09);
+}
+#pg-portal .v19-portal-marca-simbolo svg{width:80px;height:80px;display:block}
+#pg-portal .v19-portal-marca-simbolo img{max-width:80%;max-height:83%;width:auto;height:auto;object-fit:contain;display:block}
+#pg-portal[data-v19-consorcio="ciscaparao"] .v19-portal-marca-simbolo{
+  background:#fff;box-shadow:0 10px 30px rgba(0,23,73,.22);
+}
+#pg-portal .v19-portal-marca-texto{min-width:0}
+#pg-portal .v19-portal-marca-sobretitulo{
+  margin:0 0 5px;color:rgba(255,255,255,.78);
+  text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:800;
+}
+#pg-portal .v19-portal-marca-titulo{
+  margin:0;color:#fff;font-size:clamp(27px,3vw,41px);
+  line-height:1.08;font-weight:850;letter-spacing:-.035em;
+  text-shadow:0 1px 1px rgba(0,0,0,.1);
+}
+#pg-portal .v19-portal-marca-subtitulo{
+  margin:7px 0 13px;color:rgba(255,255,255,.91);
+  line-height:1.45;font-size:13px;font-weight:500;max-width:600px;
+}
+#pg-portal .v19-portal-marca-selo{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 13px;border:1px solid rgba(255,255,255,.25);
+  border-radius:100px;background:rgba(0,0,0,.14);
+  font-size:11px;font-weight:700;line-height:1.35;letter-spacing:.01em;
+}
+#pg-portal .v19-portal-marca-selo svg{
+  height:17px;width:17px;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;
+}
+#pg-portal .v19-portal-marca-decor{
+  width:230px;height:155px;flex:0 0 230px;opacity:.88;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+}
+#pg-portal .v19-portal-marca-decor svg{
+  width:100%;height:100%;filter:drop-shadow(0 10px 20px rgba(0,0,0,.11));
+}
+#pg-portal[data-v19-consorcio="ciscaparao"] .v19-portal-marca-decor:after{
+  content:"";position:absolute;width:6px;height:140%;right:0;top:-20%;
+  background:linear-gradient(#00a569 0 34%,#ed4148 34% 66%,#119bd3 66% 100%);
+  opacity:.8;transform:rotate(19deg);
+}
+#pg-portal .pub-body{max-width:900px;padding-top:27px}
+#pg-portal .pub-hero{margin-bottom:22px}
+#pg-portal .pub-hero h1{
+  font-size:clamp(21px,2.7vw,27px);letter-spacing:-.02em;
+  color:#132e50;
+}
+#pg-portal .pub-hero p{font-size:13px;line-height:1.5}
+#pg-portal .form-card{
+  border:1px solid #dbe4f0;box-shadow:0 14px 35px rgba(12,40,77,.065);
+}
+#pg-portal .form-section{padding:20px 24px}
+#pg-portal .form-sec-title{font-size:14px;letter-spacing:-.01em}
+#pg-portal .form-footer{background:#f8fafd}
+#pg-portal .field input:focus-visible,
+#pg-portal .field select:focus-visible,
+#pg-portal .field textarea:focus-visible{
+  outline:2px solid #357bd6;outline-offset:1px;
+}
+@media(max-width:760px){
+  #pg-portal .v19-portal-marca-inner{min-height:166px;padding:24px 20px}
+  #pg-portal .v19-portal-marca-simbolo{width:76px;height:76px;flex-basis:76px;border-radius:18px}
+  #pg-portal .v19-portal-marca-simbolo svg{width:62px;height:62px}
+  #pg-portal .v19-portal-marca-esquerda{gap:14px}
+  #pg-portal .v19-portal-marca-decor{position:absolute;right:-30px;opacity:.14;width:190px}
+  #pg-portal .v19-portal-marca-titulo{font-size:28px}
+  #pg-portal .v19-portal-marca-subtitulo{font-size:12px}
+  #pg-portal .pub-body{max-width:100%}
+}
+@media(max-width:480px){
+  #pg-portal .v19-portal-marca-inner{min-height:150px;padding:19px 13px;gap:10px}
+  #pg-portal .v19-portal-marca-simbolo{width:62px;height:62px;flex-basis:62px;border-radius:14px}
+  #pg-portal .v19-portal-marca-simbolo svg{width:51px;height:51px}
+  #pg-portal .v19-portal-marca-esquerda{align-items:flex-start;gap:12px}
+  #pg-portal .v19-portal-marca-titulo{font-size:25px;overflow-wrap:anywhere}
+  #pg-portal .v19-portal-marca-subtitulo{font-size:11px;margin:5px 0 10px}
+  #pg-portal .v19-portal-marca-sobretitulo{font-size:9px;letter-spacing:.09em}
+  #pg-portal .v19-portal-marca-selo{font-size:10px;padding:7px 10px}
+  #pg-portal .v19-portal-marca-decor{right:-65px}
+  #pg-portal .pub-body{padding-top:22px}
+  #pg-portal .form-section{padding:16px}
+}
+@media(prefers-reduced-motion:reduce){
+  #pg-portal .v19-portal-marca *{animation:none!important;transition:none!important}
+}

@@ -263,6 +263,8 @@ tbody tr:last-child td{border-bottom:none;}
   #pg-portal .form-footer .btn { width: 100%; justify-content: center; }
 }
 </style>
+<!-- Identidade visual separada e exclusiva dos portais públicos V19. -->
+<link rel="stylesheet" href="./v19-portal-identidade.css?v=793">
 </head>
 <body>
 
@@ -336,6 +338,35 @@ tbody tr:last-child td{border-bottom:none;}
       <button class="btn btn-primary" onclick="goPage('pg-login')">Entrar</button>
     </div>
   </div>
+  <!-- Identidade do consórcio: preenchida apenas pela URL pública, sem chamadas à API. -->
+  <section class="v19-portal-marca" id="v19-portal-marca"
+    aria-label="Consórcio responsável pelo portal de iluminação pública" hidden>
+    <div class="v19-portal-marca-inner">
+      <div class="v19-portal-marca-esquerda">
+        <div class="v19-portal-marca-simbolo" id="v19-portal-marca-simbolo" aria-hidden="true"></div>
+        <div class="v19-portal-marca-texto">
+          <div class="v19-portal-marca-sobretitulo">Consórcio responsável pelo município</div>
+          <h2 class="v19-portal-marca-titulo" id="v19-portal-marca-titulo"></h2>
+          <p class="v19-portal-marca-subtitulo" id="v19-portal-marca-subtitulo"></p>
+          <div class="v19-portal-marca-selo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21V9a4 4 0 0 1 4-4h5"/><path d="M15 4h5v4h-5z"/><path d="M18 11v2M15 11l-1 2M21 11l1 2"/></svg>
+            Portal de solicitações de iluminação pública
+          </div>
+        </div>
+      </div>
+      <div class="v19-portal-marca-decor" aria-hidden="true">
+        <svg viewBox="0 0 260 180" focusable="false">
+          <defs><linearGradient id="v19LuzPortal" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".65"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+          <path d="M150 167V45Q150 30 167 30H207" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none" opacity=".9"/>
+          <rect x="201" y="25" width="41" height="14" rx="5" fill="#fff" opacity=".98"/>
+          <path d="M207 39 175 171H256L238 39Z" fill="url(#v19LuzPortal)" opacity=".26"/>
+          <path d="M224 13V3M251 28l7-7M251 47l7 7M189 28l-8-7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>
+          <path d="M0 167H260" stroke="#fff" stroke-width="2" opacity=".4"/>
+          <path d="M8 167V120h28v47m8 0V91h29v76m11 0v-33h31v33m58 0v-31h36v31m9 0v-56h31v56" fill="none" stroke="#fff" stroke-width="2" opacity=".2"/>
+        </svg>
+      </div>
+    </div>
+  </section>
   <div class="pub-body">
     <div class="pub-hero"><h1>Relate um problema na iluminação pública</h1><p>Ajude a melhorar sua cidade. Registre em menos de 1 minuto.</p></div>
     <div id="v19-pub-estado" role="status" aria-live="polite" style="display:none;padding:18px 20px;border:1px solid #FDE68A;background:#FFFBEB;color:#92400E;border-radius:10px;font-size:14px;line-height:1.5;margin-bottom:16px"></div>
@@ -5798,6 +5829,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-estoque-garantia.js?v=790g" defer></script>
 <!-- Garantia: previsão e baixa em chamado; relatório exclusivo por protocolo. -->
 <script src="./v19-garantia-chamados.js?v=790g5" defer></script>
+<script src="./v19-portal-identidade.js?v=793" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
 <!-- Etapa 576: baixa transacional pela empresa responsavel, via RPC V19. -->
