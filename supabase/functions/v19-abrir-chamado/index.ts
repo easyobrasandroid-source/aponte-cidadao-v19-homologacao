@@ -1,8 +1,10 @@
 /**
  * Aponte Cidadão V19 — API de abertura pública (homologação).
  *
- * DESATIVADA POR PADRÃO. Somente funciona com:
- *  - PORTAL_INTAKE_ENABLED=true
+ * A ativação operacional é controlada por consórcio no banco:
+ *  - portal_configuracoes.portal_ativo e abertura_portal_ativo
+ *  - consulta_protocolo_ativo para consultas
+ *  - PORTAL_INTAKE_DISABLED=true: chave de emergência para desativar toda a API
  *  - TURNSTILE_SECRET_KEY: chave secreta do Cloudflare Turnstile
  *  - PORTAL_RATE_LIMIT_PEPPER: segredo aleatório >= 32 caracteres
  *  - SUPABASE_SERVICE_ROLE_KEY: chave legada somente do servidor (injetada pelo Supabase)
@@ -355,9 +357,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== "POST") return reply(405, { ok: false, erro: "METODO_INVALIDO" }, origin);
   if (origin !== ALLOWED_ORIGIN) return reply(403, { ok: false, erro: "ORIGEM_INVALIDA" }, origin);
 
-  // Corte de emergência independente da configuração do banco.
-  if (Deno.env.get("PORTAL_INTAKE_ENABLED") !== "true") {
-    return reply(503, { ok: false, erro: "ABERTURA_EM_HOMOLOGACAO" }, origin);
+  // Controle por consórcio fica no banco (RPCs); não bloquear tudo por homologação.
+  // Continua disponível um corte emergencial independente por segredo do servidor.
+  if (Deno.env.get("PORTAL_INTAKE_DISABLED") === "true") {
+    return reply(503, { ok: false, erro: "PORTAL_TEMPORARIAMENTE_DESATIVADO" }, origin);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
