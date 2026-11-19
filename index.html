@@ -300,6 +300,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="sbi" onclick="showView('mapa',this)"><span class="ico">🗺</span> Mapa</div>
       <div class="sb-lbl">Gestão</div>
       <div class="sbi" onclick="showView('estoque',this)"><span class="ico">📦</span> Estoque</div>
+      <div class="sbi" id="sb-estoque-garantia" style="display:none" onclick="showView('estoqueGarantia',this)"><span class="ico">⚡</span> Estoque de Garantia</div>
       <div class="sbi" onclick="showView('relatorios',this)"><span class="ico">📈</span> Relatórios</div>
       <div class="sbi" onclick="showView('impressao',this)"><span class="ico">🖨</span> Impressão/PDF</div>
       <div class="sb-lbl">Configurações</div>
@@ -1274,6 +1275,8 @@ function setupUI(u){
   document.getElementById('sb-configportal').style.display=
     ['master','consorcio'].includes(u.perfil)?'flex':'none';
   document.getElementById('sb-tipos').style.display=u.perfil==='master'?'flex':'none';
+  document.getElementById('sb-estoque-garantia').style.display=
+    ['master','consorcio','garantia'].includes(u.perfil)?'flex':'none';
 }
 
 // ═══ VIEWS ═══
@@ -1284,7 +1287,8 @@ function showView(view,el){
   if(el) NAV_FILTERS={status:'',cidade:'',periodo:'',label:''};
   const b=document.getElementById('main-body'),t=document.getElementById('topbar-title'),a=document.getElementById('topbar-actions');
   ({dashboard:()=>vDashboard(b,t,a),chamados:()=>vChamados(b,t,a),mapa:()=>{vMapa(b,t,a);setTimeout(()=>{if(typeof filtrarMapa==='function')filtrarMapa();},800);},
-    estoque:()=>vEstoque(b,t,a),relatorios:()=>vRelatorios(b,t,a),impressao:()=>vImpressao(b,t,a),
+    estoque:()=>vEstoque(b,t,a),estoqueGarantia:()=>window.v19EstoqueGarantia(b,t,a),
+    relatorios:()=>vRelatorios(b,t,a),impressao:()=>vImpressao(b,t,a),
     usuarios:()=>vUsuarios(b,t,a),empresas:()=>vEmpresas(b,t,a),equipes:()=>vEquipes(b,t,a),sla:()=>vSLA(b,t,a),configportal:()=>vConfigPortal(b,t,a),tipos:()=>window.v19TiposMasterPage(b,t,a)})[view]?.();
 }
 
@@ -5744,6 +5748,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-dashboard.js" defer></script>
 <!-- Etapa 550: painel de consulta empresarial. Escritas ainda bloqueadas. -->
 <script src="./v19-estoque-empresas.js?v=66122-idempotencia" defer></script>
+<!-- Estoque de garantia independente: tabelas proprias e RPC exclusiva. -->
+<script src="./v19-estoque-garantia.js?v=790g" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
 <!-- Etapa 576: baixa transacional pela empresa responsavel, via RPC V19. -->
