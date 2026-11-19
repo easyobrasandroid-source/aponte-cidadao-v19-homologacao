@@ -42,6 +42,7 @@
   box-shadow:0 12px 30px rgba(0,0,0,.09);
 }
 #pg-portal .v19-portal-marca-simbolo svg{width:80px;height:80px;display:block}
+#pg-portal .v19-portal-marca-simbolo img{max-width:80%;max-height:83%;width:auto;height:auto;object-fit:contain;display:block}
 #pg-portal[data-v19-consorcio="ciscaparao"] .v19-portal-marca-simbolo{
   background:#fff;box-shadow:0 10px 30px rgba(0,23,73,.22);
 }
