@@ -377,15 +377,17 @@ END;
 $seed$;
 
 COMMIT;
--- Verificacao sem exibir dados de empresas.
-SELECT c.nome AS consorcio, COUNT(DISTINCT m.id) AS materiais,
-  COUNT(DISTINCT l.id) FILTER(WHERE l.tipo='equipe' AND l.ativo) AS equipes,
-  COALESCE(SUM(s.quantidade),0) AS unidades_totais
+-- Verificacao sem exibir dados empresariais. Equipes podem ter saldo zero.
+SELECT c.nome AS consorcio,
+ (SELECT COUNT(*) FROM public.v19_garantia_materiais m
+   WHERE m.consorcio_id=c.id AND m.ativo) AS materiais,
+ (SELECT COUNT(*) FROM public.v19_garantia_locais l
+   WHERE l.consorcio_id=c.id AND l.tipo='equipe' AND l.ativo) AS equipes,
+ (SELECT COALESCE(SUM(s.quantidade),0) FROM public.v19_garantia_saldos s
+   WHERE s.consorcio_id=c.id) AS unidades_totais
 FROM public.consorcios c
-JOIN public.v19_garantia_materiais m ON m.consorcio_id=c.id
-JOIN public.v19_garantia_saldos s ON s.consorcio_id=m.consorcio_id
-  AND s.material_id=m.id
-JOIN public.v19_garantia_locais l ON l.consorcio_id=s.consorcio_id
-WHERE c.id=(SELECT consorcio_id FROM public.v19_garantia_locais
-            WHERE nome='Central de Garantia' LIMIT 1)
-GROUP BY c.nome;
+WHERE pg_catalog.regexp_replace(
+ pg_catalog.translate(pg_catalog.lower(c.nome),
+   'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc'),
+ '[^a-z0-9]','','g') LIKE '%ciscaparao%'
+AND c.status='ativo';
