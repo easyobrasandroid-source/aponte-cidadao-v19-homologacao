@@ -227,7 +227,7 @@ window.v19GarantiaInserirRelatorio=async function(root,consorcioId){
   const tableWrap=el('div',content,null,'overflow-x:auto;');
   const table=el('table',tableWrap,null,'width:100%;font-size:12px;border-collapse:collapse;');
   const headers=['Data da baixa','Protocolo','Município','Endereço','Equipe','Material',
-    'Qtd.','Responsável','Status','Conclusão'];
+    'Qtd.','Responsável','Defeito / observação técnica','Status','Conclusão'];
   const head=el('tr',el('thead',table));
   for(const h of headers)el('th',head,h,
     'text-align:left;white-space:nowrap;padding:8px;border-bottom:2px solid #e2e8f0;');
@@ -236,7 +236,7 @@ window.v19GarantiaInserirRelatorio=async function(root,consorcioId){
   const datarow=x=>[
     dateFmt(x.data_baixa),x.protocolo,x.municipio,
     [x.endereco,x.bairro].filter(Boolean).join(' / '),
-    x.equipe,x.material,x.quantidade,x.responsavel,x.status_chamado,dateFmt(x.data_conclusao)
+    x.equipe,x.material,x.quantidade,x.responsavel,x.garantia_obs||'—',x.status_chamado,dateFmt(x.data_conclusao)
   ];
   let filtered=[];
   function draw(){
