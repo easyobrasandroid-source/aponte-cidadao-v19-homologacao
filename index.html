@@ -690,6 +690,7 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_concluir_garantia','v19_encaminhar_garantia_led','v19_gerenciar_garantia_master','v19_listar_disponiveis', 
 'v19_designar_empresa_chamado',
   'v19_salvar_sla_padrao','v19_criar_chamado_interno',
+ 'v19_criar_chamado_interno_com_solicitante',
  // Os 5 caminhos legados de estoque permanecem BLOQUEADOS (etapa 570).
  'v19_registrar_foto','v19_salvar_config_portal',
  // A RPC de estoque empresarial e SOMENTE LEITURA, mas usa POST no PostgREST.
@@ -2027,8 +2028,8 @@ function abrirDrawer(id){
       ${c.origem==='Interno'?'<div class="drow"><span class="dlbl">Aberto por</span><span class="dval" id="dw-aberto-por"></span></div>':''}
     </div>
     <div><div class="card-title">Solicitante</div>
-      <div class="drow"><span class="dlbl">Nome</span><span class="dval">${c.solicitante}</span></div>
-      <div class="drow"><span class="dlbl">Telefone</span><span class="dval">${c.tel}</span></div>
+      <div class="drow"><span class="dlbl">Nome</span><span class="dval">${escaparCidadeHTML(c.solicitante||'Não informado')}</span></div>
+      <div class="drow"><span class="dlbl">Telefone</span><span class="dval">${escaparCidadeHTML(c.tel||'Não informado')}</span></div>
       <div class="card-title" style="margin-top:10px">Endereço</div>
       <div class="drow"><span class="dlbl">Rua</span><span class="dval">${c.endereco}</span></div>
       <div class="drow"><span class="dlbl">Bairro</span><span class="dval">${c.bairro}</span></div>
@@ -4968,7 +4969,15 @@ async function vNovoChamado(){
       </div>
     </div>
     <div class="form-section">
-      <div class="form-sec-title"><span class="form-sec-num">3</span>Observações e foto</div>
+      <div class="form-sec-title"><span class="form-sec-num">3</span>Solicitante (opcional)</div>
+      <p style="font-size:11px;color:var(--gray-500);margin-bottom:10px">Informe quem comunicou o problema, se souber. O usuário que abriu o chamado é identificado automaticamente pelo login.</p>
+      <div class="frow frow2">
+        <div class="field"><label>Nome do solicitante</label><input type="text" id="int-sol-nome" maxlength="200" placeholder="Nome de quem solicitou" autocomplete="off"></div>
+        <div class="field"><label>Telefone do solicitante</label><input type="tel" id="int-sol-tel" maxlength="40" placeholder="Telefone (se informado)" autocomplete="off"></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-sec-title"><span class="form-sec-num">4</span>Observações e foto</div>
       <div class="frow frow2">
         <div class="field"><label>Observações</label><textarea id="int-obs" style="font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);width:100%;resize:none;min-height:80px;outline:none" placeholder="Detalhes adicionais..."></textarea></div>
         <div style="border:1.5px dashed var(--gray-300);border-radius:var(--radius-sm);padding:16px;text-align:center;color:var(--gray-400);cursor:pointer"><div style="font-size:22px;margin-bottom:6px">📷</div><div style="font-size:11px">Foto opcional</div></div>
@@ -5226,6 +5235,11 @@ async function salvarChamadoInterno(){
   const quantidade=document.getElementById('int-qtd')?.value;
   const qtd=quantidade==='Mais de 5'?6:Number(quantidade);
   const obs=document.getElementById('int-obs')?.value?.trim()||'';
+  const solicitanteNome=document.getElementById('int-sol-nome')?.value?.trim()||null;
+  const solicitanteTel=document.getElementById('int-sol-tel')?.value?.trim()||null;
+  if((solicitanteNome&&solicitanteNome.length>200)||(solicitanteTel&&solicitanteTel.length>40)){
+    showToast('Nome ou telefone do solicitante excede o limite permitido.','erro');return;
+  }
   const empresaId=CU.perfil==='prefeitura'?null:CU.perfil==='empresa'?
     CU.empresa_id:(document.getElementById('int-emp')?.value||null);
   if(CU.perfil!=='prefeitura' &&
@@ -5265,12 +5279,13 @@ async function salvarChamadoInterno(){
   try{
     // Todos os campos administrativos (consórcio, protocolo, status,
     // abertura, SLA e autor do histórico) vêm exclusivamente do banco.
-    const result=await sbFetch('rpc/v19_criar_chamado_interno','POST',{
+    const result=await sbFetch('rpc/v19_criar_chamado_interno_com_solicitante','POST',{
       p_cidade_id:city.id,
       p_tipo:intProb,p_area:area,
       p_bairro:bairro||null,p_endereco:endereco||null,
       p_qtd:qtd,p_observacoes:obs||null,
-      p_empresa_id:empresaId,p_latitude:lat,p_longitude:lng,p_loc_src:loc_src
+      p_empresa_id:empresaId,p_latitude:lat,p_longitude:lng,p_loc_src:loc_src,
+      p_solicitante_nome:solicitanteNome,p_solicitante_tel:solicitanteTel
     });
     if(!result||result.ok!==true||!result.id||!result.protocolo||
        result.cidade_id!==city.id||result.area!==area||
