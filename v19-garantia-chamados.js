@@ -91,7 +91,7 @@ async function editor(chamado,phase){
   const lm=new Map(teams.map(x=>[x.id,x.nome]));
   msg.textContent=items.length&&teams.length?
     'Selecione os itens abaixo. Equipes sem saldo podem receber materiais por transferencia no modulo Estoque de Garantia.':
-    'Nenhum material ou equipe ativo no estoque de garantia deste consorcio.';
+    'Este chamado pertence a um consórcio que ainda não possui catálogo de materiais e equipes de garantia configurados. O perfil Master também não pode utilizar estoque de outro consórcio. Cadastre o estoque neste consórcio ou utilize um chamado do consórcio que já possui estoque. É possível encaminhar a garantia sem prever materiais; a baixa exigirá uma equipe com saldo.';
   const f=el('div',wrapper,null,'display:flex;gap:9px;flex-wrap:wrap;align-items:end;margin-top:10px;');
   const team=pick(f,'Equipe executora',teams.map(x=>[x.id,x.nome]));
   const material=pick(f,'Material de garantia',items.map(x=>[x.id,x.nome]));
