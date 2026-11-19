@@ -323,7 +323,7 @@ DO $seed$
 DECLARE
   v_cons uuid; v_count int; v_central uuid; v_material uuid; v_nome text;
 BEGIN
-  SELECT count(*),min(id) INTO v_count,v_cons FROM public.consorcios
+  SELECT count(*) INTO v_count FROM public.consorcios
    WHERE pg_catalog.regexp_replace(
      pg_catalog.translate(pg_catalog.lower(nome),
        'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc'),
@@ -332,6 +332,12 @@ BEGIN
   IF v_count<>1 THEN
     RAISE EXCEPTION 'CARGA_CISCAPARAO_BLOQUEADA: esperado 1 consorcio ativo, encontrado %',v_count;
   END IF;
+  SELECT id INTO v_cons FROM public.consorcios
+    WHERE pg_catalog.regexp_replace(
+      pg_catalog.translate(pg_catalog.lower(nome),
+        'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc'),
+      '[^a-z0-9]','','g') LIKE '%ciscaparao%' AND status='ativo'
+    LIMIT 1;
   INSERT INTO public.v19_garantia_locais(consorcio_id,nome,tipo)
     VALUES(v_cons,'Central de Garantia','central')
     ON CONFLICT(consorcio_id,nome) DO NOTHING;
