@@ -37,8 +37,8 @@ function construir(c,rows,fail){
  const validCoord=c.lat!=null&&c.lng!=null&&Number.isFinite(Number(c.lat))&&Number.isFinite(Number(c.lng))&&Math.abs(Number(c.lat))<=90&&Math.abs(Number(c.lng))<=180;
  const coord=validCoord?Number(c.lat).toFixed(6)+', '+Number(c.lng).toFixed(6):'Não informadas';
  const p=val(c.protocolo);
- return '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chamado '+esc(p)+' — Aponte Cidadão</title><style>'+css+'</style></head><body>'+
- '<main class="pagina"><header class="topo"><div><div class="marca">Aponte Cidadão</div><div class="secundario">Gestão de iluminação pública</div></div><div class="direita"><b>FICHA DE ATENDIMENTO</b><div class="secundario">Emitida em '+esc(dataBR(new Date().toISOString()))+'</div></div></header>'+
+ return '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chamado '+esc(p)+' — Aponte Iluminação</title><style>'+css+'</style></head><body>'+
+ '<main class="pagina"><header class="topo"><div><div class="marca">Aponte Iluminação</div><div class="secundario">Gestão de iluminação pública</div></div><div class="direita"><b>FICHA DE ATENDIMENTO</b><div class="secundario">Emitida em '+esc(dataBR(new Date().toISOString()))+'</div></div></header>'+
  '<div class="cabecalho"><div class="rotulo">Protocolo</div><div class="protocolo">'+esc(p)+'</div><h1>'+esc(val(c.tipo))+'</h1><div class="tags"><span class="tag">Status: '+esc(val(c.status))+'</span><span class="tag">Área: '+esc(val(c.area))+'</span><span class="tag">Origem: '+esc(val(c.origem))+'</span></div></div>'+
  '<section><h2>Dados da ocorrência</h2><div class="grade tripla">'+campo('Tipo',c.tipo)+campo('Quantidade de lâmpadas',c.qtd)+campo('Prioridade',c.prioridade)+'</div></section>'+
  '<section><h2>Localização</h2><div class="grade">'+campo('Município',c.cidade)+campo('Bairro',c.bairro)+campo('Endereço',c.endereco)+campo('Referência',c.referencia)+campo('Coordenadas',coord)+campo('Fonte da localização',c.loc_src)+'</div></section>'+
@@ -48,7 +48,7 @@ function construir(c,rows,fail){
  ((c.garantia_tipo||c.garantia_obs)?'<section><h2>Garantia</h2><div class="grade">'+campo('Tipo',c.garantia_tipo)+campo('Observação',c.garantia_obs)+campo('Data',dataBR(c.garantia_dt))+'</div></section>':'')+
  '<section><h2>Histórico do chamado</h2>'+historicoHTML(rows,fail)+'</section>'+
  '<div class="assinar"><div class="linha">Responsável pelo atendimento</div><div class="linha">Data / conferência</div></div>'+
- '<footer class="rodape">Gerado pelo Aponte Cidadão V19. Fotos e materiais devem ser consultados no cadastro do chamado. Os dados pessoais destinam-se ao atendimento da solicitação.</footer></main>'+
+ '<footer class="rodape">Gerado pelo Aponte Iluminação V19. Fotos e materiais devem ser consultados no cadastro do chamado. Os dados pessoais destinam-se ao atendimento da solicitação.</footer></main>'+
  '<div class="ferramentas"><button type="button" onclick="window.print()">Imprimir / Salvar como PDF</button><button type="button" class="fechar" onclick="window.close()">Fechar prévia</button></div></body></html>';
 }
 function escrever(janela,conteudo){if(janela.closed)return;janela.document.open();janela.document.write(conteudo);janela.document.close();janela.focus();}
