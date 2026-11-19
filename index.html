@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex,nofollow">
-<title>Aponte Cidadão — Sistema Completo</title>
+<title>Aponte Iluminação — Gestão de Iluminação Pública</title>
+<meta name="description" content="Aponte Iluminação — sistema de gestão e atendimento de iluminação pública para consórcios e municípios.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -274,7 +275,7 @@ tbody tr:last-child td{border-bottom:none;}
   <div class="login-card">
     <div class="login-logo">
       <div class="login-logo-icon">🔆</div>
-      <div class="login-logo-name">Aponte Cidadão</div>
+      <div class="login-logo-name">Aponte Iluminação</div>
       <div class="login-logo-sub">Sistema de Gestão de Iluminação Pública</div>
     </div>
     <div class="login-error" id="loginError" style="display:none">E-mail ou senha incorretos.</div>
@@ -293,7 +294,7 @@ tbody tr:last-child td{border-bottom:none;}
   <nav class="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-icon">🔆</div>
-      <div><div class="sb-logo-name">Aponte Cidadão</div><div class="sb-logo-role" id="sb-cons">Gestão de iluminação pública</div></div>
+      <div><div class="sb-logo-name">Aponte Iluminação</div><div class="sb-logo-role" id="sb-cons">Gestão de iluminação pública</div></div>
     </div>
     <div class="sb-user">
       <div class="sb-av" id="sb-av" style="background:var(--brand)">NA</div>
@@ -332,7 +333,7 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="page" id="pg-portal">
 <div class="pub-page">
   <div class="pub-header">
-    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div><div class="pub-brand-sub">Portal de solicitações de iluminação pública</div></div></div>
+    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Iluminação</div><div class="pub-brand-sub">Portal de solicitações de iluminação pública</div></div></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="goPage('pg-consulta')">🔍 Consultar protocolo</button>
       <button class="btn btn-primary" onclick="goPage('pg-login')">Entrar</button>
@@ -442,7 +443,7 @@ tbody tr:last-child td{border-bottom:none;}
 <!-- CONFIRMAÇÃO -->
 <div class="page" id="pg-confirmacao">
 <div class="pub-page">
-  <div class="pub-header"><div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div></div></div></div>
+  <div class="pub-header"><div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Iluminação</div></div></div></div>
   <div class="pub-body">
     <div class="form-card" style="text-align:center;padding:2.5rem">
       <div style="font-size:56px;margin-bottom:1rem">✅</div>
@@ -467,7 +468,7 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="page" id="pg-consulta">
 <div class="pub-page">
   <div class="pub-header">
-    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Cidadão</div></div></div>
+    <div class="pub-brand"><div class="pub-brand-icon">🌿</div><div><div class="pub-brand-name">Aponte Iluminação</div></div></div>
     <button class="btn btn-save" onclick="goPage('pg-portal')">+ Abrir chamado</button>
   </div>
   <div style="max-width:500px;margin:0 auto;padding:2.5rem 1rem">
@@ -3377,7 +3378,7 @@ function gerarPDF(tipo){
       // Abrir janela de impressão
       const w=window.open('','_blank','width=900,height=700');
       if(!w){showToast('❌ Popup bloqueado! Permita popups para este site.','erro');if(btn){btn.textContent='📄 PDF';btn.disabled=false;}return;}
-      w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${titulo} — Aponte Cidadão</title></head><body>${html}<br><center><button onclick="window.print()" style="padding:10px 24px;background:#1251A3;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;margin:10px">🖨 Imprimir / Salvar PDF</button><button onclick="window.close()" style="padding:10px 18px;background:#F3F4F6;color:#374151;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;cursor:pointer;margin:10px">Fechar</button></center></body></html>`);
+      w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${titulo} — Aponte Iluminação</title></head><body>${html}<br><center><button onclick="window.print()" style="padding:10px 24px;background:#1251A3;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;margin:10px">🖨 Imprimir / Salvar PDF</button><button onclick="window.close()" style="padding:10px 18px;background:#F3F4F6;color:#374151;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;cursor:pointer;margin:10px">Fechar</button></center></body></html>`);
       w.document.close();
       showToast(`✅ ${titulo} gerado! Use "Salvar como PDF" ao imprimir.`,'ok');
     } catch(e){
@@ -3916,18 +3917,18 @@ function vImpressao(b,t,a){
     const paginas=distribuir(lista);
     const folhas=paginas.map((grupo,indice)=>
       '<section class="sheet">'+
-      '<div class="print-header"><div><h1>🔆 Aponte Cidadão</h1><p>'+rotulo+'</p></div>'+
+      '<div class="print-header"><div><h1>🔆 Aponte Iluminação</h1><p>'+rotulo+'</p></div>'+
       '<div class="print-meta">Gerado por: '+usuario+'<div>Data: '+esc(data)+'</div>'+
       '<div>Total de chamados: '+lista.length+'</div></div></div>'+
       '<div class="print-filters">Cidade: '+cidade+' · Status: '+status+
       ' · Início: '+ini+' · Fim: '+fim+'</div>'+
       '<div class="print-cards" style="grid-template-rows:repeat('+estado.porFolha+',minmax(0,1fr))">'+
       grupo.map(cardHTML).join('')+'</div>'+
-      '<footer>Aponte Cidadão — '+esc(data)+'<span>Folha '+(indice+1)+' de '+paginas.length+'</span></footer>'+
+      '<footer>Aponte Iluminação — '+esc(data)+'<span>Folha '+(indice+1)+' de '+paginas.length+'</span></footer>'+
       '</section>').join('');
 
     const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">'+
-      '<title>Chamados — Aponte Cidadão</title><style>'+
+      '<title>Chamados — Aponte Iluminação</title><style>'+
       '@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;margin:0;background:#eef2f7}'+
       '.sheet{background:#fff;width:186mm;height:267mm;margin:12px auto;padding:0;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid}'+
       '.sheet:not(:last-of-type){break-after:page;page-break-after:always}'+

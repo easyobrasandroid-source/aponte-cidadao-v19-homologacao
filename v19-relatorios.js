@@ -1,4 +1,4 @@
-/* Aponte Cidadão V19 — relatórios com dados filtrados e métricas verificáveis */
+/* Aponte Iluminação V19 — relatórios com dados filtrados e métricas verificáveis */
 (function(){
   'use strict';
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
@@ -404,7 +404,7 @@
         '@media print{th{color:#173b66!important;background:#e7eef9!important}'+
         'thead,tbody{print-color-adjust:exact;-webkit-print-color-adjust:exact}'+
         '.print-hint{display:none}}</style></head><body>'+
-        '<h1>Aponte Cidadão V19 · '+esc(label[tipo])+'</h1>'+
+        '<h1>Aponte Iluminação V19 · '+esc(label[tipo])+'</h1>'+
         '<p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+' · '+dados.length+
         (dados.length===1?' registro filtrado · Perfil: ':' registros filtrados · Perfil: ')+
         esc(CU?.perfil||'')+'</p>'+note+conteudo+

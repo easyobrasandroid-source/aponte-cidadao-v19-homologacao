@@ -1,5 +1,5 @@
 /*
- * Aponte Cidadão V19 — convite e recuperação de senha.
+ * Aponte Iluminação V19 — convite e recuperação de senha.
  * Usa somente a credencial temporária do próprio destinatário, via Supabase Auth.
  * Sem cadastro, sem operações administrativas e sem gravação na tabela usuarios.
  */
@@ -21,7 +21,7 @@
     panel.className = 'page';
     panel.innerHTML = '<div class="login-shell"><div class="login-card">' +
       '<div class="login-logo"><div class="login-logo-icon">🔆</div>' +
-      '<div class="login-logo-name">Aponte Cidadão</div>' +
+      '<div class="login-logo-name">Aponte Iluminação</div>' +
       '<div class="login-logo-sub">V19 — homologação</div></div>' +
       '<h2 style="font-size:19px;margin:12px 0">Definir senha de acesso</h2>' +
       '<p id="v19-invite-msg" role="status" aria-live="polite" ' +
