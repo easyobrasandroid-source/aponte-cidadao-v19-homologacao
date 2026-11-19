@@ -487,6 +487,7 @@ tbody tr:last-child td{border-bottom:none;}
      <div class="dw-tc" id="dw-tc-materiais">
        <div class="card-title">Materiais utilizados</div>
        <div id="dw-materiais-lista"></div>
+       <div id="dw-garantia-materiais-chamado"></div>
        <button class="btn btn-ghost" id="dw-add-material-chamado" style="display:none;margin-top:10px;font-size:11px" onclick="adicionarMaterialChamado()">+ Registrar consumo de material</button>
      </div>
     <div class="dw-tc" id="dw-tc-fotos">
@@ -514,7 +515,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div id="v19-conclusao-alvo" style="margin-top:6px;word-break:break-word"></div>
         <div style="margin-top:8px">Data, hora e responsável serão registrados pelo servidor. O histórico será criado automaticamente.</div>
       </div>
-      
+      <div id="v19-garantia-conclusao-materiais" style="display:none"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalConcluir()">Cancelar</button>
@@ -559,6 +560,7 @@ tbody tr:last-child td{border-bottom:none;}
         <label>Data de identificação</label>
         <input type="datetime-local" id="garantia-dt" style="width:100%;padding:8px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);font-size:13px;font-family:'Inter',sans-serif;outline:none">
       </div>
+      <div id="v19-garantia-encaminhamento-materiais" style="display:none"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalGarantia()">Cancelar</button>
@@ -713,7 +715,11 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_listar_tipos_problema','v19_gerenciar_tipo_problema',
  // Etapa 790-G.1: consultas e movimentacoes do estoque de garantia;
  // autenticacao, perfil e consorcio sao validados pelas RPCs no banco.
- 'v19_garantia_consultar','v19_garantia_gerenciar'
+ 'v19_garantia_consultar','v19_garantia_gerenciar',
+ // Etapa 790-G.5: somente RPCs autenticadas e escopo por consorcio.
+ 'v19_garantia_planejar','v19_encaminhar_garantia_planejada',
+ 'v19_garantia_consultar_planejamento',
+ 'v19_concluir_garantia_com_consumo','v19_garantia_relatorio_consumos'
 ]);
 // Bloqueio por padrao: nao permitir que o frontend legado grave em tabelas
 // antes de existir RPC especifica homologada. GET segue sujeito ao RLS.
@@ -1920,7 +1926,8 @@ function v19PodeConcluir(c){
   if(!CU||!c||!c._supaId||c.status==='Concluído'||c.completed_at)return false;
   if(v19GarantiaLED(c)){
     if(CU.perfil==='garantia')return !!CU.consorcio_id&&CU.consorcio_id===c.consorcio_id;
-    if(CU.perfil==='master')return true; // Etapa 652: concluir por RPC exclusiva Master.
+    if(CU.perfil==='master')return true;
+    if(CU.perfil==='consorcio')return !!CU.consorcio_id&&CU.consorcio_id===c.consorcio_id;
     return CU.perfil==='empresa'&&!!CU.empresa_id&&!!CU.consorcio_id&&
       CU.consorcio_id===c.consorcio_id&&CU.empresa_id===c.empresa_id;
   }
@@ -2074,6 +2081,7 @@ async function renderMateriaisChamado(){
   const cont = document.getElementById('dw-materiais-lista');
   if(!cont || !CC) return;
   cont.innerHTML = '<div style="padding:10px;color:var(--gray-400);font-size:12px">Carregando...</div>';
+  if(window.v19GarantiaMostrarConsumoChamado)window.v19GarantiaMostrarConsumoChamado(CC);
   let materiais = [];
   // Buscar do Supabase pelo chamado (fonte de verdade)
   try{
@@ -2389,8 +2397,14 @@ function abrirModalConcluir(){
   const alvo=document.getElementById('v19-conclusao-alvo');
   if(alvo)alvo.textContent='Protocolo: '+CC.protocolo+' | Status atual: '+CC.status;
   document.getElementById('modalConcluir').classList.add('open');
+  if(window.v19GarantiaPrepararConclusao && v19GarantiaLED(CC) &&
+      ['master','consorcio','garantia'].includes(CU?.perfil))
+    window.v19GarantiaPrepararConclusao(CC);
 }
-function closeModalConcluir(){document.getElementById('modalConcluir').classList.remove('open');}
+function closeModalConcluir(){
+  document.getElementById('modalConcluir').classList.remove('open');
+  window.v19GarantiaCancelarTela?.('concluir');
+}
 function abrirModalGarantia(){
   if(v19StatusBusy||!v19PodeEncaminharGarantia(CC)){
     showToast('Este chamado não está elegível para encaminhamento à Garantia LED.','erro');
@@ -2405,10 +2419,14 @@ function abrirModalGarantia(){
   document.getElementById('garantia-tipo').value='';
   document.getElementById('garantia-obs').value='';
   document.getElementById('modalGarantia').classList.add('open');
+  if(window.v19GarantiaPrepararEncaminhamento &&
+     ['master','consorcio'].includes(CU?.perfil))
+    window.v19GarantiaPrepararEncaminhamento(CC);
 }
 function closeModalGarantia(){
   if(v19StatusBusy)return;
   document.getElementById('modalGarantia').classList.remove('open');
+  window.v19GarantiaCancelarTela?.('encaminhar');
 }
 async function confirmarGarantia(){
   const c=CC;
@@ -2438,11 +2456,20 @@ async function confirmarGarantia(){
     showToast('Versão do chamado ausente. Reabra o chamado antes de encaminhar.','erro');
     return;
   }
+  const usarPlanejamento=['master','consorcio'].includes(CU?.perfil);
+  let itensPrevistos=[];
+  if(usarPlanejamento){
+    try{itensPrevistos=window.v19GarantiaItensEncaminhamento();}
+    catch(e){showToast('Materiais da garantia: '+e.message,'erro');return;}
+    payload.p_itens=itensPrevistos;
+  }
   v19StatusBusy=true;
   const botao=document.getElementById('v19-btn-confirmar-garantia');
   if(botao){botao.disabled=true;botao.textContent='Encaminhando...';}
   try{
-    const resp=await sbFetch('rpc/v19_encaminhar_garantia_led','POST',payload);
+    const resp=await sbFetch('rpc/'+(usarPlanejamento?
+      'v19_encaminhar_garantia_planejada':'v19_encaminhar_garantia_led'),
+      'POST',payload);
     if(resp?.ok!==true||resp.id!==c._supaId||
        resp.status!=='Aguardando Garantia LED'||
        resp.garantia_tipo!=='LED'||resp.sla_pausado!==true){
@@ -2515,24 +2542,37 @@ async function confirmarConclusao(){
   }
   if(v19StatusBusy)return;
   const garantia=v19GarantiaLED(c);
+  const podeConsumo=garantia&&['master','consorcio','garantia'].includes(CU?.perfil);
+  let itensConsumo=[];
+  if(podeConsumo){
+    try{itensConsumo=window.v19GarantiaItensConclusao();}
+    catch(e){showToast('Materiais da garantia: '+e.message,'erro');return;}
+    if(!c.updated_at){showToast('Versão do chamado ausente; reabra antes de concluir.','erro');return;}
+  }
   const masterGarantia=garantia&&CU?.perfil==='master';
-  const rpc=masterGarantia?'v19_gerenciar_garantia_master':
+  const rpc=podeConsumo?'v19_concluir_garantia_com_consumo':
+    masterGarantia?'v19_gerenciar_garantia_master':
     garantia?'v19_concluir_garantia':'v19_atualizar_status_chamado';
   if(!window.confirm('Concluir definitivamente o protocolo '+c.protocolo+
-    '? O sistema gravará data, responsável e histórico.'))return;
+    (podeConsumo?' com '+itensConsumo.length+' posição(ões) de materiais de garantia?':
+     '? O sistema gravará data, responsável e histórico.')))return;
   v19StatusBusy=true;
   const botao=document.getElementById('v19-btn-confirmar-conclusao');
   if(botao){botao.disabled=true;botao.textContent='Concluindo...';}
   try{
-    const payload=masterGarantia?{
+    const payload=podeConsumo?{
+      p_chamado_id:c._supaId,p_atualizado_em:c.updated_at,
+      p_itens:itensConsumo
+    }:masterGarantia?{
       p_chamado_id:c._supaId,p_acao:'concluir',
       p_atualizado_em:c.updated_at,p_status_esperado:c.status
     }:garantia?{p_chamado_id:c._supaId}:
       {p_chamado_id:c._supaId,p_novo_status:'Concluído'};
     // Transação única no banco; o trigger cria o histórico automaticamente.
     const resp=await sbFetch('rpc/'+rpc,'POST',payload);
-    if(resp?.ok!==true||resp.status!=='Concluído'||!resp.completed_at)
-      throw new Error('RPC não confirmou o resultado. Atualize a página antes de qualquer nova tentativa.');
+    if(resp?.ok!==true||resp.status!=='Concluído'||!resp.completed_at||
+       (podeConsumo&&resp.consumos_registrados!==itensConsumo.length))
+      throw new Error('RPC não confirmou conclusão e consumo. Atualize a página antes de tentar novamente.');
     closeModalConcluir();
     const sincronizou=await carregarChamadosDoBanco();
     if(!sincronizou){
@@ -5753,6 +5793,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-estoque-empresas.js?v=66122-idempotencia" defer></script>
 <!-- Estoque de garantia independente: tabelas proprias e RPC exclusiva. -->
 <script src="./v19-estoque-garantia.js?v=790g" defer></script>
+<!-- Garantia: previsão e baixa em chamado; relatório exclusivo por protocolo. -->
+<script src="./v19-garantia-chamados.js?v=790g5" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
 <!-- Etapa 576: baixa transacional pela empresa responsavel, via RPC V19. -->
