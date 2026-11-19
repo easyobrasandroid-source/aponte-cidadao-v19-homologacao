@@ -147,6 +147,9 @@ tbody tr:last-child td{border-bottom:none;}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
 .modal{background:#fff;border-radius:14px;width:420px;box-shadow:var(--shadow-lg);overflow:hidden;}
+/* Garantia: formularios de materiais podem conter varias linhas. */
+#modalGarantia .modal,#modalConcluir .modal{width:min(92vw,620px);max-height:90vh;display:flex;flex-direction:column;}
+#modalGarantia .modal-body,#modalConcluir .modal-body{overflow-y:auto;min-height:0;}
 .modal-header{padding:1rem 1.25rem;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;}
 .modal-title{font-size:15px;font-weight:700;}
 .modal-close{width:28px;height:28px;border-radius:6px;border:1px solid var(--gray-200);background:#fff;cursor:pointer;font-size:14px;color:var(--gray-500);display:flex;align-items:center;justify-content:center;}
