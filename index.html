@@ -710,7 +710,10 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_editar_dados_chamado',
  // Etapa 660D.1: catalogo de problemas por consorcio; consulta POST
  // e gestao RPC restrita exclusivamente ao Master pelo banco.
- 'v19_listar_tipos_problema','v19_gerenciar_tipo_problema'
+ 'v19_listar_tipos_problema','v19_gerenciar_tipo_problema',
+ // Etapa 790-G.1: consultas e movimentacoes do estoque de garantia;
+ // autenticacao, perfil e consorcio sao validados pelas RPCs no banco.
+ 'v19_garantia_consultar','v19_garantia_gerenciar'
 ]);
 // Bloqueio por padrao: nao permitir que o frontend legado grave em tabelas
 // antes de existir RPC especifica homologada. GET segue sujeito ao RLS.
