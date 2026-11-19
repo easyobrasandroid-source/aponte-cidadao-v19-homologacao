@@ -254,6 +254,9 @@ window.v19EstoqueGarantia=function(body,title,actions){
          'padding:8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;'));
     }
     if(!historico.length)el('p',hist,'Ainda não há movimentações registradas.');
+    // Relatório exclusivo da garantia, sem acesso a materiais das empresas.
+    if(window.v19GarantiaInserirRelatorio)
+      window.v19GarantiaInserirRelatorio(area,chosen);
   }
 
   async function load(){
