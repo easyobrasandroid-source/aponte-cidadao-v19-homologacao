@@ -1459,7 +1459,10 @@ async function carregarChamadosDoBanco(todosParaRelatorio=false){
       slaPct: r.status==='Concluído'?100:0, sla_pausado: r.sla_pausado||false,
       sla_pausa_inicio:r.sla_pausa_inicio||null,
       sla_pausa_acumulada_segundos:Number(r.sla_pausa_acumulada_segundos||0),
-      origem: r.origem||'Público', solicitante: r.solicitante_nome||'',
+      origem: r.origem||'Público',
+      aberto_por_usuario_id: r.aberto_por_usuario_id||null,
+      aberto_por_nome: r.aberto_por_nome||null,
+      solicitante: r.solicitante_nome||'',
       tel: r.solicitante_tel||'', lat: r.latitude==null?null:Number(r.latitude), lng: r.longitude==null?null:Number(r.longitude),
       loc_src: r.loc_src||null, created_at: r.created_at, completed_at: r.completed_at,
       updated_at: r.updated_at,
@@ -2021,6 +2024,7 @@ function abrirDrawer(id){
       <div class="drow"><span class="dlbl">Área</span><span class="dval"><span style="background:${c.area==='Rural'?'var(--green-light)':'var(--brand-light)'};color:${c.area==='Rural'?'var(--green)':'var(--brand)'};font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${c.area==='Rural'?'🌾 Rural':'🏙 Urbana'}</span></span></div>
       <div class="drow"><span class="dlbl">Empresa</span><span class="dval">${c.empresa}</span></div>
       <div class="drow"><span class="dlbl">Origem</span><span class="dval"><span class="tag ${c.origem==='Público'?'tag-green':'tag-gray'}">${c.origem}</span></span></div>
+      ${c.origem==='Interno'?'<div class="drow"><span class="dlbl">Aberto por</span><span class="dval" id="dw-aberto-por"></span></div>':''}
     </div>
     <div><div class="card-title">Solicitante</div>
       <div class="drow"><span class="dlbl">Nome</span><span class="dval">${c.solicitante}</span></div>
@@ -2035,6 +2039,8 @@ function abrirDrawer(id){
       ${c.completed_at?`<div class="drow"><span class="dlbl">Conclusão</span><span class="dval" style="color:var(--green)">✓ ${new Date(c.completed_at).toLocaleString('pt-BR')}</span></div>`:'<div class="drow"><span class="dlbl">Conclusão</span><span class="dval" style="color:var(--gray-400)">Pendente</span></div>'}
       ${c.created_at&&c.completed_at?`<div class="drow"><span class="dlbl">Tempo total</span><span class="dval" style="color:var(--brand)">${v19FormatarTempoAtendimento(c.created_at,c.completed_at)}</span></div>`:''}
     </div></div>`;
+  const autorAberturaEl=document.getElementById('dw-aberto-por');
+  if(autorAberturaEl)autorAberturaEl.textContent=String(c.aberto_por_nome||'').trim()||'Não registrado';
   if(window.v19PrepararEdicaoChamado)window.v19PrepararEdicaoChamado(c);
   // Evitar renderizar histórico local desatualizado: fonte única é o Supabase.
   // Ao selecionar a aba, showDTab chama v19CarregarHistoricoChamado uma vez.
