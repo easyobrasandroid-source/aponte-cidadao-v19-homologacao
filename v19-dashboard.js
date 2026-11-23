@@ -102,7 +102,7 @@
     if(!semConsulta){
       a.innerHTML='';
       b.innerHTML='<div class="tcard" style="padding:2rem">Carregando dados do Supabase…</div>';
-      Promise.resolve().then(()=>carregarChamadosDoBanco()).then(ok=>{
+      Promise.all([carregarChamadosDoBanco(),carregarCidades()]).then(([ok])=>{
         if(t.textContent!=='Dashboard gerencial' || !b.isConnected) return;
         dashboardCompleto._ok=!!ok;
         dashboardCompleto(b,t,a,true);
@@ -129,7 +129,8 @@
     if(CU?.perfil==='empresa') base=base.filter(c=>CU.empresa_id && c.empresa_id===CU.empresa_id);
     if(CU?.perfil==='garantia') base=base.filter(c=>c.status==='Aguardando Garantia LED' || (c.status==='Concluído' && c.garantia_tipo));
 
-    const cidades=[...new Set(base.map(c=>c.cidade).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'pt-BR'));
+    const cidades=typeof window.v19CidadesFiltro==='function'?
+      window.v19CidadesFiltro():[];
     if(CU?.perfil==='prefeitura') st.cidade=cidades[0] || '';
     else if(st.cidade && !cidades.includes(st.cidade)) st.cidade='';
     if(st.periodo==='month' && !st.mes) st.mes=chaveMes(new Date().toISOString());

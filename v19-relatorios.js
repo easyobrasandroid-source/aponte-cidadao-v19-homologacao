@@ -182,6 +182,7 @@
     if(tipo==='sla')return dados.map(c=>{
       const a=statusSLA(c);
       return {'Protocolo':c.protocolo,'Cidade':c.cidade,'Problema':c.tipo,
+        'Endereço':c.endereco,'Número':window.v19NumeroEndereco?.(c.endereco)||'',
         'Empresa':c.empresa,'Status':c.status,
         'Atendimento da empresa':situacaoAtendimento(c),
         'Aberto em':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
@@ -193,7 +194,8 @@
     });
     return dados.map(c=>({
       'Protocolo':c.protocolo,'Cidade':c.cidade,'Bairro':c.bairro,
-      'Endereço':c.endereco,'Tipo':c.tipo,'Status':c.status,'Empresa':c.empresa,
+      'Endereço':c.endereco,'Número':window.v19NumeroEndereco?.(c.endereco)||'',
+      'Tipo':c.tipo,'Status':c.status,'Empresa':c.empresa,
       'Atendimento da empresa':situacaoAtendimento(c),
       ...(paraExcel?{'ID da empresa':c.empresa_id||'','ID do consórcio':c.consorcio_id||''}:{}),
       'Data abertura':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
@@ -219,7 +221,7 @@
       // os dados de origem nem aplicar correções silenciosas em registros.
       ws['!autofilter']={ref:ws['!ref']};
       const larguras={
-        'Protocolo':43,'Cidade':24,'Bairro':34,'Endereço':38,'Tipo':41,
+        'Protocolo':43,'Cidade':24,'Bairro':34,'Endereço':38,'Número':15,'Tipo':41,
         'Status':19,'Empresa':35,'Atendimento da empresa':28,
         'ID da empresa':40,'ID do consórcio':40,
         'Data abertura':23,'Data conclusão':23,
@@ -332,7 +334,8 @@
             '<strong>'+esc(c.protocolo)+'</strong><span>'+esc(c.status)+'</span></div>'+
             '<div class="sla-grid">'+
             campo('Cidade',c.cidade)+campo('Bairro',c.bairro)+
-            campo('Endereço',c.endereco)+campo('Tipo de chamado',c.tipo)+
+            campo('Endereço',c.endereco)+campo('Número',window.v19NumeroEndereco?.(c.endereco)||'—')+
+             campo('Tipo de chamado',c.tipo)+
             campo('Empresa responsável',c.empresa)+
             campo('Atendimento da empresa',situacaoAtendimento(c))+campo('Área',c.area)+
             campo('Origem',c.origem)+campo('Prazo (dias corridos)',dias(c._slaHoras))+

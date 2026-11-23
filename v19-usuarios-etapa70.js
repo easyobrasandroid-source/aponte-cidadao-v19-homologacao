@@ -248,7 +248,35 @@
     if(falta.length)el('p',main,'Catálogos indisponíveis: '+falta.join(', '),'font-size:12px;color:#b45309');
     const row=el('div',main,null,'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0');
     const search=document.createElement('input');search.type='search';search.placeholder='Buscar por nome ou e-mail';
-    search.style.cssText=CSS.input+';max-width:330px';row.appendChild(search);
+    search.style.cssText=CSS.input+';max-width:300px';row.appendChild(search);
+    // Filtros administrativos respeitam os cadastros e as linhas devolvidas pelo RLS.
+    // Consórcio vê seu próprio escopo; Master pode consultar todos os consórcios.
+    const filtroConsorcio=document.createElement('select');
+    filtroConsorcio.style.cssText=CSS.input+';max-width:250px';
+    option(filtroConsorcio,'','Todos os consórcios');
+    const consorciosVisiveis=catalog.consorcios.filter(c=>
+      CU.perfil==='master'||c.id===CU.consorcio_id);
+    consorciosVisiveis.forEach(c=>option(filtroConsorcio,c.id,c.nome||'Consórcio'));
+    if(CU.perfil==='consorcio'){
+      filtroConsorcio.value=CU.consorcio_id||'';
+      filtroConsorcio.disabled=true;
+    }
+    row.appendChild(filtroConsorcio);
+    const filtroEmpresa=document.createElement('select');
+    filtroEmpresa.style.cssText=CSS.input+';max-width:250px';
+    row.appendChild(filtroEmpresa);
+    function popularFiltroEmpresas(){
+      const consorcio=filtroConsorcio.value;
+      const anterior=filtroEmpresa.value;
+      filtroEmpresa.replaceChildren();
+      option(filtroEmpresa,'','Todas as empresas');
+      const empresas=catalog.empresas.filter(e=>
+        (!consorcio||e.consorcio_id===consorcio)&&
+        (CU.perfil==='master'||e.consorcio_id===CU.consorcio_id));
+      empresas.forEach(e=>option(filtroEmpresa,e.id,e.nome||'Empresa'));
+      if(empresas.some(e=>e.id===anterior))filtroEmpresa.value=anterior;
+    }
+    popularFiltroEmpresas();
     const add=el('button',row,'+ Cadastrar e convidar',CSS.button+';background:#eff6ff');
     add.type='button';add.disabled=!status.backendWrites;
     const total=el('span',row,null,CSS.muted);
@@ -263,7 +291,12 @@
     function draw(){
       bodyRows.textContent='';
       const term=search.value.trim().toLocaleLowerCase('pt-BR');
-      const filtered=rows.filter(u=>((u.nome||'')+' '+(u.email||'')).toLocaleLowerCase('pt-BR').includes(term));
+      const filtradoConsorcio=filtroConsorcio.value;
+      const filtradoEmpresa=filtroEmpresa.value;
+      const filtered=rows.filter(u=>
+        ((!filtradoConsorcio)||u.consorcio_id===filtradoConsorcio)&&
+        ((!filtradoEmpresa)||u.empresa_id===filtradoEmpresa)&&
+        ((u.nome||'')+' '+(u.email||'')).toLocaleLowerCase('pt-BR').includes(term));
       for(const u of filtered){
         const tr=el('tr',bodyRows);
         [u.nome||'—',u.email||'—',PERFIS[u.perfil]||u.perfil,labelOrg(u,catalog)].forEach(x=>
@@ -300,7 +333,10 @@
         td.colSpan=6;}
       total.textContent=filtered.length+' usuário(s) exibido(s) do Supabase V19';
     }
-    search.addEventListener('input',draw);draw();
+    search.addEventListener('input',draw);
+    filtroConsorcio.addEventListener('change',()=>{popularFiltroEmpresas();draw();});
+    filtroEmpresa.addEventListener('change',draw);
+    draw();
     el('p',main,'Convites e mudanças usam exclusivamente a Edge Function e a RPC auditada. Senhas nunca são definidas pelo administrador.',CSS.muted+';margin-top:14px');
   }
   window.vUsuarios = async function (body, title, actions) {
@@ -319,7 +355,9 @@
     ]);
     if (seq!==stato.seq || title.textContent!=='Usuários — V19') return;
     if (status.status!==200 || status.code!=='ACESSO_ADMIN_CONFIRMADO' || status.role!==CU.perfil) {
-      card(body,'Não foi possível confirmar o acesso administrativo','O serviço v19-usuarios não confirmou a autorização desta sessão. Nenhum cadastro foi modificado.',true);
+      card(body,'Não foi possível confirmar o acesso administrativo',
+        'O serviço v19-usuarios não confirmou a autorização desta sessão (HTTP '+
+        status.status+', código '+status.code+'). Verifique se a sessão está ativa e se o domínio é autorizado. Nenhum cadastro foi modificado.',true);
       return;
     }
     if (!Array.isArray(users)) {
