@@ -169,7 +169,7 @@ tbody tr:last-child td{border-bottom:none;}
 .form-section:last-child{border-bottom:none;}
 .form-sec-num{width:24px;height:24px;border-radius:50%;background:var(--brand-light);color:var(--brand);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:8px;}
 .form-sec-title{font-size:13px;font-weight:700;display:flex;align-items:center;margin-bottom:.875rem;}
-.frow{display:grid;gap:10px;}.frow2{grid-template-columns:1fr 1fr;}.frow32{grid-template-columns:2fr 1fr;}.frow3num{grid-template-columns:minmax(0,2fr) minmax(95px,.65fr) minmax(120px,1fr);}@media(max-width:600px){.frow3num{grid-template-columns:minmax(0,1fr);}}
+.frow{display:grid;gap:10px;}.frow2{grid-template-columns:1fr 1fr;}.frow32{grid-template-columns:2fr 1fr;}.frow3num{grid-template-columns:minmax(0,2fr) minmax(95px,.65fr) minmax(120px,1fr);}@media(max-width:760px){.frow3num{grid-template-columns:minmax(0,1fr);}}
 .field{display:flex;flex-direction:column;gap:3px;}
 .field label{font-size:10px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.04em;}
 .field input,.field select,.field textarea{padding:8px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);font-size:13px;font-family:'Inter',sans-serif;color:var(--gray-800);background:#fff;outline:none;transition:border-color .12s;}
@@ -933,7 +933,7 @@ function v19NumeroValido(valor){
 function v19EnderecoCompleto(rua,numero){
   const texto=String(rua||'').trim();
   const n=String(numero||'').trim();
-  return n&&texto?texto+', nº '+n:texto;
+  return n&&texto?v19RuaEndereco(texto)+', nº '+n:texto;
 }
 window.v19NumeroEndereco=v19NumeroEndereco;
 window.v19RuaEndereco=v19RuaEndereco;
@@ -5942,17 +5942,17 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer onload="v19InitTurnstile()" onerror="console.warn('[Portal] Turnstile não carregou')"></script>
 <script src="./v19.js" defer></script>
 <script src="./v19-fotos.js?v=663-historico-unico" defer></script>
-<script src="./v19-relatorios.js" defer></script>
+<script src="./v19-relatorios.js?v=804" defer></script>
 <script src="./v19-config.js?v=664-portal-final" defer></script>
 <script src="./v19-tipos.js" defer></script>
 <script src="./v19-assumir.js" defer></script>
 <script src="./v19-designacao.js" defer></script>
 <!-- V19 etapa 70: interface integrada de usuarios, previa SEM GRAVACOES -->
-<script src="./v19-usuarios-etapa70.js" defer></script>
+<script src="./v19-usuarios-etapa70.js?v=804" defer></script>
 <!-- Etapa 518: callback de convite/recuperação. Nenhuma escrita em public.usuarios. -->
 <script src="./v19-convite.js?v=802" defer></script>
 <!-- Dashboard completo V19: modulo opcional, somente leitura; ?dashboard=legacy reverte visualmente -->
-<script src="./v19-dashboard.js" defer></script>
+<script src="./v19-dashboard.js?v=804" defer></script>
 <!-- Etapa 550: painel de consulta empresarial. Escritas ainda bloqueadas. -->
 <script src="./v19-estoque-empresas.js?v=66122-idempotencia" defer></script>
 <!-- Estoque de garantia independente: tabelas proprias e RPC exclusiva. -->
@@ -5969,7 +5969,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <!-- Etapa 641: edição auditada de dados operacionais via RPC, sem PATCH direto. -->
 <script src="./v19-chamado-edicao.js?v=663-historico-unico" defer></script>
 <!-- Etapa 647: ficha de impressão A4, sem JSON bruto. -->
-<script src="./v19-chamado-impressao.js" defer></script>
+<script src="./v19-chamado-impressao.js?v=804" defer></script>
 <script src="./v19-operacoes-novas.js?v=803" defer></script>
 <script src="./v19-login-legal.js?v=801" defer></script>
 <script src="./v19-ronda-publico.js?v=802" defer></script>
