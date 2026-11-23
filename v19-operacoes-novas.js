@@ -6,7 +6,7 @@ const UUID=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const rolesArq=new Set(['master','consorcio','empresa']);
 const rolesRonda=new Set(['master','consorcio']);
 const color={bg:'#f8fafc',line:'#e2e8f0'};
-function elem(tag,parent,text,style){const a=document.createElement(tag);if(parent)parent.appendChild(a);if(text!==undefined)a.textContent=String(text);if(style)a.style.cssText=style;return a;}
+function elem(tag,parent,text,style){const a=document.createElement(tag);if(parent)parent.appendChild(a);if(text!==undefined && text!==null)a.textContent=String(text);if(style)a.style.cssText=style;return a;}
 function button(parent,label,click,kind='ghost'){const b=elem('button',parent,label,'padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;'+
  (kind==='danger'?'background:#fff;border:1px solid #fda4af;color:#be123c;':
   kind==='solid'?'background:#1251a3;color:#fff;border:1px solid #1251a3;':'background:#fff;border:1px solid #cbd5e1;color:#334155;'));
@@ -30,9 +30,18 @@ async function changeArchive(c,action){
  const result=await sbFetch('rpc/v19_gerenciar_arquivamento','POST',
  {p_chamado_id:c._supaId,p_acao:action,p_atualizado_em:c.updated_at,p_motivo:reason});
  if(result?.ok!==true)throw new Error('A operação não foi confirmada no banco.');
- showToast(archive?'Chamado arquivado com histórico preservado.':'Chamado restaurado.','ok');
+ // Invalidar respostas GET iniciadas ANTES da operacao confirmada.
+ window.v19InvalidarConsultaChamados?.();
+ // Retirar imediatamente da memoria local; nao depende de nova rede.
+ if(archive){
+   DB.chamados=DB.chamados.filter(item=>item._supaId!==c._supaId);
+   atualizarBadgeChamados();
+ }
  closeDrawer();
- await carregarChamadosDoBanco();
+ // Buscar novamente do banco; a view tambem inicia uma consulta fresca.
+ const atualizado=await carregarChamadosDoBanco();
+ if(!atualizado)showToast('Operação concluída; listagem será sincronizada novamente.','aviso');
+ else showToast(archive?'Chamado arquivado com histórico preservado.':'Chamado restaurado.','ok');
  if(archive)showView('chamados');else showView('excluidos');
  }catch(e){showToast('Não foi possível '+(archive?'arquivar':'restaurar')+': '+String(e.message||e),'erro');}
 }

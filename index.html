@@ -769,7 +769,8 @@ async function sbFetch(path, method='GET', body=null, _retry){
   if(verb!=='GET' && (verb!=='POST' || !rpc || !V19_WRITABLE_RPCS.has(rpc[1]))){
     throw new Error('Gravacao direta desabilitada na V19: este fluxo depende de RPC homologada.');
   }
-  const opts = {method, headers: sbHeaders()};
+  // Dados operacionais nao podem ser servidos de cache apos arquivar/restaurar.
+  const opts = {method, headers: sbHeaders(), ...(verb==='GET'?{cache:'no-store'}:{})};
   if(body) opts.body = JSON.stringify(body);
   let r;
   try{ r = await fetch(SUPA_URL + '/rest/v1/' + path, opts); }
@@ -1494,14 +1495,20 @@ function v19StatusSLALinha(c){
 window.v19StatusSLA=v19StatusSLALinha;
 
 // ═══ CHAMADOS ═══
+// Resposta atrasada de consulta nao pode ressuscitar chamado recem arquivado.
+let v19ChamadosConsultaSeq=0;
+window.v19InvalidarConsultaChamados=()=>{ ++v19ChamadosConsultaSeq; };
 async function carregarChamadosDoBanco(todosParaRelatorio=false){
+  const consultaSeq=++v19ChamadosConsultaSeq;
   try{
     const sbChamados = todosParaRelatorio?await sbGetChamadosRelatorio():await sbGetChamados();
+    if(consultaSeq!==v19ChamadosConsultaSeq)return false;
     // O banco é a ÚNICA fonte de verdade: se a resposta não for uma lista válida
     // (erro/offline), NÃO mexe no que está na tela. Lista vazia é resultado válido
     // e SUBSTITUI o estado — banco vazio ⇒ tela vazia (sem resquício local).
     if(!Array.isArray(sbChamados)) return false;
-    const sbNormalized = sbChamados.map(r=>({
+    // Defesa adicional: nunca mostrar excluidos nos indicadores, mapa ou relatorios.
+    const sbNormalized = sbChamados.filter(r=>r.arquivado_em==null).map(r=>({
       id: r.protocolo, _supaId: r.id, protocolo: r.protocolo,
       cidade_id: r.cidade_id, consorcio_id: r.consorcio_id, empresa_id: r.empresa_id,
       cidade: r.cidade||'', bairro: r.bairro||'', endereco: r.endereco||'',
