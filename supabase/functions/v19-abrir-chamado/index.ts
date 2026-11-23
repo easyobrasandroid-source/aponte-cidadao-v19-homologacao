@@ -634,6 +634,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const ipHash = await keyedHash(pepper, "ip:" + clientAddress(req));
     const phoneHash = await keyedHash(pepper, "tel:" + String(payload.p_solicitante_tel));
 
+    // Ronda autenticada pode registrar varias ocorrencias numa fiscalizacao.
+    // Limite mais alto so e aplicado apos verificar o JWT e o vinculo no banco.
+    const limitePorJanela = rondaJwt ? 30 : MAX_REQUESTS_PER_WINDOW;
     for (const key of [ipHash, phoneHash]) {
       const limit = await callRpc(
         supabaseUrl,
@@ -642,7 +645,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         {
           p_chave_hash: key,
           p_janela_minutos: WINDOW_MINUTES,
-          p_max_tentativas: MAX_REQUESTS_PER_WINDOW,
+          p_max_tentativas: limitePorJanela,
         },
       );
       if (limit.status !== 200 || limit.data?.permitido !== true) {
