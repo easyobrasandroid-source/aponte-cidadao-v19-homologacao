@@ -85,7 +85,13 @@ async function viewArchive(){
 async function loginPublicLinks(){
  const root=document.getElementById('v19-links-publicos');if(!root)return;
  root.replaceChildren();
- const label=elem('div',root,'Abrir chamado pelo consórcio','font-size:12px;font-weight:750;margin:12px 0 8px;');
+ // Apresentação recolhida por padrão; consulta pública e rotas de consórcios preservadas.
+ const menu=elem('details',root);menu.className='v19-consorcios-menu';
+ const summary=elem('summary',menu,'Consórcios');
+ summary.setAttribute('aria-label','Mostrar consórcios com portal público');
+ const wrap=elem('div',menu);wrap.className='v19-consorcios-list';
+ const empty=message=>{wrap.replaceChildren();const p=elem('p',wrap,message);p.className='v19-empty-links';};
+ empty('Carregando consórcios disponíveis…');
  try{
   if(!SUPA_CONFIGURADO)throw Error('Serviço indisponível.');
   const r=await fetch(SUPA_URL+'/rest/v1/rpc/v19_listar_links_portais',
@@ -93,15 +99,16 @@ async function loginPublicLinks(){
   if(!r.ok)throw Error('Links indisponíveis.');
   const rows=await r.json();
   if(!Array.isArray(rows))throw Error('Formato inválido.');
-  const wrap=elem('div',root,null,'display:flex;flex-wrap:wrap;justify-content:center;gap:8px;');
+  wrap.replaceChildren();
   rows.forEach(x=>{
     if(!UUID.test(x.consorcio_id))return;
-    const a=elem('a',wrap,x.titulo,'padding:10px 12px;border-radius:8px;border:1px solid #cbd5e1;color:#1251a3;font-size:12px;font-weight:800;text-decoration:none;');
+    const a=elem('a',wrap,x.titulo);
     a.href=location.pathname+'?consorcio_id='+encodeURIComponent(x.consorcio_id)+'&pagina=portal';
   });
-  if(!wrap.children.length)label.textContent='Portais públicos indisponíveis no momento.';
- }catch(e){label.textContent='Não foi possível listar os portais. Use o link fornecido pelo consórcio.';}
+  if(!wrap.children.length)empty('Nenhum portal público está disponível neste momento.');
+ }catch(e){empty('Não foi possível carregar os consórcios. Utilize o endereço fornecido pelo consórcio.');}
 }
+
 async function viewLinks(){
  if(CU?.perfil!=='master')return;
  const c=ctx();c.title.textContent='Links dos portais públicos';c.actions.replaceChildren();c.body.replaceChildren();

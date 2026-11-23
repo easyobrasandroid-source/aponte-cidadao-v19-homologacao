@@ -266,26 +266,91 @@ tbody tr:last-child td{border-bottom:none;}
 </style>
 <!-- Identidade visual separada e exclusiva dos portais públicos V19. -->
 <link rel="stylesheet" href="./v19-portal-identidade.css?v=793">
+<link rel="stylesheet" href="./v19-login-identidade.css?v=801">
 </head>
 <body>
+<svg aria-hidden="true" width="0" height="0" style="position:absolute;pointer-events:none;overflow:hidden">
+ <symbol id="v19-brand-logo" viewBox="0 0 100 100">
+  <path d="M15 22 Q15 16 21 17 L69 33 Q77 36 77 43 Q77 51 68 49 L21 35 Q15 33 15 27Z" fill="#04d4dc"/>
+  <path d="M17 65 L64 45 Q73 41 77 49 Q80 56 71 61 L25 81 Q16 85 15 76Z" fill="#00c9d3"/>
+  <g fill="none" stroke="#ffc719" stroke-width="5.5" stroke-linecap="round">
+   <path d="M78 12 L81 22"/><path d="M92 23 L85 30"/><path d="M95 39 L86 39"/><path d="M67 6 L69 17"/>
+  </g>
+ </symbol>
+</svg>
 
-<!-- LOGIN -->
+<!-- LOGIN: visual institucional V19; IDs e ações existentes preservados. -->
 <div class="page active" id="pg-login">
-<div class="login-shell">
+ <div class="login-shell">
+  <svg class="v19-login-art" viewBox="0 0 900 570" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <defs>
+   <linearGradient id="v19-city-grad" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#135eaa"/><stop offset="1" stop-color="#063970"/></linearGradient>
+   <linearGradient id="v19-road-grad" x1="0" x2=".9" y1="0" y2="1"><stop stop-color="#3189ca"/><stop offset=".6" stop-color="#064e93"/><stop offset="1" stop-color="#02265a"/></linearGradient>
+   <radialGradient id="v19-light-halo"><stop stop-color="#ffda58" stop-opacity=".85"/><stop offset=".3" stop-color="#f7d979" stop-opacity=".34"/><stop offset="1" stop-color="#ffc400" stop-opacity="0"/></radialGradient>
+  </defs>
+  <path d="M0 320Q155 240 294 290T574 274Q703 246 900 315V570H0Z" fill="#0b5a9c" opacity=".64"/>
+  <g fill="url(#v19-city-grad)" opacity=".91">
+   <path d="M70 389v-86h45v-49h44v135zM177 385v-127h46v-55h47v182zM290 380v-77h42v-99h55v-42h60v218zM460 379v-112h44v-81h54v193zM592 385v-145h38v-65h53v210zM696 384v-93h53v-57h56v150z"/>
+  </g>
+  <g fill="#ffcc57" opacity=".75">
+   <rect x="94" y="317" width="7" height="12" rx="1"/><rect x="119" y="317" width="7" height="12" rx="1"/>
+   <rect x="193" y="281" width="8" height="12" rx="1"/><rect x="220" y="283" width="8" height="12" rx="1"/>
+   <rect x="320" y="265" width="7" height="12" rx="1"/><rect x="345" y="265" width="7" height="12" rx="1"/>
+   <rect x="367" y="223" width="7" height="12" rx="1"/><rect x="395" y="223" width="7" height="12" rx="1"/>
+   <rect x="477" y="288" width="8" height="12" rx="1"/><rect x="511" y="241" width="8" height="12" rx="1"/>
+   <rect x="608" y="252" width="8" height="12" rx="1"/><rect x="651" y="218" width="8" height="12" rx="1"/>
+  </g>
+  <path d="M0 414Q170 388 340 419T900 441V570H0Z" fill="#0a497e"/>
+  <g fill="#076088" opacity=".95">
+   <circle cx="125" cy="416" r="43"/><circle cx="94" cy="424" r="37"/><circle cx="151" cy="425" r="34"/>
+   <circle cx="289" cy="415" r="52"/><circle cx="258" cy="427" r="38"/><circle cx="327" cy="426" r="42"/>
+   <circle cx="543" cy="408" r="57"/><circle cx="492" cy="419" r="38"/><circle cx="605" cy="419" r="44"/>
+   <circle cx="815" cy="406" r="61"/><circle cx="749" cy="414" r="45"/>
+  </g>
+  <path d="M0 489C210 422 376 439 539 457S790 523 900 515V570H0Z" fill="url(#v19-road-grad)"/>
+  <path d="M0 532C234 450 412 453 626 482Q763 506 900 548" stroke="#75cfff" stroke-width="4" fill="none" opacity=".42"/>
+  <path d="M0 516C193 460 377 458 608 486Q758 506 900 544" stroke="#f9bc49" stroke-width="6" fill="none" opacity=".53"/>
+  <g stroke="#a6d7ed" stroke-width="8" fill="none" stroke-linecap="round">
+   <path d="M583 453V194q0-22 19-22h42"/><path d="M376 457V264q0-17 16-17h28"/>
+   <path d="M238 456V330q0-14 12-14h18"/><path d="M131 454V368q0-11 9-11h13"/>
+  </g>
+  <g fill="#ffe176" stroke="#fffbce" stroke-width="1.7">
+   <ellipse cx="653" cy="178" rx="32" ry="10" transform="rotate(10 653 178)"/>
+   <ellipse cx="426" cy="253" rx="23" ry="7" transform="rotate(9 426 253)"/>
+   <ellipse cx="275" cy="323" rx="17" ry="5" transform="rotate(6 275 323)"/>
+   <ellipse cx="159" cy="363" rx="13" ry="4" transform="rotate(6 159 363)"/>
+  </g>
+  <circle cx="647" cy="188" r="116" fill="url(#v19-light-halo)" opacity=".78"/>
+  <circle cx="425" cy="258" r="79" fill="url(#v19-light-halo)" opacity=".72"/>
+  <circle cx="273" cy="328" r="55" fill="url(#v19-light-halo)" opacity=".62"/>
+  <circle cx="158" cy="365" r="40" fill="url(#v19-light-halo)" opacity=".58"/>
+ </svg>
   <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-icon">🔆</div>
-      <div class="login-logo-name">Aponte Iluminação</div>
-      <div class="login-logo-sub">Sistema de Gestão de Iluminação Pública</div>
-    </div>
-    <div class="login-error" id="loginError" style="display:none">E-mail ou senha incorretos.</div>
-    <div class="lf"><label>E-mail</label><input type="email" id="loginEmail" value="" autocomplete="username"></div>
-    <div class="lf"><label>Senha</label><input type="password" id="loginSenha" value="" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <button class="login-btn" id="btnLogin" onclick="doLogin()">Entrar no sistema</button>
-    <div style="text-align:right;margin-top:6px"><span style="font-size:11px;color:var(--brand);cursor:pointer;font-weight:600" onclick="esqueciSenha()">Esqueci minha senha</span></div>
-    <div id="v19-links-publicos" style="text-align:center;margin-top:12px;font-size:11px;color:var(--gray-500)">Carregando portais públicos…</div>
+   <div class="login-logo">
+    <div class="login-logo-icon"><svg role="img" aria-label="Aponte Iluminação" viewBox="0 0 100 100"><use href="#v19-brand-logo"></use></svg></div>
+    <div class="login-logo-name">Aponte Iluminação</div>
+    <div class="login-logo-sub">Sistema de Gestão de Iluminação Pública</div>
+   </div>
+   <div class="login-error" id="loginError" style="display:none">E-mail ou senha incorretos.</div>
+   <div class="lf"><label for="loginEmail">E-mail</label><input type="email" id="loginEmail" value="" autocomplete="username"></div>
+   <div class="lf"><label for="loginSenha">Senha</label><input type="password" id="loginSenha" value="" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+   <button class="login-btn" id="btnLogin" type="button" onclick="doLogin()">Entrar no sistema</button>
+   <div class="v19-recovery"><a href="#" onclick="event.preventDefault();esqueciSenha()">Esqueci minha senha</a></div>
+   <div id="v19-links-publicos" aria-label="Acesso público aos consórcios">Carregando portais públicos…</div>
   </div>
-</div>
+  <footer class="v19-login-footer" role="contentinfo">
+   <div class="v19-footer-brand">
+    <svg aria-hidden="true" viewBox="0 0 100 100"><use href="#v19-brand-logo"></use></svg>
+    <div><strong>Aponte Iluminação</strong><span>Sistema de Gestão de Iluminação Pública</span></div>
+   </div>
+   <nav class="v19-footer-links" aria-label="Informações institucionais">
+    <a href="#privacidade" data-v19-legal="privacidade">Política de Privacidade</a>
+    <a href="#termos" data-v19-legal="termos">Termos de Uso</a>
+    <a href="#lgpd" data-v19-legal="lgpd">LGPD e proteção de dados</a>
+   </nav>
+   <p class="v19-footer-note">Seus dados são tratados para atendimento e gestão das solicitações, segundo as finalidades informadas no aviso de privacidade. <span>© 2026 Aponte Iluminação.</span></p>
+  </footer>
+ </div>
 </div>
 
 <!-- APP -->
@@ -293,7 +358,7 @@ tbody tr:last-child td{border-bottom:none;}
 <div class="app-shell">
   <nav class="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-icon">🔆</div>
+      <div class="sb-logo-icon"><svg role="img" aria-label="Aponte Iluminação" viewBox="0 0 100 100"><use href="#v19-brand-logo"></use></svg></div>
       <div><div class="sb-logo-name">Aponte Iluminação</div><div class="sb-logo-role" id="sb-cons">Gestão de iluminação pública</div></div>
     </div>
     <div class="sb-user">
@@ -5853,7 +5918,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-chamado-edicao.js?v=663-historico-unico" defer></script>
 <!-- Etapa 647: ficha de impressão A4, sem JSON bruto. -->
 <script src="./v19-chamado-impressao.js" defer></script>
-<script src="./v19-operacoes-novas.js?v=795" defer></script>
+<script src="./v19-operacoes-novas.js?v=801" defer></script>
+<script src="./v19-login-legal.js?v=801" defer></script>
 <script src="./v19-ronda-publico.js?v=795" defer></script>
 </body>
 </html>
