@@ -1,0 +1,215 @@
+/*
+ * Aponte Iluminação V19 — Etapa 805
+ * Responsividade EXCLUSIVA do painel autenticado em smartphones.
+ * Não modifica telas desktop, login, portal público ou lógica operacional.
+ */
+#pg-app #v19-mobile-menu-toggle,
+#pg-app #v19-mobile-nav-close,
+#pg-app #v19-mobile-nav-backdrop{display:none}
+
+@media screen and (max-width:760px){
+  #pg-app .app-shell{
+    width:100%;max-width:100%;height:100vh;height:100dvh;
+    min-width:0;overflow:hidden;
+  }
+
+  /* A lateral deixa de consumir largura da tela. */
+  #pg-app .app-shell .sidebar{
+    position:fixed!important;left:0;top:0;bottom:0;
+    width:min(86vw,310px)!important;
+    height:100vh;height:100dvh;max-width:100vw;
+    flex:0 0 auto;z-index:1252;
+    transform:translateX(-105%);
+    visibility:hidden;pointer-events:none;
+    transition:transform .22s ease,visibility .22s;
+    box-shadow:0 12px 30px rgba(4,20,51,.25);
+  }
+  #pg-app.mobile-nav-open .app-shell .sidebar{
+    transform:translateX(0);
+    visibility:visible;pointer-events:auto;
+  }
+  #pg-app #v19-mobile-nav-backdrop{
+    display:block;position:fixed;inset:0;z-index:1251;
+    background:rgba(4,18,41,.56);
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .22s ease,visibility .22s;
+  }
+  #pg-app.mobile-nav-open #v19-mobile-nav-backdrop{
+    opacity:1;visibility:visible;pointer-events:auto;
+  }
+  #pg-app #v19-mobile-menu-toggle,
+  #pg-app #v19-mobile-nav-close{
+    display:inline-flex;align-items:center;justify-content:center;
+    flex-shrink:0;border:1px solid #d5e3f2;border-radius:9px;
+    min-width:42px;min-height:42px;background:#fff;
+    font:700 22px/1 Inter,Arial,sans-serif;color:#0c3d7a;
+    cursor:pointer;
+  }
+  #pg-app #v19-mobile-nav-close{
+    min-width:35px;min-height:35px;font-size:24px;
+    background:rgba(255,255,255,.12);
+    border-color:rgba(255,255,255,.25);color:#fff;
+    margin-left:auto;
+  }
+  #pg-app .app-shell .sidebar .sb-logo{
+    padding:13px 12px!important;
+    justify-content:flex-start!important;gap:8px;
+    min-width:0;
+  }
+  #pg-app .app-shell .sidebar .sb-logo > div:last-of-type{
+    display:block!important;min-width:0;
+  }
+  #pg-app .app-shell .sidebar .sb-logo-name{
+    font-size:12px!important;
+  }
+  #pg-app .app-shell .sidebar .sb-user{
+    padding:12px 15px!important;justify-content:flex-start!important;gap:10px;
+  }
+  #pg-app .app-shell .sidebar .sb-user > div:last-child{
+    display:block!important;
+  }
+  #pg-app .app-shell .sidebar .sbi{
+    font-size:13px!important;min-height:44px;
+    padding:12px 14px!important;
+    justify-content:flex-start!important;gap:10px!important;
+    white-space:normal;
+  }
+  #pg-app .app-shell .sidebar .sbi .ico{
+    font-size:18px!important;width:22px!important;flex-shrink:0;
+  }
+  #pg-app .app-shell .sidebar .sb-lbl{
+    display:block!important;font-size:10px;
+    padding:13px 14px 5px!important;
+  }
+  #pg-app .app-shell .sidebar .sbi .sbadge{
+    display:inline-flex!important;margin-left:auto;
+  }
+  #pg-app .app-shell .sidebar .sb-footer{padding:12px 15px!important}
+  #pg-app .app-shell .sidebar .sb-logout{
+    font-size:13px!important;justify-content:flex-start!important;
+    min-height:38px;
+  }
+  #pg-app .app-shell .sidebar .sb-logout::before{content:none!important}
+
+  /* Largura total para cada tela autenticada, independentemente da view. */
+  #pg-app .app-shell .int-main{
+    flex:1 1 100%;width:100%;max-width:100%;min-width:0;
+    overflow:hidden;
+  }
+  #pg-app .app-shell .topbar{
+    height:auto!important;min-height:60px;
+    padding:9px 12px!important;gap:8px!important;
+    display:flex;align-items:center!important;
+    justify-content:flex-start!important;flex-wrap:wrap!important;
+    background:#fff;
+  }
+  #pg-app .app-shell .topbar-title{
+    min-width:0;flex:1 1 0;
+    font-size:15px!important;line-height:1.3;
+    overflow-wrap:anywhere;
+  }
+  #pg-app .app-shell .topbar-right{
+    flex:1 1 100%;width:100%;min-width:0;max-width:100%;
+    display:flex!important;gap:7px!important;flex-wrap:wrap!important;
+    justify-content:flex-start;
+  }
+  #pg-app .app-shell .topbar-right:empty{display:none!important}
+  #pg-app .app-shell .topbar-right > select,
+  #pg-app .app-shell .topbar-right > input{
+    flex:1 1 145px;min-width:0!important;max-width:100%;
+    font-size:13px;
+  }
+  #pg-app .app-shell .topbar-right > .btn{
+    min-height:35px;justify-content:center;flex:1 1 auto;
+  }
+  #pg-app .app-shell .body{
+    min-width:0!important;width:100%;max-width:100%;
+    padding:12px!important;
+    overflow-x:hidden;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pg-app #main-body > div{max-width:100%;min-width:0}
+  #pg-app .card,#pg-app .tcard,#pg-app .form-card{min-width:0;max-width:100%}
+
+  /* Abertura de chamado: todos os campos cabem sem corte lateral. */
+  #pg-app .form-section{padding:15px 13px}
+  #pg-app .frow,
+  #pg-app .frow2,
+  #pg-app .frow32,
+  #pg-app .frow3num{
+    display:grid;grid-template-columns:minmax(0,1fr)!important;
+    min-width:0;max-width:100%;gap:10px;
+  }
+  #pg-app .field{min-width:0;max-width:100%}
+  #pg-app .field input,
+  #pg-app .field select,
+  #pg-app .field textarea{
+    width:100%;min-width:0;max-width:100%;font-size:16px;
+  }
+  #pg-app .prob-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  #pg-app .prob-opt{
+    min-width:0;min-height:52px;padding:10px 8px;
+    display:flex;align-items:center;justify-content:center;
+    overflow-wrap:anywhere;
+  }
+  #pg-app .form-sec-title{line-height:1.35}
+  #pg-app .form-footer{
+    padding:12px 13px;gap:9px;flex-wrap:wrap;
+  }
+  #pg-app .form-footer > .btn{
+    flex:1 1 100%;justify-content:center;min-height:42px;
+  }
+  #pg-app .v19-abertura-resumo{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #pg-app .v19-abertura-resumo > div{
+    min-width:0;overflow-wrap:anywhere;
+  }
+
+  /* Dashboard: indicadores legíveis, gráficos com largura disponível. */
+  #pg-app .app-shell .kpi-grid,
+  #pg-app .app-shell .kpi-grid2{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;margin-bottom:10px;
+  }
+  #pg-app .app-shell .kpi,
+  #pg-app .app-shell .kpi2{
+    min-width:0;overflow-wrap:anywhere;
+  }
+  #pg-app .app-shell .kpi{padding:12px 10px}
+  #pg-app .app-shell .kpi2{padding:10px;gap:6px;flex-wrap:wrap}
+  #pg-app .app-shell .v19d-grid,
+  #pg-app .app-shell .v19d-grid.equal{
+    grid-template-columns:minmax(0,1fr);
+    gap:10px;
+  }
+  #pg-app .app-shell .v19d-grid > .card{min-width:0;padding:12px}
+  #pg-app .app-shell .v19d-canvas{min-width:0;height:210px}
+  #pg-app .app-shell .v19d-overflow,
+  #pg-app .app-shell .v19-ch-table-scroll{
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    max-width:100%;
+  }
+  #pg-app .app-shell .fbar > select,
+  #pg-app .app-shell .fbar > input{
+    width:100%;min-width:0!important;max-width:100%;
+  }
+  #pg-app .app-shell .fbar > .btn{flex:1 1 auto;justify-content:center}
+  #pg-app .row21,
+  #pg-app .stk-grid{grid-template-columns:minmax(0,1fr)}
+  #pg-app .mapa-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #pg-app .drawer{width:min(100vw,500px);max-width:100vw}
+  #pg-app #mapa-leaflet{height:min(60dvh,460px)}
+}
+@media screen and (max-width:360px){
+  #pg-app .app-shell .kpi-grid,
+  #pg-app .app-shell .kpi-grid2{grid-template-columns:minmax(0,1fr)}
+  #pg-app .v19-abertura-resumo{grid-template-columns:minmax(0,1fr)!important}
+}
+@media (prefers-reduced-motion:reduce){
+  #pg-app .app-shell .sidebar,
+  #pg-app #v19-mobile-nav-backdrop{transition:none!important}
+}
