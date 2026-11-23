@@ -268,6 +268,8 @@ tbody tr:last-child td{border-bottom:none;}
 <link rel="stylesheet" href="./v19-portal-identidade.css?v=793">
 <link rel="stylesheet" href="./v19-login-identidade.css?v=801">
 <link rel="stylesheet" href="./v19-ronda-lateral.css?v=802">
+<!-- Etapa 805: CSS EXCLUSIVO para o painel administrativo em smartphone. -->
+<link rel="stylesheet" href="./v19-mobile-admin.css?v=805">
 </head>
 <body>
 <svg aria-hidden="true" width="0" height="0" style="position:absolute;pointer-events:none;overflow:hidden">
@@ -357,10 +359,11 @@ tbody tr:last-child td{border-bottom:none;}
 <!-- APP -->
 <div class="page" id="pg-app">
 <div class="app-shell">
-  <nav class="sidebar">
+  <nav class="sidebar" id="v19-sidebar-menu" aria-label="Menu principal">
     <div class="sb-logo">
       <div class="sb-logo-icon"><svg role="img" aria-label="Aponte Iluminação" viewBox="0 0 100 100"><use href="#v19-brand-logo"></use></svg></div>
       <div><div class="sb-logo-name">Aponte Iluminação</div><div class="sb-logo-role" id="sb-cons">Gestão de iluminação pública</div></div>
+      <button type="button" id="v19-mobile-nav-close" aria-label="Fechar menu" title="Fechar menu">×</button>
     </div>
     <div class="sb-user">
       <div class="sb-av" id="sb-av" style="background:var(--brand)">NA</div>
@@ -385,8 +388,10 @@ tbody tr:last-child td{border-bottom:none;}
     </div>
     <div class="sb-footer"><div class="sb-logout" onclick="doLogout()">🚪 Sair</div></div>
   </nav>
+  <div id="v19-mobile-nav-backdrop" aria-hidden="true"></div>
   <div class="int-main">
     <div class="topbar">
+      <button type="button" id="v19-mobile-menu-toggle" aria-label="Abrir menu de navegação" aria-controls="v19-sidebar-menu" aria-expanded="false" title="Abrir menu">☰</button>
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <div class="topbar-right" id="topbar-actions"></div>
     </div>
@@ -5135,7 +5140,7 @@ async function vNovoChamado(){
   <div class="form-card">
     <div style="background:var(--gray-50);border-bottom:1px solid var(--gray-200);padding:.875rem 1.5rem">
       <div style="font-size:9px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🤖 Registrado automaticamente pela sessão</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${[['👤','Responsável',CU?.nome||'—'],['🏛','Perfil',CU?.perfil||'—'],['🏢','Organização',CU?.org||'—'],['📋','Origem','Chamado Interno']].map(([i,l,v])=>`<div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:8px 10px"><div style="font-size:16px;margin-bottom:3px">${i}</div><div style="font-size:9px;color:var(--gray-400);font-weight:700;text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:12px;font-weight:700;margin-top:2px">${v}</div></div>`).join('')}</div>
+      <div class="v19-abertura-resumo" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${[['👤','Responsável',CU?.nome||'—'],['🏛','Perfil',CU?.perfil||'—'],['🏢','Organização',CU?.org||'—'],['📋','Origem','Chamado Interno']].map(([i,l,v])=>`<div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:8px 10px"><div style="font-size:16px;margin-bottom:3px">${i}</div><div style="font-size:9px;color:var(--gray-400);font-weight:700;text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:12px;font-weight:700;margin-top:2px">${v}</div></div>`).join('')}</div>
       <div style="font-size:10px;color:var(--gray-400);margin-top:.625rem">⏱ Data/hora registrada automaticamente no envio</div>
     </div>
     <div class="form-section">
@@ -5973,5 +5978,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="./v19-operacoes-novas.js?v=803" defer></script>
 <script src="./v19-login-legal.js?v=801" defer></script>
 <script src="./v19-ronda-publico.js?v=802" defer></script>
+<!-- Mobile navigation only: no data, auth or API modifications. -->
+<script src="./v19-mobile-admin.js?v=805" defer></script>
 </body>
 </html>
