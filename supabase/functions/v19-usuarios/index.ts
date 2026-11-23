@@ -20,6 +20,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const ROLES = new Set(["master", "consorcio", "prefeitura", "empresa", "garantia"]);
 const ORIGINS = new Set([
   "https://easyobrasandroid-source.github.io",
+  "https://aponteiluminacao.com.br",
+  "https://www.aponteiluminacao.com.br",
   "http://localhost:3000",
   "http://localhost:5173",
   ...(Deno.env.get("V19_ALLOWED_ORIGINS") || "").split(",").map((s) => s.trim()).filter(Boolean),
