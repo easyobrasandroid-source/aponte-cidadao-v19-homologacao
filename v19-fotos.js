@@ -127,7 +127,7 @@
     }
     try {
       const rows=await sbSelect('chamado_fotos',
-        'select=*&chamado_id=eq.'+encodeURIComponent(chamada._supaId)+'&order=created_at.desc');
+        'select=*&chamado_id=eq.'+encodeURIComponent(chamada._supaId)+'&excluida_em=is.null&order=created_at.desc');
       if(!Array.isArray(rows)) throw new Error('Falha ao consultar os registros das fotografias.');
       const signed=await Promise.all(rows.map(async r=>{
         try {return {...r, url:await obterUrlAssinada(r.storage_path)};}
@@ -143,10 +143,15 @@
           '<strong style="font-size:12px">'+title[type]+'</strong>'+
           '<button class="btn btn-ghost" style="font-size:11px" onclick="uploadFotoChamado(\''+type+'\')">+ Anexar</button></div>'+
           (imgs.length ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+imgs.map(r=>
-            r.url ? '<a href="'+html(r.url)+'" target="_blank" rel="noopener noreferrer" title="Abrir imagem">'+
+            '<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">'+
+            (r.url ? '<a href="'+html(r.url)+'" target="_blank" rel="noopener noreferrer" title="Abrir imagem">'+
               '<img src="'+html(r.url)+'" alt="Foto '+title[type]+'" loading="lazy" '+
               'style="width:118px;height:95px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb"></a>' :
-              '<div style="font-size:11px;color:#b91c1c">Foto não disponível</div>').join('')+'</div>':
+              '<div style="font-size:11px;color:#b91c1c">Foto não disponível</div>')+
+            (CU&&['master','consorcio','empresa'].includes(CU.perfil)
+              ? '<button type="button" class="btn btn-ghost" style="font-size:10px;color:#b91c1c" '+
+                'onclick="v19ExcluirFotoChamado(\''+html(r.id)+'\')">🗑 Excluir foto</button>' : '')+
+            '</div>').join('')+'</div>':
             '<div style="font-size:11px;color:var(--gray-400)">Nenhuma foto cadastrada.</div>')+
           '</section>';
       }).join('');
@@ -165,6 +170,31 @@
     }
   }
 
+  let exclusaoFotoOcupada=false;
+  window.v19ExcluirFotoChamado=async function(fotoId){
+    if(exclusaoFotoOcupada||!CC||!validUUID(fotoId)||!SB_SESSION?.access_token||
+       !CU||!['master','consorcio','empresa'].includes(CU.perfil))return;
+    if(!confirm('Excluir esta fotografia anexada? A operação ficará registrada no histórico do chamado.'))return;
+    exclusaoFotoOcupada=true;
+    try{
+      const resp=await fetch(SUPA_URL+'/functions/v1/v19-excluir-foto',{
+        method:'POST',cache:'no-store',
+        headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SB_SESSION.access_token,
+          'Content-Type':'application/json'},
+        body:JSON.stringify({foto_id:fotoId})
+      });
+      const result=await resp.json().catch(()=>null);
+      if(!resp.ok||result?.ok!==true){
+        if(result?.erro==='FOTO_OCULTA_LIMPEZA_PENDENTE')
+          throw new Error('Foto oculta do chamado, mas a remoção física do arquivo está pendente. Contate o administrador.');
+        throw new Error('O servidor não confirmou a exclusão da foto.');
+      }
+      showToast('Fotografia excluída. Auditoria preservada.','ok');
+      await renderFotosChamado();
+      if(typeof window.v19CarregarHistoricoChamado==='function')void window.v19CarregarHistoricoChamado();
+    }catch(e){showToast('Falha na exclusão: '+e.message,'erro');await renderFotosChamado();}
+    finally{exclusaoFotoOcupada=false;}
+  };
   window.uploadFotoChamado = function (tipo) {
     if(!CC || !validUUID(CC._supaId) || !validUUID(CC.consorcio_id)) {
       showToast('Salve ou reabra o chamado antes de anexar fotos.','erro');return;
