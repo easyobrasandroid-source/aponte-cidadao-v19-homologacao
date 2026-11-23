@@ -16,8 +16,10 @@
  * de Turnstile, o limitador e a RPC privada validam as solicitações.
  */
 
-const ALLOWED_ORIGIN = "https://easyobrasandroid-source.github.io";
-const EXPECTED_TURNSTILE_HOSTNAME = "easyobrasandroid-source.github.io";
+const ALLOWED_ORIGINS = new Set(["https://easyobrasandroid-source.github.io",
+ "https://aponte-iluminacao.pages.dev","https://aponteiluminacao.com.br",
+ "https://www.aponteiluminacao.com.br"]);
+const expectedOrigin = (origin: string | null) => !!origin && ALLOWED_ORIGINS.has(origin);
 const TURNSTILE_ACTION = "v19_abrir_chamado";
 // JSON base64 de uma foto de 2 MB + campos do chamado (sem anexos: ~1 KB).
 const MAX_BODY_BYTES = 2_850_000;
@@ -34,18 +36,18 @@ function reply(status: number, data: JsonRecord, origin: string | null): Respons
     "vary": "Origin",
     "x-content-type-options": "nosniff",
   });
-  if (origin === ALLOWED_ORIGIN) {
-    headers.set("access-control-allow-origin", ALLOWED_ORIGIN);
+  if (expectedOrigin(origin)) {
+    headers.set("access-control-allow-origin", origin!);
   }
   return new Response(JSON.stringify(data), { status, headers });
 }
 
 function corsPreflight(origin: string | null): Response {
-  if (origin !== ALLOWED_ORIGIN) return reply(403, { ok: false, erro: "ORIGEM_INVALIDA" }, origin);
+  if (!expectedOrigin(origin)) return reply(403, { ok: false, erro: "ORIGEM_INVALIDA" }, origin);
   return new Response(null, {
     status: 204,
     headers: {
-      "access-control-allow-origin": ALLOWED_ORIGIN,
+      "access-control-allow-origin": origin!,
       "access-control-allow-methods": "POST, OPTIONS",
       "access-control-allow-headers": "content-type, apikey, authorization, x-client-info",
       "access-control-max-age": "600",
@@ -137,7 +139,7 @@ async function callRpc(
   };
 }
 
-async function verifyTurnstile(token: string, secret: string): Promise<boolean> {
+async function verifyTurnstile(token: string, secret: string, origin: string | null): Promise<boolean> {
   const form = new URLSearchParams({
     secret,
     response: token,
@@ -156,7 +158,7 @@ async function verifyTurnstile(token: string, secret: string): Promise<boolean> 
     if (!response.ok) return false;
     const result = await response.json() as JsonRecord;
     return result.success === true &&
-      result.hostname === EXPECTED_TURNSTILE_HOSTNAME &&
+      expectedOrigin(origin) && result.hostname === new URL(origin!).hostname &&
       result.action === TURNSTILE_ACTION;
   } finally {
     clearTimeout(timeout);
@@ -355,7 +357,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") return corsPreflight(origin);
   if (req.method !== "POST") return reply(405, { ok: false, erro: "METODO_INVALIDO" }, origin);
-  if (origin !== ALLOWED_ORIGIN) return reply(403, { ok: false, erro: "ORIGEM_INVALIDA" }, origin);
+  if (!expectedOrigin(origin)) return reply(403, { ok: false, erro: "ORIGEM_INVALIDA" }, origin);
 
   // Controle por consórcio fica no banco (RPCs); não bloquear tudo por homologação.
   // Continua disponível um corte emergencial independente por segredo do servidor.
@@ -557,6 +559,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (records.length !== 1 || !records[0] || typeof records[0] !== "object") {
         return reply(503, { ok: false, erro: "CONSULTA_INDISPONIVEL" }, origin);
       }
+      // Excluidos nunca retornam na consulta publica.
+      const verifyArchive=await fetch(
+        supabaseUrl.replace(/\/+$/, "")+"/rest/v1/chamados?select=arquivado_em&protocolo=eq."+
+        encodeURIComponent(protocol)+"&consorcio_id=eq."+encodeURIComponent(consortiumId)+"&limit=1",{
+          headers:{apikey:serviceRoleKey,authorization:"Bearer "+serviceRoleKey}
+        });
+      if(!verifyArchive.ok)return reply(503,{ok:false,erro:"CONSULTA_INDISPONIVEL"},origin);
+      const archived=await verifyArchive.json().catch(()=>null);
+      if(!Array.isArray(archived))return reply(503,{ok:false,erro:"CONSULTA_INDISPONIVEL"},origin);
+      if(archived.length!==1||archived[0]?.arquivado_em!==null)
+        return reply(200,{ok:true,encontrado:false},origin);
       const record = records[0] as JsonRecord;
       if (record.protocolo !== protocol ||
           typeof record.tipo !== "string" ||
@@ -584,6 +597,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     const payload = payloadFrom(body);
     if (!payload) return reply(400, { ok: false, erro: "DADOS_INVALIDOS" }, origin);
+    // Token Ronda e opcional; se presente, e autenticado no Auth e na RPC.
+    // Nenhum valor de nome/telefone fornecido pelo navegador e confiavel.
+    const rondaJwt=req.headers.get("authorization");
+    if(rondaJwt){
+      if(!/^Bearer\s+\S{30,}$/i.test(rondaJwt))
+        return reply(401,{ok:false,erro:"RONDA_NAO_AUTENTICADA"},origin);
+      const authResp=await fetch(supabaseUrl.replace(/\/+$/, "")+"/auth/v1/user",{
+        headers:{apikey:serviceRoleKey,authorization:rondaJwt},cache:"no-store"
+      }).catch(()=>null);
+      if(!authResp?.ok)return reply(401,{ok:false,erro:"RONDA_NAO_AUTENTICADA"},origin);
+      const verified=await authResp.json().catch(()=>null);
+      if(!uuid(verified?.id))return reply(401,{ok:false,erro:"RONDA_NAO_AUTENTICADA"},origin);
+      const rondaResponse=await fetch(supabaseUrl.replace(/\/+$/, "")+"/rest/v1/rpc/v19_ronda_me",{
+        method:"POST",headers:{apikey:serviceRoleKey,authorization:rondaJwt,"content-type":"application/json"},
+        body:"{}",cache:"no-store"
+      }).catch(()=>null);
+      if(!rondaResponse?.ok)return reply(403,{ok:false,erro:"RONDA_NAO_AUTORIZADA"},origin);
+      const rondaData=await rondaResponse.json().catch(()=>null);
+      if(!Array.isArray(rondaData)||rondaData.length!==1||
+        rondaData[0]?.consorcio_id!==payload.p_consorcio_id)
+        return reply(403,{ok:false,erro:"RONDA_FORA_DO_CONSORCIO"},origin);
+      payload.p_solicitante_nome=rondaData[0].nome;
+      payload.p_solicitante_tel=normalizePhone(rondaData[0].telefone);
+      if(!payload.p_solicitante_nome||String(payload.p_solicitante_tel).length<10)
+        return reply(403,{ok:false,erro:"RONDA_CADASTRO_INCOMPLETO"},origin);
+    }
     // Validar a fotografia ANTES de criar o chamado. Uma imagem inválida
     // nunca produz um chamado parcialmente cadastrado.
     let foto: PublicPhoto | null;
@@ -614,7 +653,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    const humanVerified = await verifyTurnstile(turnstileToken, turnstileSecret);
+    const humanVerified = await verifyTurnstile(turnstileToken, turnstileSecret, origin);
     if (!humanVerified) {
       return reply(403, { ok: false, erro: "VERIFICACAO_HUMANA_RECUSADA" }, origin);
     }
