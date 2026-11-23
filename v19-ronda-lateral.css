@@ -1,0 +1,125 @@
+/* Aponte Iluminacao | somente UI Ronda na lateral do portal publico.
+   Sem alteracoes no formulario, navegacao interna ou permissoes. */
+#pg-portal #v19-ronda-acesso{
+ position:fixed;right:clamp(14px,2.2vw,36px);top:49%;
+ transform:translateY(-50%);z-index:86;
+ width:auto;max-width:calc(100vw - 28px);margin:0;
+}
+#pg-portal .v19-ronda-trigger{
+ display:flex;align-items:center;gap:10px;min-width:164px;padding:11px 12px;
+ background:linear-gradient(125deg,#0b4c98,#1168b8);
+ color:#fff;cursor:pointer;border:1px solid rgba(127,207,255,.75);
+ border-radius:14px;box-shadow:0 10px 30px #103e7770;
+ font:inherit;text-align:left;transition:box-shadow .2s,transform .2s;
+}
+#pg-portal .v19-ronda-trigger:hover{transform:translateX(-3px);box-shadow:0 14px 35px #103e7790;}
+#pg-portal .v19-ronda-trigger:focus-visible{
+ outline:3px solid #00c8e6;outline-offset:3px;
+}
+#pg-portal .v19-ronda-trigger-icon{
+ width:35px;height:35px;display:inline-flex;align-items:center;justify-content:center;
+ background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.13);
+ border-radius:10px;font-size:19px;flex-shrink:0;
+}
+#pg-portal .v19-ronda-trigger-text{display:flex;flex-direction:column;gap:3px;min-width:0;}
+#pg-portal .v19-ronda-trigger-title{font-size:12px;font-weight:800;white-space:nowrap;}
+#pg-portal .v19-ronda-trigger-subtitle{font-size:10px;color:#d6ebff;white-space:nowrap;}
+#pg-portal .v19-ronda-trigger-arrow{font-size:24px;line-height:1;opacity:.83;margin-left:4px;}
+#pg-portal .v19-ronda-trigger.is-active{background:linear-gradient(125deg,#056a66,#0a9184);border-color:#6cdec7;}
+#pg-portal .v19-ronda-dialog{
+ position:fixed;top:50%;left:auto;right:clamp(16px,3vw,54px);bottom:auto;
+ transform:translateY(-50%);width:min(405px,calc(100vw - 32px));
+ max-height:min(86vh,730px);margin:0;border:1px solid #cbdff2;
+ border-radius:20px;padding:0;background:#fff;color:#193551;
+ box-shadow:0 26px 75px rgba(2,20,59,.33);overflow-y:auto;
+ font-family:Inter,system-ui,sans-serif;
+}
+#pg-portal .v19-ronda-dialog::backdrop{background:rgba(3,24,57,.55);backdrop-filter:blur(3px);}
+#pg-portal .v19-ronda-dialog-head{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:19px 20px;background:linear-gradient(120deg,#063c7f,#0d65b6);
+ color:white;border-radius:18px 18px 0 0;
+}
+#pg-portal .v19-ronda-dialog-brand{display:flex;align-items:center;gap:12px;}
+#pg-portal .v19-ronda-dialog-icon{
+ display:inline-flex;align-items:center;justify-content:center;
+ height:43px;width:43px;border-radius:12px;
+ background:rgba(255,255,255,.15);font-size:23px;
+}
+#pg-portal .v19-ronda-dialog-head h2{font-size:18px;line-height:1.3;font-weight:800;margin:0;}
+#pg-portal .v19-ronda-dialog-head p{margin:3px 0 0;color:#d0e6fb;font-size:11px;line-height:1.4;}
+#pg-portal .v19-ronda-close{
+ display:inline-flex;justify-content:center;align-items:center;
+ height:30px;width:30px;border:1px solid #ffffff65;border-radius:8px;
+ background:rgba(255,255,255,.12);color:white;cursor:pointer;flex-shrink:0;font-size:15px;
+}
+#pg-portal .v19-ronda-dialog-body{padding:22px 22px 18px;}
+#pg-portal .v19-ronda-form{display:flex;flex-direction:column;gap:14px;margin:0;}
+#pg-portal .v19-ronda-form[hidden],
+#pg-portal .v19-ronda-active[hidden]{display:none!important;}
+#pg-portal .v19-ronda-field{
+ display:flex;flex-direction:column;gap:6px;color:#204972;
+ font-size:12px;font-weight:750;
+}
+#pg-portal .v19-ronda-field input{
+ width:100%;height:44px;border:1px solid #cad7e5;border-radius:9px;
+ padding:10px 12px;font-size:13px;font-family:inherit;color:#12345d;
+ outline:0;background:white;
+}
+#pg-portal .v19-ronda-field input:focus{border-color:#1673c4;box-shadow:0 0 0 3px #1b83c221;}
+#pg-portal .v19-ronda-primary{
+ margin-top:4px;width:100%;min-height:44px;border:0;border-radius:10px;
+ background:linear-gradient(120deg,#075bb8,#05428e);
+ color:#fff;font-weight:800;font-family:inherit;font-size:13px;cursor:pointer;
+}
+#pg-portal .v19-ronda-primary:hover{background:linear-gradient(120deg,#06498f,#073575);}
+#pg-portal .v19-ronda-primary:disabled{cursor:wait;opacity:.55;}
+#pg-portal .v19-ronda-forgot{
+ margin:-3px 0 0;align-self:flex-end;
+ background:transparent;border:0;color:#075cb4;text-decoration:underline;
+ font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:4px 0;
+}
+#pg-portal .v19-ronda-back{
+ padding:8px 5px;align-self:center;background:transparent;border:0;
+ color:#0d5caa;text-decoration:underline;cursor:pointer;font-size:12px;font-weight:700;
+}
+#pg-portal .v19-ronda-form h3{font-size:16px;color:#073d7c;font-weight:800;margin:0;}
+#pg-portal .v19-ronda-form p{font-size:12px;line-height:1.6;color:#546d85;margin:0;}
+#pg-portal .v19-ronda-active{display:flex;gap:9px;flex-direction:column;}
+#pg-portal .v19-ronda-active-check{color:#08755e;font-weight:800;font-size:13px;}
+#pg-portal .v19-ronda-active strong{font-size:14px;color:#113e65;}
+#pg-portal .v19-ronda-active p{font-size:12px;color:#506b81;line-height:1.6;}
+#pg-portal .v19-ronda-secondary{
+ align-self:flex-start;padding:10px 14px;background:#fff;border-radius:9px;
+ border:1px solid #abc3d9;color:#064d98;font-size:12px;font-weight:750;cursor:pointer;
+}
+#pg-portal .v19-ronda-feedback{
+ margin:14px 0 0;padding:9px 11px;background:#edf7ff;border:1px solid #d9e9f8;
+ border-radius:9px;color:#1d537f;font-size:11px;line-height:1.55;
+}
+#pg-portal .v19-ronda-feedback[data-error="true"]{
+ background:#fff0f2;border-color:#f5cad0;color:#b91c1c;
+}
+#pg-portal .v19-ronda-dialog-note{
+ border-top:1px solid #edf2f8;margin:15px 0 0;padding:12px 2px 0;
+ color:#6b8092;font-size:11px;line-height:1.5;
+}
+#pg-portal .v19-ronda-dialog :is(button,input):focus-visible{
+ outline:3px solid #14a6d0;outline-offset:3px;
+}
+@media(max-width:1000px){
+ #pg-portal #v19-ronda-acesso{top:auto;bottom:22px;right:14px;transform:none;}
+ #pg-portal .v19-ronda-trigger{min-width:0;padding:10px 12px;}
+ #pg-portal .v19-ronda-trigger:hover{transform:none;}
+ #pg-portal .v19-ronda-dialog{right:50%;top:50%;transform:translate(50%,-50%);}
+}
+@media(max-width:460px){
+ #pg-portal .v19-ronda-trigger-subtitle{display:none;}
+ #pg-portal .v19-ronda-trigger-title{font-size:11px;}
+ #pg-portal .v19-ronda-dialog{width:calc(100vw - 22px);max-height:85vh;border-radius:16px;}
+ #pg-portal .v19-ronda-dialog-body{padding:19px 17px;}
+ #pg-portal .v19-ronda-dialog-head{padding:17px;}
+}
+@media(prefers-reduced-motion:reduce){
+ #pg-portal .v19-ronda-trigger{transition:none;}
+}

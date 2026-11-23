@@ -11,8 +11,16 @@
     const p = document.getElementById('v19-invite-msg');
     if (p) { p.textContent = msg; p.style.color = error ? '#b91c1c' : '#166534'; }
   }
+  function isPortalRondaReturn(){
+    const params = new URLSearchParams(window.location.search);
+    const cid=params.get('consorcio_id')||'';
+    return params.get('pagina')==='portal' &&
+      /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(cid);
+  }
   function showReturn() {
-    document.getElementById('v19-invite-back').style.display = 'block';
+    const button=document.getElementById('v19-invite-back');
+    button.textContent=isPortalRondaReturn()?'Voltar ao portal público':'Voltar ao login';
+    button.style.display='block';
   }
   function buildPanel() {
     if (panel) return;
@@ -43,7 +51,9 @@
       if (typeof saveSession === 'function') saveSession(null);
       document.getElementById('v19-invite-password').value = '';
       document.getElementById('v19-invite-confirm').value = '';
-      goPage('pg-login');
+      // Convites e recuperações Ronda voltam ao mesmo portal de consórcio.
+      // Para outros perfis permanece o login interno original.
+      goPage(isPortalRondaReturn()?'pg-portal':'pg-login');
     });
   }
   async function verifyUser() {
