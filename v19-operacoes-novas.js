@@ -52,34 +52,166 @@ window.v19AcoesChamadoArquivo=function(c){
  if(!b){b=button(foot,'🗃 Arquivar chamado',()=>{if(CC)void changeArchive(CC,'arquivar');},'danger');b.id='v19-arquivar-chamado';}
  b.style.display=canArchive(c)?'':'none';
 };
+async function v19MasterExcluirPermanentemente(itens){
+ if(CU?.perfil!=='master'||!SB_SESSION?.access_token)return;
+ if(!Array.isArray(itens)||!itens.length||itens.length>50)return;
+ const count=itens.length,frase='EXCLUIR '+count;
+ const aviso='ATENÇÃO: você está prestes a EXCLUIR DEFINITIVAMENTE '+count+
+   (count===1?' chamado arquivado.':' chamados arquivados.')+
+   '\n\nOs chamados, históricos e anexos vinculados serão removidos e não poderão ser restaurados pela interface.'+
+   '\n\nRegistros mínimos de auditoria são preservados. Fotos podem exigir limpeza física posterior.'+
+   '\n\nConfira se não existe obrigação legal de conservação antes de prosseguir.';
+ if(!window.confirm(aviso))return;
+ const digitado=window.prompt('Para confirmar a exclusão irreversível, digite exatamente:\n'+frase,'');
+ if(digitado!==frase){if(digitado!==null)showToast('Confirmação não corresponde. Nenhum chamado foi excluído.','aviso');return;}
+ try{
+  const res=await fetch(SUPA_URL+'/functions/v1/v19-exclusao-definitiva',{
+   method:'POST',cache:'no-store',credentials:'omit',
+   headers:{'Content-Type':'application/json',apikey:SUPA_KEY,
+    Authorization:'Bearer '+SB_SESSION.access_token},
+   body:JSON.stringify({acao:'excluir',confirmacao:frase,
+    itens:itens.map(x=>({id:x.id,updated_at:x.updated_at}))})
+  });
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||data?.ok!==true||Number(data.excluidos)!==count){
+   const code=String(data?.erro||'ERRO_DESCONHECIDO');
+   const messages={
+    PERFIL_MASTER_OBRIGATORIO:'Apenas o Master ativo pode excluir definitivamente.',
+    CHAMADO_NAO_ARQUIVADO:'Um dos chamados não está arquivado. Nenhum foi excluído.',
+    VERSAO_DESATUALIZADA:'A lista foi alterada por outra pessoa. Atualize antes de excluir.',
+    CHAMADO_INEXISTENTE_OU_ALTERADO:'Um dos chamados foi alterado ou já não existe. Nenhum foi excluído.',
+    CHAMADO_COM_ESTOQUE_OU_GARANTIA:'Um dos chamados possui movimentações de estoque ou garantia. Por segurança, nenhum foi excluído.',
+    PARAMETROS_INVALIDOS:'Seleção inválida. Atualize e tente novamente.'
+   };
+   throw Error(messages[code]||'O servidor não confirmou a exclusão. Nenhum novo envio será feito automaticamente.');
+  }
+  window.v19InvalidarConsultaChamados?.();
+  await carregarChamadosDoBanco();
+  showToast(count+' chamado(s) excluído(s) definitivamente.'+
+   (Number(data.fotos_pendentes)>0?' Há arquivos de foto pendentes de limpeza.':''),'ok');
+  await viewArchive();
+ }catch(e){
+  showToast('Exclusão definitiva não confirmada: '+String(e.message||e),'erro');
+ }
+}
+async function v19MasterLimparFotosPendentes(){
+ if(CU?.perfil!=='master'||!SB_SESSION?.access_token)return;
+ try{
+  const r=await fetch(SUPA_URL+'/functions/v1/v19-exclusao-definitiva',{
+   method:'POST',cache:'no-store',credentials:'omit',
+   headers:{'Content-Type':'application/json',apikey:SUPA_KEY,
+    Authorization:'Bearer '+SB_SESSION.access_token},
+   body:JSON.stringify({acao:'limpar_pendentes'})
+  });
+  const j=await r.json().catch(()=>null);
+  if(!r.ok||j?.ok!==true)throw Error(j?.erro||'Serviço indisponível');
+  showToast(Number(j.fotos_pendentes)>0?
+   'Ainda há '+Number(j.fotos_pendentes)+' arquivo(s) de foto pendente(s) de limpeza.':
+   'Não existem arquivos de fotos pendentes de limpeza.','ok');
+ }catch(e){showToast('Falha ao conferir limpeza das fotos: '+String(e.message||e),'erro');}
+}
 async function viewArchive(){
  const c=ctx();if(!c.body||!rolesArq.has(CU?.perfil))return;
+ const master=CU.perfil==='master';
  c.title.textContent='Chamados excluídos';c.actions.replaceChildren();c.body.replaceChildren();
- const panel=block(c.body);title(panel,'🗃 Chamados excluídos / arquivados',
- 'Os chamados arquivados não entram em contagens operacionais, relatórios ou mapas. Você pode restaurá-los. Nenhum dado de estoque é estornado automaticamente.');
- const summary=elem('div',panel,'Consultando registros…','font-size:12px;color:#475569;margin-bottom:12px;');
+ const panel=block(c.body);panel.classList.add('v19-arquivo');
+ title(panel,'🗃 Chamados excluídos / arquivados',
+  'Os chamados arquivados não entram em contagens operacionais, relatórios ou mapas. Você pode restaurá-los. Nenhum dado de estoque é estornado automaticamente.');
+ const summary=elem('div',panel,'Consultando registros…',
+  'font-size:12px;color:#475569;margin-bottom:12px;');
+ const toolbar=elem('div',panel,null,'display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:12px 0;');
  const listing=elem('div',panel);
  try{
- const data=await loadArchived();
- if(!Array.isArray(data))throw new Error('Lista de excluídos indisponível.');
- const current=CU?.id;
- if(!current)return;
- summary.textContent='Total de excluídos visíveis para seu perfil: '+data.length+(data.length>=500?' (limite de exibição: 500)':'');
- if(!data.length){elem('p',listing,'Nenhum chamado arquivado.','font-size:12px;color:#64748b;');return;}
- for(const x of data){
-  const can=CU.perfil==='master'||(CU.consorcio_id===x.consorcio_id&&
-    (CU.perfil==='consorcio'||CU.empresa_id===x.empresa_id));
-  if(!can)continue;
-  const row=elem('div',listing,null,'padding:13px 3px;border-top:1px solid #e2e8f0;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;');
-  const box=elem('div',row,null,'flex:1;min-width:200px;');
-  elem('div',box,x.protocolo+' — '+x.cidade,'font-size:13px;font-weight:800;');
-  elem('div',box,x.tipo+' | '+x.status,'font-size:12px;color:#475569;margin-top:4px;');
-  elem('div',box,'Arquivado em '+new Date(x.arquivado_em).toLocaleString('pt-BR')+
-   ' por '+(x.arquivado_por_nome||'Usuário')+' | Motivo: '+(x.arquivado_motivo||'Não informado'),
-   'font-size:11px;color:#64748b;margin-top:5px;');
-  button(row,'↩ Restaurar',()=>void changeArchive({_supaId:x.id,protocolo:x.protocolo,
-    consorcio_id:x.consorcio_id,empresa_id:x.empresa_id,updated_at:x.updated_at},'restaurar'),'solid');
- }
+  const data=await loadArchived();
+  if(!Array.isArray(data))throw new Error('Lista de excluídos indisponível.');
+  if(!CU?.id)return;
+  const permitted=data.filter(x=>CU.perfil==='master'||(CU.consorcio_id===x.consorcio_id&&
+     (CU.perfil==='consorcio'||CU.empresa_id===x.empresa_id)));
+  summary.textContent='Total de excluídos visíveis para seu perfil: '+permitted.length+
+    (data.length>=500?' (exibindo os 500 registros mais recentes)':'');
+  if(!permitted.length){
+   elem('p',listing,'Nenhum chamado arquivado.','font-size:12px;color:#64748b;');
+   return;
+  }
+  const pageSize=25;
+  let page=0;
+  const selected=new Set();
+  const left=elem('div',toolbar,null,
+    'display:flex;gap:10px;align-items:center;flex-wrap:wrap;');
+  const right=elem('div',toolbar,null,
+    'display:flex;gap:9px;align-items:center;flex-wrap:wrap;');
+  let selectedCount=null,deleteBtn=null;
+  if(master){
+   const selectAll=elem('label',left,null,
+    'display:flex;gap:8px;align-items:center;font-size:12px;color:#234873;font-weight:700;cursor:pointer;');
+   const check=elem('input',selectAll);check.type='checkbox';
+   check.id='v19-todos-arquivados';check.style.cssText='width:17px;height:17px;accent-color:#1453a2;cursor:pointer;';
+   elem('span',selectAll,'Marcar todos nesta página');
+   selectedCount=elem('strong',left,'0 selecionados',
+    'font-size:12px;color:#4b6482;padding:5px 9px;background:#eef5fc;border-radius:9px;');
+   deleteBtn=button(right,'Excluir definitivamente (0)',
+    ()=>void v19MasterExcluirPermanentemente(permitted.filter(x=>selected.has(x.id))),
+    'danger');
+   deleteBtn.id='v19-excluir-definitivamente';
+   deleteBtn.disabled=true;deleteBtn.style.opacity='.55';
+   const cleanBtn=button(right,'Conferir limpeza das fotos',
+    ()=>void v19MasterLimparFotosPendentes(),'ghost');
+   cleanBtn.title='Verificar se existem arquivos de fotos pendentes da remoção física';
+   check.addEventListener('change',()=>{
+    const current=permitted.slice(page*pageSize,(page+1)*pageSize);
+    for(const x of current){if(check.checked)selected.add(x.id);else selected.delete(x.id);}
+    render();
+   });
+  }
+  const pager=elem('div',panel,null,
+   'display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin:13px 0 4px;');
+  function render(){
+   listing.replaceChildren();pager.replaceChildren();
+   const paged=permitted.slice(page*pageSize,(page+1)*pageSize);
+   for(const x of paged){
+    const row=elem('div',listing,null,'padding:13px 4px;border-top:1px solid #e2e8f0;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;');
+    if(master){
+      const cb=elem('input',row);cb.type='checkbox';cb.checked=selected.has(x.id);
+      cb.setAttribute('aria-label','Selecionar '+x.protocolo);
+      cb.style.cssText='width:18px;height:18px;accent-color:#1453a2;cursor:pointer;';
+      cb.addEventListener('change',()=>{
+       if(cb.checked)selected.add(x.id);else selected.delete(x.id);
+       render();
+      });
+    }
+    const box=elem('div',row,null,'flex:1;min-width:200px;');
+    elem('div',box,x.protocolo+' — '+x.cidade,'font-size:13px;font-weight:800;');
+    elem('div',box,x.tipo+' | '+x.status,'font-size:12px;color:#475569;margin-top:4px;');
+    elem('div',box,'Arquivado em '+new Date(x.arquivado_em).toLocaleString('pt-BR')+
+      ' por '+(x.arquivado_por_nome||'Usuário')+' | Motivo: '+(x.arquivado_motivo||'Não informado'),
+      'font-size:11px;color:#64748b;margin-top:5px;');
+    button(row,'↩ Restaurar',()=>void changeArchive({_supaId:x.id,protocolo:x.protocolo,
+      consorcio_id:x.consorcio_id,empresa_id:x.empresa_id,updated_at:x.updated_at},'restaurar'),'solid');
+   }
+   if(master){
+    selectedCount.textContent=selected.size+' selecionado(s)';
+    deleteBtn.textContent='🗑 Excluir definitivamente ('+selected.size+')';
+    deleteBtn.disabled=selected.size===0||selected.size>50;
+    deleteBtn.style.opacity=deleteBtn.disabled?'.55':'1';
+    const check=document.getElementById('v19-todos-arquivados');
+    if(check){
+     check.checked=paged.length>0&&paged.every(x=>selected.has(x.id));
+     check.indeterminate=paged.some(x=>selected.has(x.id))&&!check.checked;
+    }
+   }
+   const pages=Math.ceil(permitted.length/pageSize);
+   const prev=button(pager,'← Anterior',()=>{page=Math.max(0,page-1);render();});
+   prev.disabled=page===0;
+   elem('span',pager,'Página '+(page+1)+' de '+pages,
+    'font-size:12px;color:#475569;');
+   const next=button(pager,'Próxima →',()=>{page=Math.min(pages-1,page+1);render();});
+   next.disabled=page>=pages-1;
+  }
+  if(master){
+    elem('p',panel,'Exclusão definitiva: somente Master. Selecione um ou mais chamados arquivados. A remoção é irreversível na interface e exige confirmação digitada. Chamados com movimentação de estoque/garantia são protegidos.',
+      'font-size:11px;color:#9f1239;margin:12px 0;line-height:1.6;');
+  }
+  render();
  }catch(e){summary.textContent='Não foi possível consultar os excluídos.';err(panel,e);}
 }
 async function loginPublicLinks(){
