@@ -169,7 +169,7 @@ tbody tr:last-child td{border-bottom:none;}
 .form-section:last-child{border-bottom:none;}
 .form-sec-num{width:24px;height:24px;border-radius:50%;background:var(--brand-light);color:var(--brand);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:8px;}
 .form-sec-title{font-size:13px;font-weight:700;display:flex;align-items:center;margin-bottom:.875rem;}
-.frow{display:grid;gap:10px;}.frow2{grid-template-columns:1fr 1fr;}.frow32{grid-template-columns:2fr 1fr;}
+.frow{display:grid;gap:10px;}.frow2{grid-template-columns:1fr 1fr;}.frow32{grid-template-columns:2fr 1fr;}.frow3num{grid-template-columns:minmax(0,2fr) minmax(95px,.65fr) minmax(120px,1fr);}@media(max-width:600px){.frow3num{grid-template-columns:minmax(0,1fr);}}
 .field{display:flex;flex-direction:column;gap:3px;}
 .field label{font-size:10px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.04em;}
 .field input,.field select,.field textarea{padding:8px 11px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);font-size:13px;font-family:'Inter',sans-serif;color:var(--gray-800);background:#fff;outline:none;transition:border-color .12s;}
@@ -454,7 +454,7 @@ tbody tr:last-child td{border-bottom:none;}
           <div class="field"><label>Cidade</label><select id="pub-cidade" onchange="v19AtualizarBotaoPortal();_v19LimparSugestoes('pub')" disabled><option value="">Nenhum município disponível</option></select></div>
           <div class="field"><label>Bairro</label><input type="text" id="pub-bairro" placeholder="Nome do bairro"></div>
         </div>
-        <div class="frow frow32">
+        <div class="frow frow3num">
           <div class="field" style="position:relative">
             <label>Endereço</label>
             <input type="text" id="pub-end" placeholder="Rua, avenida..." autocomplete="off"
@@ -463,6 +463,7 @@ tbody tr:last-child td{border-bottom:none;}
               onblur="setTimeout(()=>{const s=document.getElementById('pub-suggestions');if(s)s.style.display='none';},200)">
             <div id="pub-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-200);border-radius:0 0 var(--radius-sm) var(--radius-sm);box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:200;max-height:200px;overflow-y:auto"></div>
           </div>
+          <div class="field"><label>Número</label><input type="text" id="pub-numero" maxlength="20" placeholder="123 ou S/N" autocomplete="off"></div>
           <div class="field"><label>Área</label><select id="pub-area"><option>Urbana</option><option>Rural</option></select></div>
         </div>
         <div class="field" style="margin-top:10px"><label>Ponto de referência</label><input type="text" id="pub-ref" placeholder="Ex: em frente à farmácia..."></div>
@@ -905,6 +906,37 @@ async function carregarCidades(){
 }
 function cidadeIdPorNome(nome){ if(!_cidadesMap||!nome) return null; return _cidadesMap[nome.trim().toLowerCase()]||null; }
 function getCidadesCache(){ return DB.cidades||[]; }
+// Catálogo independente dos chamados; as linhas já chegam limitadas pelo RLS.
+function v19CidadesFiltro(){
+  const catalogo=Array.isArray(DB.cidades)?DB.cidades:[];
+  return catalogo.filter(c=>c&&c.status==='ativo'&&c.nome&&
+    (CU?.perfil==='master'||(CU?.perfil==='prefeitura'?
+      c.id===CU.cidade_id:c.consorcio_id===CU?.consorcio_id)))
+    .map(c=>String(c.nome).trim()).filter(Boolean)
+    .filter((nome,i,arr)=>arr.indexOf(nome)===i)
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+window.v19CidadesFiltro=v19CidadesFiltro;
+// A RPC existente recebe um endereço de texto; manter o mesmo contrato evita
+// alterar funções e gatilhos homologados. O número é preservado no endereço.
+function v19NumeroEndereco(endereco){
+  const m=String(endereco||'').match(/,\s*n[º°o.]?\s*([^,]{1,20})$/i);
+  return m?m[1].trim():'';
+}
+function v19RuaEndereco(endereco){
+  const valor=String(endereco||'').trim();
+  return v19NumeroEndereco(valor)?valor.replace(/,\s*n[º°o.]?\s*[^,]{1,20}$/i,'').trim():valor;
+}
+function v19NumeroValido(valor){
+  return !valor||/^(?:[0-9]{1,8}[a-zA-Z0-9.\/-]{0,12}|S\/N)$/i.test(valor);
+}
+function v19EnderecoCompleto(rua,numero){
+  const texto=String(rua||'').trim();
+  const n=String(numero||'').trim();
+  return n&&texto?texto+', nº '+n:texto;
+}
+window.v19NumeroEndereco=v19NumeroEndereco;
+window.v19RuaEndereco=v19RuaEndereco;
 // O portal público consulta SOMENTE a RPC anônima e recebe o consórcio via URL.
 // O JWT de qualquer sessão administrativa NUNCA é enviado nesta requisição.
 // Estado de apresentação, nunca substitui bloqueio real da Edge e das flags do banco.
@@ -1778,7 +1810,7 @@ function vChamados(b,t,a){
         </td>
         <td><span class="proto-link" title="${String(c.protocolo||'').replace(/&/g,'&amp;').replace(/\"/g,'&quot;').replace(/</g,'&lt;')}">${c.protocolo.length>24?c.protocolo.slice(0,8)+'…'+c.protocolo.slice(-11):c.protocolo}</span></td>
         <td>${c.cidade}</td>
-        <td>${c.bairro}/${c.endereco.split(',')[0]}</td>
+        <td>${escaparCidadeHTML(c.bairro||'')}/${escaparCidadeHTML(c.endereco||'')}</td>
         <td>💡 ${c.tipo}</td>
         <td><span style="background:${c.qtd>=3?'#FEE2E2':'#F3F4F6'};color:${c.qtd>=3?'var(--red)':'var(--gray-700)'};display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font-size:11px;font-weight:700">${c.qtd}</span></td>
         <td><span class="tag ${stm[c.status]||'tag-gray'}">${c.status}</span></td>
@@ -1977,15 +2009,21 @@ function vChamados(b,t,a){
 
   // Preencher options dinâmicas de cidade, tipo e empresa com dados reais do DB
   const selCidade = document.getElementById('filt-cidade');
-  if(selCidade){
-    const cids = [...new Set(DB.chamados.map(c=>c.cidade))].sort();
-    cids.forEach(cd=>{
-      const opt=document.createElement('option');
-      opt.value=cd; opt.textContent=cd;
-      if(cd===initCd) opt.selected=true;
-      selCidade.appendChild(opt);
-    });
+  function popularCidadesChamados(){
+    const select=document.getElementById('filt-cidade');
+    if(!select)return;
+    const atual=select.value||initCd||'';
+    const nomes=v19CidadesFiltro();
+    select.replaceChildren(new Option('Todas as cidades',''));
+    nomes.forEach(nome=>select.add(new Option(nome,nome)));
+    if(nomes.includes(atual))select.value=atual;
   }
+  popularCidadesChamados();
+  // Buscar municípios mesmo sem chamados; evita depender da carga inicial do login.
+  carregarCidades().then(rows=>{
+    if(Array.isArray(rows)&&document.getElementById('filt-cidade')===selCidade)
+      popularCidadesChamados();
+  }).catch(e=>console.warn('[V19] catálogo de municípios em chamados:',e));
   const selTipo = document.getElementById('filt-tipo');
   if(selTipo){
     // Mesmo catálogo do filtro de relatórios, para os perfis autorizados.
@@ -2157,8 +2195,9 @@ function abrirDrawer(id){
       <div class="drow"><span class="dlbl">Nome</span><span class="dval">${escaparCidadeHTML(c.solicitante||'Não informado')}</span></div>
       <div class="drow"><span class="dlbl">Telefone</span><span class="dval">${escaparCidadeHTML(c.tel||'Não informado')}</span></div>
       <div class="card-title" style="margin-top:10px">Endereço</div>
-      <div class="drow"><span class="dlbl">Rua</span><span class="dval">${c.endereco}</span></div>
-      <div class="drow"><span class="dlbl">Bairro</span><span class="dval">${c.bairro}</span></div>
+      <div class="drow"><span class="dlbl">Rua</span><span class="dval">${escaparCidadeHTML(v19RuaEndereco(c.endereco))}</span></div>
+      <div class="drow"><span class="dlbl">Número</span><span class="dval">${escaparCidadeHTML(v19NumeroEndereco(c.endereco)||'Não informado')}</span></div>
+      <div class="drow"><span class="dlbl">Bairro</span><span class="dval">${escaparCidadeHTML(c.bairro||'')}</span></div>
       ${c.referencia?`<div class="drow"><span class="dlbl">Ref.</span><span class="dval">${c.referencia}</span></div>`:''}
     </div>
     <div><div class="card-title" style="margin-top:0">Datas e prazos</div>
@@ -3263,6 +3302,7 @@ function gerarExcel(tipo){
           'Data Abertura':c.created_at?new Date(c.created_at).toLocaleString('pt-BR'):(c.data+' '+(c.hora||'')),
           'Data Conclusão':c.completed_at?new Date(c.completed_at).toLocaleString('pt-BR'):'—',
           'Cidade':c.cidade,'Bairro':c.bairro,'Endereço':c.endereco,
+      'Número':v19NumeroEndereco(c.endereco),
           'Tipo':c.tipo,'Qtd Lâmpadas':c.qtd,'Status':c.status,
           'Empresa':c.empresa,'Prioridade':c.prioridade,
           'Origem':c.origem,'Solicitante':c.solicitante,'Telefone':c.tel,
@@ -3831,6 +3871,7 @@ function vImpressao(b,t,a){
     const [cor,fundo]=cores[c.status]||['#6B7280','#F3F4F6'];
     const campos=[
       ['Cidade',c.cidade],['Bairro',c.bairro],['Endereço',c.endereco],
+      ['Número',v19NumeroEndereco(c.endereco)||'—'],
       ['Problema',c.tipo],['Quantidade',String(c.qtd??1)+' lâmpada(s)'],
       ['Empresa responsável',c.empresa]
     ];
@@ -5105,7 +5146,7 @@ async function vNovoChamado(){
         <div class="field"><label>Cidade</label><select id="int-cidade" onchange="v19AtualizarEmpresasAbertura();_v19LimparSugestoes('int');window.v19CarregarTiposInternos?.()" ${CU.perfil==='prefeitura'?'disabled':''}>${cityOptions}</select></div>
         <div class="field"><label>Bairro</label><input type="text" id="int-bairro" placeholder="Nome do bairro"></div>
       </div>
-      <div class="frow frow32">
+      <div class="frow frow3num">
         <div class="field" style="position:relative">
           <label>Endereço</label>
           <input type="text" id="int-end" placeholder="Digite a rua..." autocomplete="off"
@@ -5114,6 +5155,7 @@ async function vNovoChamado(){
             onblur="setTimeout(()=>{const s=document.getElementById('int-suggestions');if(s)s.style.display='none';},200)">
           <div id="int-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-200);border-radius:0 0 var(--radius-sm) var(--radius-sm);box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:200;max-height:200px;overflow-y:auto"></div>
         </div>
+        <div class="field"><label>Número</label><input type="text" id="int-numero" maxlength="20" placeholder="123 ou S/N" autocomplete="off"></div>
         <div class="field"><label>Área</label><select id="int-area"><option>Urbana</option><option>Rural</option></select></div>
       </div>
     </div>
@@ -5390,6 +5432,11 @@ async function salvarChamadoInterno(){
   if(!city){showToast('Cidade não autorizada para seu perfil.','erro');return;}
   const bairro=document.getElementById('int-bairro')?.value?.trim()||'';
   const endereco=document.getElementById('int-end')?.value?.trim()||'';
+  const numero=document.getElementById('int-numero')?.value?.trim()||'';
+  if(!v19NumeroValido(numero)||numero&&!endereco){
+    showToast('Informe um número válido (ex.: 123, 12A ou S/N) e a rua correspondente.','erro');return;
+  }
+  const enderecoCompleto=v19EnderecoCompleto(endereco,numero);
   const area=document.getElementById('int-area')?.value||'Urbana';
   const quantidade=document.getElementById('int-qtd')?.value;
   const qtd=quantidade==='Mais de 5'?6:Number(quantidade);
@@ -5427,7 +5474,7 @@ async function salvarChamadoInterno(){
     try{
       const partes=endereco.split(',');
       const geo=await tentarGeocodar({
-        rua:partes[0],numero:partes[1]?.trim()||'',bairro,cidade:city.nome
+        rua:partes[0],numero:numero||partes[1]?.trim()||'',bairro,cidade:city.nome
       },'geocode-status-int');
       if(geo&&Number.isFinite(geo.lat)&&Number.isFinite(geo.lng)&&
          geo.confianca!=='cidade_aproximada'){
@@ -5441,7 +5488,7 @@ async function salvarChamadoInterno(){
     const result=await sbFetch('rpc/v19_criar_chamado_interno_com_solicitante','POST',{
       p_cidade_id:city.id,
       p_tipo:intProb,p_area:area,
-      p_bairro:bairro||null,p_endereco:endereco||null,
+      p_bairro:bairro||null,p_endereco:enderecoCompleto||null,
       p_qtd:qtd,p_observacoes:obs||null,
       p_empresa_id:empresaId,p_latitude:lat,p_longitude:lng,p_loc_src:loc_src,
       p_solicitante_nome:solicitanteNome,p_solicitante_tel:solicitanteTel
@@ -5667,6 +5714,10 @@ async function submeterChamado(){
   const lng=Number.isFinite(window._gpsLng)?window._gpsLng:null;
   const hasCoords=lat!==null&&lng!==null;
   const endereco=valor('pub-end'),bairro=valor('pub-bairro');
+  const numero=valor('pub-numero').trim();
+  if(!v19NumeroValido(numero)||numero&&!endereco){
+    alert('Informe um número válido (ex.: 123, 12A ou S/N) e a rua correspondente.');return;
+  }
   if(!endereco&&!hasCoords){
     alert('Informe o endereço ou utilize a localização GPS para identificar o problema.');return;
   }
@@ -5681,7 +5732,7 @@ async function submeterChamado(){
     consorcio_id:consorcioId,cidade_id:cidadeId,
     solicitante_nome:nome,solicitante_tel:telefone,
     tipo:pubProb,area:valor('pub-area')||'Urbana',qtd:quantidade,
-    bairro:bairro||null,endereco:endereco||null,
+    bairro:bairro||null,endereco:v19EnderecoCompleto(endereco,numero)||null,
     referencia:valor('pub-ref')||null,observacoes:observacoes||null,
     latitude:hasCoords?lat:null,longitude:hasCoords?lng:null,
     loc_src:hasCoords?(window._locSrc==='minimap_confirmed'?'minimap_confirmed':'gps_mobile'):'manual'
