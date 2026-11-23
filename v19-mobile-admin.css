@@ -209,7 +209,7 @@
   #pg-app .app-shell .kpi-grid2{grid-template-columns:minmax(0,1fr)}
   #pg-app .v19-abertura-resumo{grid-template-columns:minmax(0,1fr)!important}
 }
-@media (prefers-reduced-motion:reduce){
+@media screen and (max-width:760px) and (prefers-reduced-motion:reduce){
   #pg-app .app-shell .sidebar,
   #pg-app #v19-mobile-nav-backdrop{transition:none!important}
 }
