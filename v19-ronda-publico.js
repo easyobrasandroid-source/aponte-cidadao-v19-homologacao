@@ -7,7 +7,7 @@ const ID=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 let sessao=null, perfil=null,loading=false;
 const pageCons=()=>new URLSearchParams(location.search).get('consorcio_id')||'';
 const input=id=>document.getElementById(id);
-function el(tag,parent,text,css){const n=document.createElement(tag);if(parent)parent.appendChild(n);if(text!==undefined)n.textContent=String(text);if(css)n.style.cssText=css;return n;}
+function el(tag,parent,text,css){const n=document.createElement(tag);if(parent)parent.appendChild(n);if(text!==undefined && text!==null)n.textContent=String(text);if(css)n.style.cssText=css;return n;}
 function message(text,error){const msg=input('v19-ronda-feedback');if(msg){msg.textContent=text;msg.style.color=error?'#b91c1c':'#166534';}}
 function fields(on){
  const name=input('pub-nome'),tel=input('pub-tel');
