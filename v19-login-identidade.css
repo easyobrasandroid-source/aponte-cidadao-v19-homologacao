@@ -1,0 +1,165 @@
+/* V19 | Identidade Aponte Iluminacao | apenas apresentacao.
+   Escopo: login/links institucionais, barra lateral e acabamento do dashboard.
+   Nenhuma regra de auth, dados ou formulario foi modificada. */
+:root{--v19-navy:#062e65;--v19-royal:#0754ae;--v19-cyan:#01d2dc;--v19-yellow:#ffc619;}
+#pg-login .login-shell{
+  position:relative;isolation:isolate;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;min-height:100vh;min-height:100svh;
+  padding:36px 22px 116px;overflow:hidden;
+  background:
+    radial-gradient(ellipse at 20% 77%,rgba(16,170,236,.46),transparent 43%),
+    radial-gradient(ellipse at 94% 8%,rgba(0,196,232,.4),transparent 34%),
+    linear-gradient(127deg,#062b60 0%,#0753a4 54%,#073578 100%);
+}
+#pg-login .login-shell::before{
+  content:"";position:absolute;z-index:-1;pointer-events:none;
+  width:min(72vw,920px);height:min(65vw,740px);right:-14%;top:-35%;
+  border-radius:52% 16% 66% 18%;transform:rotate(28deg);
+  background:linear-gradient(130deg,rgba(0,218,230,.51),rgba(19,103,199,.08) 67%);
+}
+#pg-login .login-shell::after{
+  content:"";position:absolute;z-index:-1;pointer-events:none;
+  width:min(48vw,670px);height:min(35vw,520px);right:-15%;bottom:14%;
+  border-radius:55% 10% 65% 5%;transform:rotate(-30deg);
+  border:1.5px solid rgba(77,206,248,.4);
+}
+#pg-login .v19-login-art{
+  position:absolute;z-index:-1;bottom:78px;left:0;width:min(53vw,790px);
+  height:auto;max-height:75vh;pointer-events:none;filter:drop-shadow(0 18px 36px rgba(0,21,62,.2));
+}
+#pg-login .login-card{
+  position:relative;z-index:1;width:100%;max-width:456px;
+  margin:0;padding:34px 37px 30px;
+  border:1px solid rgba(215,236,255,.7);
+  border-radius:25px;
+  background:#fff;box-shadow:0 24px 80px rgba(0,22,64,.33);
+}
+#pg-login .login-logo{margin-bottom:23px;}
+#pg-login .login-logo-icon{width:94px;height:83px;background:transparent;border-radius:0;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;}
+#pg-login .login-logo-icon svg{width:92px;height:82px;display:block;}
+#pg-login .login-logo-name{font-size:clamp(23px,2vw,29px);font-weight:800;color:#073b83;letter-spacing:-.05em;}
+#pg-login .login-logo-sub{font-size:12px;color:#61758f;margin-top:5px;line-height:1.5;}
+#pg-login .lf{gap:7px;margin-bottom:15px;}
+#pg-login .lf label{font-size:12px;letter-spacing:.01em;text-transform:none;color:#193f6c;font-weight:750;}
+#pg-login .lf input{height:48px;padding:12px 14px;border:1.5px solid #cbd7e8;border-radius:10px;background:#fff;color:#10385e;font-size:14px;transition:border-color .2s,box-shadow .2s;}
+#pg-login .lf input:focus{border-color:#0d78c5;box-shadow:0 0 0 4px rgba(9,128,193,.1);}
+#pg-login .login-btn{
+  min-height:48px;margin-top:5px;padding:12px 15px;border-radius:11px;
+  background:linear-gradient(105deg,#0655b0,#003e98);
+  box-shadow:0 9px 19px rgba(3,69,149,.19);
+}
+#pg-login .login-btn:focus-visible,
+#pg-login a:focus-visible,
+#pg-login summary:focus-visible{
+  outline:3px solid #00bad0;outline-offset:4px;
+}
+#pg-login .v19-recovery{display:flex;justify-content:flex-end;margin-top:11px;}
+#pg-login .v19-recovery a{font-size:12px;text-decoration:underline;text-underline-offset:3px;color:#0a559f;font-weight:650;}
+#pg-login #v19-links-publicos{margin-top:18px!important;text-align:left!important;}
+#pg-login .v19-consorcios-menu{border-top:1px solid #e6eaf3;padding-top:18px;}
+#pg-login .v19-consorcios-menu summary{
+  display:flex;align-items:center;gap:11px;list-style:none;padding:12px 15px;
+  cursor:pointer;user-select:none;border-radius:11px;
+  border:1px solid #b9d4f8;background:linear-gradient(115deg,#eef6ff,#d9edff);
+  color:#073b83;font-size:15px;font-weight:750;transition:background .18s,border-color .18s;
+}
+#pg-login .v19-consorcios-menu summary::-webkit-details-marker{display:none;}
+#pg-login .v19-consorcios-menu summary:hover{background:#d9edff;border-color:#63a7ed;}
+#pg-login .v19-consorcios-menu summary::before{content:"♧";font-size:19px;color:#0754ae;line-height:1;}
+#pg-login .v19-consorcios-menu summary::after{content:"⌄";margin-left:auto;font-size:20px;transition:transform .18s;}
+#pg-login .v19-consorcios-menu[open] summary::after{transform:rotate(180deg);}
+#pg-login .v19-consorcios-list{
+  margin-top:6px;background:#fff;border:1px solid #d1dff2;
+  border-radius:10px;overflow:hidden;box-shadow:0 9px 19px rgba(0,44,108,.1);
+}
+#pg-login .v19-consorcios-list a{
+  display:flex;align-items:center;gap:10px;padding:13px 16px;
+  border-bottom:1px solid #edf2f8;color:#073b83!important;
+  font-size:13px!important;font-weight:750!important;text-decoration:none!important;
+  background:#fff;transition:background .18s;
+}
+#pg-login .v19-consorcios-list a::before{content:"◉";color:#007cdd;font-size:13px;}
+#pg-login .v19-consorcios-list a::after{content:"›";font-size:21px;line-height:1;margin-left:auto;font-weight:500;}
+#pg-login .v19-consorcios-list a:last-child{border-bottom:none;}
+#pg-login .v19-consorcios-list a:hover{background:#edf6ff;}
+#pg-login .v19-consorcios-list .v19-empty-links{padding:12px 13px;font-size:12px;line-height:1.5;color:#586a7b;}
+#pg-login .v19-login-footer{
+  position:absolute;z-index:2;left:0;bottom:0;width:100%;
+  padding:13px clamp(16px,4vw,65px);
+  display:flex;gap:15px;align-items:center;justify-content:space-between;
+  border-top:1px solid rgba(123,205,243,.35);
+  background:linear-gradient(90deg,rgba(1,41,89,.92),rgba(3,51,114,.96));
+  box-shadow:0 -7px 24px rgba(0,27,73,.17);color:#eefaff;
+}
+#pg-login .v19-footer-brand{display:flex;align-items:center;gap:9px;flex:0 0 auto;}
+#pg-login .v19-footer-brand svg{width:39px;height:39px;}
+#pg-login .v19-footer-brand strong{font-size:13px;display:block;}
+#pg-login .v19-footer-brand span{font-size:10px;color:#d2e4fc;display:block;margin-top:2px;}
+#pg-login .v19-footer-links{display:flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:10px 15px;}
+#pg-login .v19-footer-links a{color:#edf8ff;font-size:11px;font-weight:650;text-decoration:none;border-bottom:1px solid transparent;padding-bottom:2px;}
+#pg-login .v19-footer-links a:hover{border-bottom-color:#edf8ff;}
+#pg-login .v19-footer-note{max-width:300px;flex:0 1 300px;font-size:10px;line-height:1.5;color:#cee4f7;}
+#pg-login .v19-footer-note span{color:#8eb9db;}
+#v19-legal-dialog{
+  border:0;border-radius:18px;padding:0;background:white;color:#182b43;
+  width:min(760px,calc(100% - 28px));max-height:min(85vh,800px);
+  box-shadow:0 25px 100px rgba(0,10,37,.38);margin:auto;
+}
+#v19-legal-dialog::backdrop{background:rgba(3,17,46,.76);backdrop-filter:blur(5px);}
+#v19-legal-dialog .v19-legal-head{
+  position:sticky;top:0;z-index:1;padding:20px 24px;display:flex;align-items:center;gap:12px;
+  justify-content:space-between;color:#fff;
+  background:linear-gradient(115deg,#053576,#0064ba);
+}
+#v19-legal-dialog .v19-legal-head h2{font-size:18px;font-weight:800;line-height:1.35;}
+#v19-legal-dialog .v19-legal-close{border:1px solid #9bc3e9;border-radius:8px;background:#ffffff25;color:#fff;padding:6px 12px;cursor:pointer;font-weight:700;font-size:13px;}
+#v19-legal-dialog .v19-legal-content{padding:24px 28px 30px;overflow-y:auto;max-height:calc(min(85vh,800px) - 72px);font-size:13px;line-height:1.72;}
+#v19-legal-dialog .v19-legal-content p{margin:0 0 13px;}
+#v19-legal-dialog .v19-legal-content h3{font-size:14px;color:#064994;margin:21px 0 7px;}
+#v19-legal-dialog .v19-legal-content ul{margin:8px 0 16px 20px;}
+#v19-legal-dialog .v19-legal-content li{margin:0 0 6px;}
+#v19-legal-dialog .v19-legal-content a{color:#065eb1;text-decoration:underline;overflow-wrap:anywhere;}
+#v19-legal-dialog .v19-legal-content .v19-legal-notice{border:1px solid #bed5f5;background:#eff7ff;padding:12px 14px;border-radius:9px;color:#163d68;}
+#v19-legal-dialog .v19-legal-meta{color:#516881;font-size:11px;margin-top:20px;border-top:1px solid #e2e8f0;padding-top:12px;}
+/* Marca reformulada na area administrativa, sem interferir nos eventos de menus. */
+#pg-app .sidebar{width:232px;background:linear-gradient(180deg,#062c63 0%,#064482 59%,#082d5d 100%);border-right:0;color:#fff;}
+#pg-app .sb-logo{padding:19px 13px 16px;border-bottom-color:#ffffff1d;gap:10px;}
+#pg-app .sb-logo-icon{background:transparent;width:43px;height:43px;border-radius:0;}
+#pg-app .sb-logo-icon svg{width:43px;height:43px;}
+#pg-app .sb-logo-name{color:#fff;font-size:13px;font-weight:800;}
+#pg-app .sb-logo-role{color:#b9d7ed;font-size:10px;line-height:1.5;}
+#pg-app .sb-user{border-bottom-color:#ffffff1c;}
+#pg-app .sb-un{color:#fff;}
+#pg-app .sb-ur{color:#b8d8f2;}
+#pg-app .sb-nav{padding:9px 7px 12px;}
+#pg-app .sbi{border-left:none;border-radius:9px;color:#d5e9fc;padding:10px 12px;margin:3px 0;font-size:12px;}
+#pg-app .sbi:hover{background:#ffffff1a;color:#fff;}
+#pg-app .sbi.on{background:linear-gradient(110deg,#007ccc,#0b62c7);color:#fff;box-shadow:0 4px 12px #002c6b55;font-weight:700;}
+#pg-app .sb-lbl{color:#9fc0db;padding:14px 12px 6px;}
+#pg-app .sb-footer{border-top-color:#ffffff2a;}
+#pg-app .sb-logout{color:#c9e3f4;}
+#pg-app .sb-logout:hover{color:#fff;}
+#pg-app .topbar{background:#fff;border-bottom-color:#dde8f4;height:58px;}
+#pg-app .topbar-title{color:#092d63;font-weight:800;}
+#pg-app .body{background:#f2f7fd;}
+#pg-app .kpi,#pg-app .card,#pg-app .tcard{border-color:#dfeaf6;border-radius:12px;}
+#pg-app .kpi:hover{box-shadow:0 10px 20px #123d7820;}
+@media(max-width:970px){
+ #pg-login .v19-footer-note{display:none;}
+ #pg-login .v19-login-art{width:57vw;opacity:.55;}
+ #pg-app .sidebar{width:214px;}
+}
+@media(max-width:680px){
+ #pg-login .login-shell{padding:28px 15px 24px;justify-content:flex-start;overflow-y:auto;}
+ #pg-login .v19-login-art{width:98vw;left:-25%;bottom:75px;opacity:.18;max-height:none;}
+ #pg-login .login-card{max-width:430px;margin:0 auto 20px;padding:28px 24px 26px;border-radius:19px;}
+ #pg-login .login-logo-icon{height:75px;}
+ #pg-login .v19-login-footer{position:relative;margin-top:auto;padding:18px 15px;flex-direction:column;gap:13px;border-radius:12px;box-shadow:none;}
+ #pg-login .v19-footer-brand{justify-content:center;}
+ #pg-login .v19-footer-links{gap:8px 14px;}
+ #v19-legal-dialog .v19-legal-content{padding:20px 17px;}
+ #pg-app .sidebar{width:210px;}
+}
+@media(prefers-reduced-motion:reduce){
+ #pg-login *,#pg-app .sidebar *{transition:none!important;animation:none!important;}
+}
