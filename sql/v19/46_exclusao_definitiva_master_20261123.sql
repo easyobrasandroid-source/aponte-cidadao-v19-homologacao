@@ -138,6 +138,11 @@ BEGIN
    SELECT 'chamado-fotos', f.storage_path
    FROM public.chamado_fotos f
    WHERE f.chamado_id=v_call.id AND length(trim(f.storage_path))>0
+     AND NOT EXISTS(
+       SELECT 1 FROM public.chamado_fotos outro
+       WHERE outro.storage_path=f.storage_path
+         AND outro.chamado_id <> ALL(v_all)
+     )
    ON CONFLICT(bucket,storage_path) DO UPDATE
       SET excluido_em=NULL;
    GET DIAGNOSTICS v_removed=ROW_COUNT;
