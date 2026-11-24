@@ -59,7 +59,8 @@ async function v19MasterExcluirPermanentemente(itens){
  const aviso='ATENÇÃO: você está prestes a EXCLUIR DEFINITIVAMENTE '+count+
    (count===1?' chamado arquivado.':' chamados arquivados.')+
    '\n\nOs chamados, históricos e anexos vinculados serão removidos e não poderão ser restaurados pela interface.'+
-   '\n\nRegistros de estoque/garantia (consumos, estornos e planejamentos) permanecem no histórico de materiais, mesmo após o chamado desaparecer. Nenhum saldo será alterado ou estornado automaticamente.'+
+   '\n\nO SISTEMA DEVOLVERÁ AUTOMATICAMENTE ao estoque original (empresa ou equipe de garantia) somente a quantidade efetivamente consumida e ainda não estornada. Material já estornado NÃO será devolvido novamente. Planejamentos não geram devolução.'+
+   '\n\nCONFIRME SOMENTE SE OS MATERIAIS FORAM REALMENTE DEVOLVIDOS AO ESTOQUE FÍSICO (ou se eram lançamentos de teste). Se foram usados e não retornaram, cancele e regularize antes da exclusão.'+
    '\n\nRegistros mínimos de auditoria são preservados. Fotos podem exigir limpeza física posterior.'+
    '\n\nConfira se não existe obrigação legal de conservação antes de prosseguir.';
  if(!window.confirm(aviso))return;
@@ -71,6 +72,7 @@ async function v19MasterExcluirPermanentemente(itens){
    headers:{'Content-Type':'application/json',apikey:SUPA_KEY,
     Authorization:'Bearer '+SB_SESSION.access_token},
    body:JSON.stringify({acao:'excluir',confirmacao:frase,
+    devolucao_confirmada:true,
     itens:itens.map(x=>({id:x.id,updated_at:x.updated_at}))})
   });
   const data=await res.json().catch(()=>null);
@@ -81,14 +83,22 @@ async function v19MasterExcluirPermanentemente(itens){
     CHAMADO_NAO_ARQUIVADO:'Um dos chamados não está arquivado. Nenhum foi excluído.',
     VERSAO_DESATUALIZADA:'A lista foi alterada por outra pessoa. Atualize antes de excluir.',
     CHAMADO_INEXISTENTE_OU_ALTERADO:'Um dos chamados foi alterado ou já não existe. Nenhum foi excluído.',
-    CHAMADO_COM_ESTOQUE_OU_GARANTIA:'Um dos chamados possui movimentações de estoque ou garantia. Por segurança, nenhum foi excluído.',
+    DEVOLUCAO_FISICA_NAO_CONFIRMADA:'Confirme que os materiais retornaram ao estoque antes de excluir.',
+    MOVIMENTACAO_EMPRESA_SEM_ORIGEM_VALIDA:'Existe lançamento de material sem estoque de origem identificado. Nenhum chamado foi excluído; regularize o lançamento.',
+    MOVIMENTACAO_EMPRESA_INCONSISTENTE:'O histórico de consumo e estorno está inconsistente. Nenhum chamado foi excluído.',
+    ITEM_MATERIAL_E_MOVIMENTACAO_DIVERGENTES:'Quantidade do item não confere com histórico de movimentações. Nenhum chamado foi excluído.',
+    DEVOLUCAO_EXCEDE_ESTOQUE_CONTRATADO:'A devolução ultrapassaria o limite do estoque contratado. Verifique se o material já foi reposto manualmente. Nenhum chamado foi excluído.',
+    GARANTIA_JA_DEVOLVIDA:'Esse material de garantia já foi devolvido; confira os lançamentos.',
+    SALDO_GARANTIA_FORA_LIMITE:'O saldo de garantia não comporta a devolução. Nenhum chamado foi excluído.',
     PARAMETROS_INVALIDOS:'Seleção inválida. Atualize e tente novamente.'
    };
    throw Error(messages[code]||'O servidor não confirmou a exclusão. Nenhum novo envio será feito automaticamente.');
   }
   window.v19InvalidarConsultaChamados?.();
   await carregarChamadosDoBanco();
-  showToast(count+' chamado(s) excluído(s) definitivamente.'+
+  showToast(count+' chamado(s) excluído(s) definitivamente. Materiais devolvidos: '+
+   Number(data.devolvido_empresa||0)+' ao estoque empresarial e '+
+   Number(data.devolvido_garantia||0)+' ao estoque de garantia.'+
    (Number(data.fotos_pendentes)>0?' Há arquivos de foto pendentes de limpeza.':''),'ok');
   await viewArchive();
  }catch(e){
@@ -209,7 +219,7 @@ async function viewArchive(){
    next.disabled=page>=pages-1;
   }
   if(master){
-    elem('p',panel,'Exclusão definitiva: somente Master. Selecione um ou mais chamados arquivados. A remoção é irreversível na interface e exige confirmação digitada. Movimentações de estoque/garantia não impedem a remoção pelo Master: permanecem registradas por protocolo. Nenhum saldo será alterado automaticamente.',
+    elem('p',panel,'Exclusão definitiva: somente Master. Selecione um ou mais chamados arquivados. A remoção é irreversível na interface e exige confirmação digitada. Na exclusão definitiva Master, o saldo líquido ainda consumido retorna automaticamente ao estoque original. Estornos existentes são respeitados. A saída e a devolução ficam auditadas. Confirme que o material retornou fisicamente antes de excluir.',
       'font-size:11px;color:#9f1239;margin:12px 0;line-height:1.6;');
   }
   render();

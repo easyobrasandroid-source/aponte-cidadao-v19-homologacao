@@ -25,7 +25,8 @@ function looksSafePath(path:string){
 function statusForCode(code:string){
  if(code==="PERFIL_MASTER_OBRIGATORIO")return 403;
  if(code==="NAO_AUTENTICADO"||code==="SESSAO_INVALIDA")return 401;
- if(["VERSAO_DESATUALIZADA","CHAMADO_NAO_ARQUIVADO","CHAMADO_INEXISTENTE_OU_ALTERADO","CHAMADO_COM_ESTOQUE_OU_GARANTIA"].some(k=>code.startsWith(k)))return 409;
+ if(["VERSAO_DESATUALIZADA","CHAMADO_NAO_ARQUIVADO","CHAMADO_INEXISTENTE_OU_ALTERADO","CHAMADO_COM_ESTOQUE_OU_GARANTIA","DEVOLUCAO_EXCEDE_ESTOQUE_CONTRATADO",
+ "MOVIMENTACAO_EMPRESA_INCONSISTENTE","ITEM_MATERIAL_E_MOVIMENTACAO_DIVERGENTES"].some(k=>code.startsWith(k)))return 409;
  return 400;
 }
 Deno.serve(async(req:Request)=>{
@@ -77,7 +78,8 @@ Deno.serve(async(req:Request)=>{
    ||!itens.every(x=>x&&typeof x==="object"&&!Array.isArray(x)
       &&UUID.test(String(x.id||""))&&typeof x.updated_at==="string"
       &&x.updated_at.length>=10)
-   ||payload.confirmacao!==("EXCLUIR "+itens.length))
+   ||payload.confirmacao!==("EXCLUIR "+itens.length)
+   ||payload.devolucao_confirmada!==true)
    return response(400,{ok:false,erro:"PARAMETROS_INVALIDOS"},origin);
  }
 
@@ -101,7 +103,8 @@ Deno.serve(async(req:Request)=>{
  let result:Record<string,any>={ok:true,excluidos:0};
  try{
   if(acao==="excluir")
-   result=await rpc("excluir",{itens,confirmacao:payload.confirmacao});
+   result=await rpc("excluir",{itens,confirmacao:payload.confirmacao,
+    devolucao_confirmada:true});
   else await rpc("pendentes",{});
  }catch(e){
   const raw=String(e instanceof Error?e.message:e);
@@ -109,6 +112,10 @@ Deno.serve(async(req:Request)=>{
     "PERFIL_MASTER_OBRIGATORIO","NAO_AUTENTICADO","VERSAO_DESATUALIZADA",
     "CHAMADO_NAO_ARQUIVADO","CHAMADO_INEXISTENTE_OU_ALTERADO",
     "CHAMADO_COM_ESTOQUE_OU_GARANTIA","PARAMETROS_INVALIDOS",
+    "DEVOLUCAO_FISICA_NAO_CONFIRMADA","MOVIMENTACAO_EMPRESA_SEM_ORIGEM_VALIDA",
+    "MOVIMENTACAO_EMPRESA_INCONSISTENTE","ITEM_MATERIAL_E_MOVIMENTACAO_DIVERGENTES",
+    "DEVOLUCAO_EXCEDE_ESTOQUE_CONTRATADO","GARANTIA_JA_DEVOLVIDA",
+    "GARANTIA_CONSORCIO_DIVERGENTE","SALDO_GARANTIA_FORA_LIMITE",
     "ITENS_INVALIDOS","ITENS_DUPLICADOS","CONFIRMACAO_OBRIGATORIA"
   ];
   const error=known.find(k=>raw.startsWith(k))||"OPERACAO_NAO_REALIZADA";
@@ -153,6 +160,8 @@ Deno.serve(async(req:Request)=>{
   console.warn("[V19] Limpeza fisica pendente de nova tentativa:",String(e).slice(0,120));
  }
  return response(200,{ok:true,excluidos:Number(result.excluidos)||0,
+  devolvido_empresa:Number(result.devolvido_empresa)||0,
+  devolvido_garantia:Number(result.devolvido_garantia)||0,
   fotos_removidas:okPhotos,fotos_pendentes:pending,
   aviso:pending?"FOTOS_PENDENTES_DE_LIMPEZA":null},origin);
 });
