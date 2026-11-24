@@ -13,7 +13,7 @@
   const money=n=>Number(n).toLocaleString('pt-BR',
     {style:'currency',currency:'BRL'});
   const editableStatuses=new Set([
-    'Em programação','Em execução','Aguard. material','Aguardando material'
+    'Recebido','Em programação','Em execução','Aguard. material','Aguardando material'
   ]);
   let requestCounter=0;
   let receipt=null;

@@ -14,7 +14,7 @@
   const money=v=>Number(v||0).toLocaleString('pt-BR',
     {style:'currency',currency:'BRL'});
   const readStatuses=new Set([
-    'Em programação','Em execução','Aguard. material','Aguardando material'
+    'Recebido','Em programação','Em execução','Aguard. material','Aguardando material'
   ]);
   let renderId=0;
   let modalId=0;
