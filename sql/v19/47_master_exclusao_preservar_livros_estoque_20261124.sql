@@ -231,8 +231,7 @@ BEGIN
    ) x
   ),'[]'::jsonb));
 END;
-$function$
-
+$function$;
 
 -- A RPC continua indisponivel para usuarios comuns. Somente a Edge via service_role.
 REVOKE ALL ON FUNCTION public.v19_exclusao_definitiva_master(text,uuid,jsonb) FROM PUBLIC,anon,authenticated;
