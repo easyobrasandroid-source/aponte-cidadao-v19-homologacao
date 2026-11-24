@@ -213,3 +213,62 @@
   #pg-app .app-shell .sidebar,
   #pg-app #v19-mobile-nav-backdrop{transition:none!important}
 }
+
+/* Etapa 806 — somente Relatórios e Impressão/PDF em telas móveis. */
+@media screen and (max-width:760px){
+  #pg-app #main-body > .card:has(#rf-cidade),
+  #pg-app #main-body > .card:has(#imp-cidade),
+  #pg-app #main-body > .card:has(#rf-preview),
+  #pg-app #main-body > .card:has(#imp-preview){padding:14px!important;box-sizing:border-box}
+  #pg-app .card > div:has(> .field > #rf-cidade),
+  #pg-app .card > div:has(> .field > #rf-dtIni),
+  #pg-app .card > div:has(> .field > #imp-cidade){
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px 8px!important;align-items:end!important;
+  }
+  #pg-app .card:has(#rf-cidade) .field,
+  #pg-app .card:has(#imp-cidade) .field{min-width:0;width:100%;max-width:100%!important}
+  #pg-app .card:has(#rf-cidade) .field input,
+  #pg-app .card:has(#rf-cidade) .field select,
+  #pg-app .card:has(#imp-cidade) .field input,
+  #pg-app .card:has(#imp-cidade) .field select{
+    box-sizing:border-box;width:100%!important;min-width:0!important;max-width:100%!important;
+    min-height:42px;font-size:16px;padding-inline:8px;
+  }
+  #pg-app .card:has(#rf-cidade) .field label,
+  #pg-app .card:has(#imp-cidade) .field label{font-size:11px;overflow-wrap:anywhere}
+  #pg-app .card:has(#rf-cidade) > div:first-child{flex-wrap:wrap;gap:8px}
+  #pg-app .card:has(#rf-cidade) > div:first-child > div{flex-wrap:wrap;min-width:0}
+  #pg-app #rf-badge{display:none}
+  #pg-app .card:has(#rf-cidade) > div:last-child > button,
+  #pg-app .card > div:has(> .field > #imp-cidade) > button{
+    width:100%;min-width:0!important;min-height:42px;justify-content:center;
+  }
+  #pg-app .card > div:has(> #imp-layout-1){gap:6px!important}
+  #pg-app .card > div:has(> #imp-layout-1) > button{
+    min-width:0;padding:8px 3px!important;font-size:11px;white-space:normal;min-height:42px;
+  }
+  #pg-app #rf-preview > div:first-child,
+  #pg-app #rf-preview > div:has(> h4) > div:first-child{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #pg-app #rf-preview > div:has(> h4) > div:first-child > div:first-child{grid-column:1/-1}
+  #pg-app #rf-preview > div:has(> h4) > div:has(> table){
+    max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch;
+  }
+  #pg-app #rf-preview table{min-width:520px}
+  #pg-app #rf-preview > p,
+  #pg-app #rf-preview > div:has(> h4) > p{display:none}
+  #pg-app #main-body > div:has(+ div > .card #btn-pdf-chamados){display:none!important}
+  #pg-app #main-body > div:has(> .card #btn-pdf-chamados){
+    grid-template-columns:minmax(0,1fr)!important;gap:10px!important;
+  }
+  #pg-app #main-body > div:has(> .card #btn-pdf-chamados) .card{min-width:0;padding:14px!important}
+  #pg-app #main-body > div:has(> .card #btn-pdf-chamados) .btn{
+    min-width:0;min-height:42px;white-space:normal;
+  }
+  #pg-app #imp-preview .imp-preview-sheet{max-width:100%;min-width:0;padding:8px}
+  #pg-app #imp-preview .imp-card-head,
+  #pg-app #imp-preview .imp-sign{flex-wrap:wrap;gap:6px}
+  #pg-app #imp-preview .imp-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
