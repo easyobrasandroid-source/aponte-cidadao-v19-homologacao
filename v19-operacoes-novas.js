@@ -59,6 +59,7 @@ async function v19MasterExcluirPermanentemente(itens){
  const aviso='ATENÇÃO: você está prestes a EXCLUIR DEFINITIVAMENTE '+count+
    (count===1?' chamado arquivado.':' chamados arquivados.')+
    '\n\nOs chamados, históricos e anexos vinculados serão removidos e não poderão ser restaurados pela interface.'+
+   '\n\nRegistros de estoque/garantia (consumos, estornos e planejamentos) permanecem no histórico de materiais, mesmo após o chamado desaparecer. Nenhum saldo será alterado ou estornado automaticamente.'+
    '\n\nRegistros mínimos de auditoria são preservados. Fotos podem exigir limpeza física posterior.'+
    '\n\nConfira se não existe obrigação legal de conservação antes de prosseguir.';
  if(!window.confirm(aviso))return;
@@ -208,7 +209,7 @@ async function viewArchive(){
    next.disabled=page>=pages-1;
   }
   if(master){
-    elem('p',panel,'Exclusão definitiva: somente Master. Selecione um ou mais chamados arquivados. A remoção é irreversível na interface e exige confirmação digitada. Chamados com movimentação de estoque/garantia são protegidos.',
+    elem('p',panel,'Exclusão definitiva: somente Master. Selecione um ou mais chamados arquivados. A remoção é irreversível na interface e exige confirmação digitada. Movimentações de estoque/garantia não impedem a remoção pelo Master: permanecem registradas por protocolo. Nenhum saldo será alterado automaticamente.',
       'font-size:11px;color:#9f1239;margin:12px 0;line-height:1.6;');
   }
   render();
