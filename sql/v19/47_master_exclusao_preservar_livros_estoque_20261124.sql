@@ -13,7 +13,7 @@ ALTER TABLE public.v19_garantia_planejamentos ADD COLUMN IF NOT EXISTS v19_proto
 ALTER TABLE public.chamado_materiais ALTER COLUMN chamado_id DROP NOT NULL;
 ALTER TABLE public.v19_garantia_consumos_chamados ALTER COLUMN chamado_id DROP NOT NULL;
 ALTER TABLE public.v19_garantia_planejamentos ALTER COLUMN chamado_id DROP NOT NULL;
-ALTER TABLE public.movimentacoes ADD CONSTRAINT movimentacoes_protocolo_desvinculado_chk CHECK (chamado_id IS NOT NULL OR nullif(btrim(v19_protocolo_excluido),'') IS NOT NULL);
+-- Movimentacoes ja permitem chamado_id NULL em entradas de estoque independentes.
 ALTER TABLE public.chamado_materiais ADD CONSTRAINT chamado_materiais_protocolo_desvinculado_chk CHECK (chamado_id IS NOT NULL OR nullif(btrim(v19_protocolo_excluido),'') IS NOT NULL);
 ALTER TABLE public.v19_garantia_consumos_chamados ADD CONSTRAINT v19_garantia_consumos_chamados_protocolo_desvinculado_chk CHECK (chamado_id IS NOT NULL OR nullif(btrim(v19_protocolo_excluido),'') IS NOT NULL);
 ALTER TABLE public.v19_garantia_planejamentos ADD CONSTRAINT v19_garantia_planejamentos_protocolo_desvinculado_chk CHECK (chamado_id IS NOT NULL OR nullif(btrim(v19_protocolo_excluido),'') IS NOT NULL);
