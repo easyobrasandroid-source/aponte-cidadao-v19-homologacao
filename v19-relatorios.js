@@ -190,7 +190,8 @@
         'Prazo registrado (dias corridos)':dias(c._slaHoras),
         'Tempo observado (dias corridos)':a.tempo==null?'Não apurável':Number((a.tempo/24).toFixed(4)),
         'Tempo observado (horas)':a.tempo==null?'Não apurável':Number(a.tempo.toFixed(2)),
-        'Resultado estimado':a.estado};
+        'Resultado estimado':a.estado,
+        'Observações do chamado':c.obs||''};
     });
     return dados.map(c=>({
       'Protocolo':c.protocolo,'Cidade':c.cidade,'Bairro':c.bairro,
@@ -201,7 +202,8 @@
       'Data abertura':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
       'Data conclusão':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
       'Área':c.area,'Origem':c.origem,'Prazo registrado (dias corridos)':dias(c._slaHoras),
-      'Situação SLA (dias corridos)':statusSLA(c).estado
+      'Situação SLA (dias corridos)':statusSLA(c).estado,
+      'Observações do chamado':c.obs||''
     }));
   }
   const label={chamados:'Chamados',estoque:'Estoque',sla:'SLA'};
@@ -234,7 +236,8 @@
         'Estoque mínimo':19,'Preço unitário':19,
         'Saídas identificadas':23,'Devoluções identificadas':26,
         'Saídas líquidas identificadas':30,
-        'Movimentações vinculadas':26,'ID do estoque':40
+        'Movimentações vinculadas':26,'ID do estoque':40,
+        'Observações do chamado':68
       };
       ws['!cols']=headers.map(h=>({wch:larguras[h]||24}));
       for(const nome of ['Data abertura','Data conclusão','Aberto em','Concluído em']){
@@ -342,7 +345,8 @@
             campo('Data de abertura',fmtData(c.created_at))+
             campo('Data de conclusão',fmtData(c.completed_at))+
             campo('Situação do SLA',situacao)+
-            '</div></section>';
+            '</div><div class="sla-obs"><b>Observações do chamado</b><div>'+esc(c.obs||'—')+
+            '</div></div></section>';
         }).join('')+'</div>';
       }
       if(tipo==='sla'){
@@ -379,7 +383,8 @@
             campo('Aberto em',fmtData(c.created_at))+campo('Concluído em',fmtData(c.completed_at))+
             campo('Prazo (dias corridos)',dias(c._slaHoras))+
             campo('Tempo observado',duracao)+
-            '</div></section>';
+            '</div><div class="sla-obs"><b>Observações do chamado</b><div>'+esc(c.obs||'—')+
+            '</div></div></section>';
         }).join('')+'</div>';
       }
       if(tipo==='estoque')note='<p>Uma linha por estoque empresarial, com saldos separados por empresa. '+
@@ -404,6 +409,9 @@
         '.sla-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 15px}'+
         '.sla-field{min-width:0;font-size:11px;overflow-wrap:anywhere}'+
         '.sla-field b{display:block;color:#54657e;font-size:9px;margin-bottom:2px}'+
+        '.sla-obs{margin-top:9px;padding:9px;background:#f7faff;border-top:1px solid #dce5f0;'+
+        'font-size:11px;overflow-wrap:anywhere;white-space:pre-wrap}'+
+        '.sla-obs b{display:block;color:#54657e;font-size:9px;margin-bottom:4px}'+
         '@media print{th{color:#173b66!important;background:#e7eef9!important}'+
         'thead,tbody{print-color-adjust:exact;-webkit-print-color-adjust:exact}'+
         '.print-hint{display:none}}</style></head><body>'+
