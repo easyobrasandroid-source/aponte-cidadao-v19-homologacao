@@ -160,7 +160,8 @@ let slaPreview=null;
 const slaEspeciais=[
   {codigo:'SLA3_APAGADOS_URB',titulo:'3 ou mais pontos apagados à noite — urbano',campo:'urb_prazo',id:'v19-sla-e1'},
   {codigo:'SLA3_ACESOS_URB',titulo:'3 ou mais pontos acesos durante o dia — urbano',campo:'urb_prazo',id:'v19-sla-e2'},
-  {codigo:'SLA3_APAGADOS_RUR',titulo:'3 ou mais pontos apagados à noite — rural/comunidades',campo:'rur_prazo',id:'v19-sla-e3'}
+  {codigo:'SLA3_APAGADOS_RUR',titulo:'3 ou mais pontos apagados à noite — rural/comunidades',campo:'rur_prazo',id:'v19-sla-e3'},
+  {codigo:'SLA12_ACESOS_URB',titulo:'1 ou 2 lâmpadas acesas durante o dia — urbano',campo:'urb_prazo',id:'v19-sla-e4'}
 ];
 window.vSLA=async function(b,t,a,consId){
   t.textContent='Configuração de SLA'; a.innerHTML='';
@@ -214,11 +215,18 @@ window.vSLA=async function(b,t,a,consId){
       '<strong style="font-size:13px">Prazos especiais: 3 ou mais postes consecutivos</strong>'+
       '<p style="font-size:12px;color:var(--gray-500)">Configure em dias corridos. O sistema não identifica automaticamente se três ou mais postes estão envolvidos; classifique os chamados correspondentes abaixo.</p>'+
       '<div style="display:flex;flex-wrap:wrap;gap:12px;margin:12px 0">'+
-      slaEspeciais.map(x=>{
+      slaEspeciais.slice(0,3).map(x=>{
         const r=rules.find(y=>y.tipo_problema===x.codigo);
         return input(x.id,r?.[x.campo],x.titulo);
       }).join('')+'</div>'+
       '<button class="btn btn-save" id="v19-sla-salvar-especiais" onclick="v19SalvarSLAEspeciais()">💾 Salvar os 3 prazos especiais</button>'+
+      '<div style="border-top:1px solid #E5E7EB;padding-top:16px;margin-top:16px">'+
+      '<strong style="font-size:13px">1 ou 2 lâmpadas acesas durante o dia — área urbana</strong>'+
+      '<p style="font-size:12px;color:var(--gray-500)">Prazo específico para ocorrências confirmadas com menos de 3 lâmpadas acesas durante o dia. A classificação do chamado é manual e não modifica registros antigos automaticamente.</p>'+
+      input('v19-sla-e4',rules.find(r=>r.tipo_problema==='SLA12_ACESOS_URB')?.urb_prazo,
+        'Prazo urbano (dias corridos)')+
+      '<div style="margin-top:12px"><button class="btn btn-save" id="v19-sla-salvar-ate2" onclick="v19SalvarSLAAcesasAte2()">💾 Salvar prazo para 1 ou 2 lâmpadas acesas</button></div>'+
+      '</div>'+
       '</div>':'';
     const retro=isEditable?
       '<div style="border-top:1px solid #E5E7EB;padding-top:16px;margin-top:16px">'+
@@ -231,7 +239,7 @@ window.vSLA=async function(b,t,a,consId){
     const classificacao=isEditable&&disponiveis?
       '<div style="border-top:1px solid #E5E7EB;padding-top:16px;margin-top:16px">'+
       '<strong style="font-size:13px">Classificar um chamado em situação especial</strong>'+
-      '<p style="font-size:12px;color:var(--gray-500)">Use somente quando estiver confirmado que são 3 ou mais pontos consecutivos. Isso atualiza o SLA de um chamado aberto e registra auditoria; não muda o tipo de problema nem a data de abertura.</p>'+
+      '<p style="font-size:12px;color:var(--gray-500)">Escolha a regra somente após confirmar a situação no local: 1 ou 2 lâmpadas acesas de dia, ou 3 ou mais pontos consecutivos nas situações específicas. Atualiza apenas o SLA do chamado aberto e registra auditoria; não altera sua abertura.</p>'+
       '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:12px 0">'+
       '<label style="font-size:12px">Chamado<select id="v19-sla-chamado" onchange="v19OpcoesClassificacaoSLA()" style="display:block;min-width:240px;max-width:100%;padding:8px"><option value="">Carregando chamados...</option></select></label>'+
       '<label style="font-size:12px">Regra de SLA<select id="v19-sla-classificacao" style="display:block;min-width:240px;max-width:100%;padding:8px"></select></label>'+
@@ -245,7 +253,7 @@ window.vSLA=async function(b,t,a,consId){
       '<summary style="cursor:pointer;color:#305a86;font-size:13px;font-weight:700;padding:8px 0">'+
       '⚙ Outras ações de SLA (usar somente quando necessário)</summary>'+
       '<p style="font-size:12px;color:var(--gray-500);margin-top:8px">'+
-      'Classificar ocorrências com 3 ou mais postes consecutivos ou atualizar chamados antigos após mudar os prazos gerais.</p>'+
+      'Classificar ocorrências especiais (inclusive 1 ou 2 lâmpadas acesas de dia) ou atualizar chamados antigos após mudar prazos.</p>'+
       classificacao+retro+
       '</details>':'';
     b.innerHTML='<div class="card">'+escolha(selectedCons,'v19MudarConsSLA')+
@@ -398,7 +406,7 @@ window.v19SalvarSLA=async function(){
 
 window.v19SalvarSLAEspeciais=async function(){
   if(slaSaving||!admin()||!valid(selectedCons))return;
-  const d=slaEspeciais.map(x=>Number(document.getElementById(x.id)?.value));
+  const d=slaEspeciais.slice(0,3).map(x=>Number(document.getElementById(x.id)?.value));
   if(d.some(n=>!Number.isInteger(n)||n<1||n>365)){
     showToast('Preencha os três prazos com números inteiros entre 1 e 365 dias.','erro');return;
   }
@@ -417,13 +425,34 @@ window.v19SalvarSLAEspeciais=async function(){
   }catch(e){showToast('❌ Erro no SLA especial: '+esc(e.message),'erro');}
   finally{slaSaving=false;if(btn){btn.disabled=false;btn.textContent='💾 Salvar os 3 prazos especiais';}}
 };
+window.v19SalvarSLAAcesasAte2=async function(){
+  if(slaSaving||!admin()||!valid(selectedCons))return;
+  const field=document.getElementById('v19-sla-e4');
+  const days=field?.value==null||field.value.trim()===''?NaN:Number(field.value);
+  if(!Number.isInteger(days)||days<1||days>365){
+    showToast('Informe prazo inteiro entre 1 e 365 dias para 1 ou 2 lâmpadas acesas.','erro');return;
+  }
+  const id=selectedCons,btn=document.getElementById('v19-sla-salvar-ate2');
+  if(!confirm('Salvar para este consórcio o prazo de '+days+' dia(s) em área urbana, quando 1 ou 2 lâmpadas estiverem acesas durante o dia? Nenhum chamado existente será modificado automaticamente.'))return;
+  slaSaving=true;if(btn){btn.disabled=true;btn.textContent='Salvando…';}
+  try{
+    const response=await sbFetch('rpc/v19_salvar_sla_ate2_acesas_urb','POST',
+      {p_consorcio_id:id,p_dias:days});
+    if(response?.ok!==true||response.consorcio_id!==id||response.sla_horas!==days*24)
+      throw new Error('O Supabase não confirmou o prazo solicitado.');
+    showToast('✅ SLA para 1 ou 2 lâmpadas acesas salvo: '+days+' dia(s).','ok');
+    await window.vSLA(document.getElementById('main-body'),
+      document.getElementById('topbar-title'),document.getElementById('topbar-actions'),id);
+  }catch(e){showToast('❌ Não foi possível salvar: '+esc(e.message),'erro');}
+  finally{slaSaving=false;if(btn){btn.disabled=false;btn.textContent='💾 Salvar prazo para 1 ou 2 lâmpadas acesas';}}
+};
 window.v19OpcoesClassificacaoSLA=function(){
   const c=slaChamados.find(x=>x.id===document.getElementById('v19-sla-chamado')?.value);
   const dest=document.getElementById('v19-sla-classificacao');
   if(!dest)return;
   const validCodes=c?(c.area==='Rural'?
     ['PADRAO_GERAL','SLA3_APAGADOS_RUR']:
-    ['PADRAO_GERAL','SLA3_APAGADOS_URB','SLA3_ACESOS_URB']):['PADRAO_GERAL'];
+    ['PADRAO_GERAL','SLA3_APAGADOS_URB','SLA3_ACESOS_URB','SLA12_ACESOS_URB']):['PADRAO_GERAL'];
   dest.innerHTML=validCodes.map(key=>'<option value="'+esc(key)+'">'+
     esc(key==='PADRAO_GERAL'?'Prazo geral do chamado':
       (slaEspeciais.find(x=>x.codigo===key)?.titulo||key))+'</option>').join('');
