@@ -6,12 +6,13 @@
 'use strict';
 const UUID=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const allowed=new Set(['master','consorcio','garantia']);
+const autorizado =()=>typeof window.v19PodeAcessarEstoqueGarantia==='function'&&window.v19PodeAcessarEstoqueGarantia();
 const screens={encaminhar:null,concluir:null};
 const fmt=n=>Number(n||0).toLocaleString('pt-BR');
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const getCallId=c=>c?._supaId;
 const activeFor=(c,phase)=>!!(c && UUID.test(String(getCallId(c)||'')) &&
-    allowed.has(CU?.perfil) &&
+    allowed.has(CU?.perfil) && autorizado() &&
     (CU?.perfil==='master'||CU?.consorcio_id===c.consorcio_id) &&
     (phase==='concluir'||['master','consorcio'].includes(CU?.perfil)));
 function el(t,at,txt,css){
@@ -185,7 +186,7 @@ window.v19GarantiaPrepararConclusao=c=>editor(c,'concluir');
 
 // Relatorio exclusivo da garantia, acoplado ao fim da pagina de estoque.
 window.v19GarantiaInserirRelatorio=async function(root,consorcioId){
- if(!root||!UUID.test(String(consorcioId||''))||!allowed.has(CU?.perfil))return;
+ if(!root||!UUID.test(String(consorcioId||''))||!allowed.has(CU?.perfil)||!autorizado())return;
  const session=SB_SESSION?.user?.id;
  const role=CU?.perfil;
  if(role!=='master'&&CU?.consorcio_id!==consorcioId)return;
@@ -303,7 +304,7 @@ window.v19GarantiaMostrarConsumoChamado=async function(chamado){
  const target=document.getElementById('dw-garantia-materiais-chamado');
  if(!target)return;
  target.replaceChildren();
- if(!chamado||!allowed.has(CU?.perfil)||
+ if(!chamado||!allowed.has(CU?.perfil)||!autorizado()||
     (CU?.perfil!=='master'&&CU?.consorcio_id!==chamado.consorcio_id))return;
  if(chamado.garantia_tipo!=='LED'&&chamado.status!=='Aguardando Garantia LED')return;
  el('h4',target,'⚡ Materiais da garantia',
