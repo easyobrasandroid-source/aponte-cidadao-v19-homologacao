@@ -191,7 +191,7 @@ window.vSLA=async function(b,t,a,consId){
     const isEditable=admin()&&!!padrao;
     const input=(id,h,label)=>'<label style="font-size:12px;font-weight:600;display:block">'+esc(label)+
       '<input id="'+id+'" type="number" min="1" max="365" step="1" value="'+
-      esc(h==null?'':String(h/24))+'" style="margin-top:5px;width:125px;max-width:100%;padding:8px">'+
+      esc(h==null?'':String(h/24))+'" style="display:block;margin-top:6px;width:125px;max-width:100%;padding:8px">'+
       '</label>';
     const edicao=isEditable?
       '<div style="border-top:1px solid #E5E7EB;padding-top:14px;margin-top:16px">'+
@@ -238,6 +238,16 @@ window.vSLA=async function(b,t,a,consId){
       '</div>'+
       '<button class="btn btn-save" id="v19-sla-classificar" onclick="v19ClassificarChamadoSLA()">Aplicar regra a este chamado</button>'+
       '</div>':'';
+    // Acoes eventuais nao precisam ocupar a tela do dia a dia.
+    // Mantemos as ferramentas para aplicar excecoes e recalcular os prazos no futuro.
+    const acoesAvancadas=isEditable?
+      '<details id="v19-sla-avancados" style="border-top:1px solid #E5E7EB;margin-top:18px;padding-top:12px">'+
+      '<summary style="cursor:pointer;color:#305a86;font-size:13px;font-weight:700;padding:8px 0">'+
+      '⚙ Outras ações de SLA (usar somente quando necessário)</summary>'+
+      '<p style="font-size:12px;color:var(--gray-500);margin-top:8px">'+
+      'Classificar ocorrências com 3 ou mais postes consecutivos ou atualizar chamados antigos após mudar os prazos gerais.</p>'+
+      classificacao+retro+
+      '</details>':'';
     b.innerHTML='<div class="card">'+escolha(selectedCons,'v19MudarConsSLA')+
       '<p style="font-size:12px;color:var(--gray-600);margin:14px 0">'+
       '<strong>SLA em dias corridos (24 horas por dia).</strong> Inclui finais de semana e feriados. '+
@@ -247,7 +257,7 @@ window.vSLA=async function(b,t,a,consId){
       '<th>Rural (dias)</th><th>Alerta rural (dias)</th>'+
       '</tr></thead><tbody id="v19-sla-linhas">'+
       (rules.length?rules.map(row).join(''):'<tr><td colspan="5">Nenhuma regra de SLA cadastrada.</td></tr>')+
-      '</tbody></table></div>'+edicao+especiais+classificacao+retro+
+      '</tbody></table></div>'+edicao+especiais+acoesAvancadas+
       (modoDiagnostico&&CU?.perfil==='consorcio'&&CU.consorcio_id===selectedCons?
         '<div style="border-top:1px solid #E5E7EB;padding-top:12px;margin-top:15px">'+
         '<p style="font-size:12px;color:var(--gray-500)">Homologação de isolamento: o teste tenta editar o Consórcio Beta com valores inválidos (zero dias). Nenhum prazo pode ser alterado com esses valores.</p>'+
