@@ -247,7 +247,7 @@ window.vSLA=async function(b,t,a,consId){
       '<th>Rural (dias)</th><th>Alerta rural (dias)</th>'+
       '</tr></thead><tbody id="v19-sla-linhas">'+
       (rules.length?rules.map(row).join(''):'<tr><td colspan="5">Nenhuma regra de SLA cadastrada.</td></tr>')+
-      '</tbody></table></div>'+edicao+
+      '</tbody></table></div>'+edicao+especiais+classificacao+retro+
       (modoDiagnostico&&CU?.perfil==='consorcio'&&CU.consorcio_id===selectedCons?
         '<div style="border-top:1px solid #E5E7EB;padding-top:12px;margin-top:15px">'+
         '<p style="font-size:12px;color:var(--gray-500)">Homologação de isolamento: o teste tenta editar o Consórcio Beta com valores inválidos (zero dias). Nenhum prazo pode ser alterado com esses valores.</p>'+
