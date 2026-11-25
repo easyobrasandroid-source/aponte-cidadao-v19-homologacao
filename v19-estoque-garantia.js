@@ -6,6 +6,7 @@
 'use strict';
 let renderId = 0;
 const allowed = new Set(['master','consorcio','garantia']);
+const autorizado =()=>typeof window.v19PodeAcessarEstoqueGarantia==='function'&&window.v19PodeAcessarEstoqueGarantia();
 const uuid = x => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(x||''));
 const fmt = n => Number(n||0).toLocaleString('pt-BR');
 function el(tag,parent,txt,css) {
@@ -63,7 +64,7 @@ window.v19EstoqueGarantia=function(body,title,actions){
   actions.replaceChildren();
   body.replaceChildren();
   const root=el('div',body,null,'max-width:1220px;margin:0 auto;');
-  if(!allowed.has(role)||!session||role!=='master'&&!uuid(ownCons)){
+  if(!allowed.has(role)||!autorizado()||!session||role!=='master'&&!uuid(ownCons)){
     panel(root,'Acesso restrito',
       'Exclusivo dos perfis Garantia, Consórcio e Master com vínculo válido.');
     return;
@@ -83,7 +84,7 @@ window.v19EstoqueGarantia=function(body,title,actions){
   let saving=false;
 
   const alive=()=>seq===renderId&&document.getElementById('main-body')===body&&
-    title.textContent==='Estoque de Garantia' &&
+    title.textContent==='Estoque de Garantia' && autorizado() &&
     SB_SESSION?.user?.id===session && CU?.perfil===role;
   const setErr=(e)=>{
     if(!alive())return;
