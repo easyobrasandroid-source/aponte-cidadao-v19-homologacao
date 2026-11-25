@@ -3907,21 +3907,51 @@ function vImpressao(b,t,a){
     return paginas;
   };
 
+  // A pre-visualização e o PDF utilizam esta MESMA ficha, sem perder campos.
+  const preenchido=v=>v===null||v===undefined||String(v).trim()===''?'Não informado':String(v).trim();
+  const dataHora=v=>{
+    if(!v)return 'Não informado';
+    const d=new Date(v);
+    return Number.isFinite(d.getTime())?d.toLocaleString('pt-BR'):'Não informado';
+  };
+  const coord=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))
+    ?Number(v).toFixed(6):'Não informado';
   function cardHTML(c){
     const [cor,fundo]=cores[c.status]||['#6B7280','#F3F4F6'];
+    const horas=Number(c._slaHoras??c.sla);
+    const prazo=Number.isFinite(horas)&&horas>0
+      ?(horas/24).toLocaleString('pt-BR',{maximumFractionDigits:2})+' dia(s) corridos ('+horas+' h)'
+      :'Não informado';
+    let situacao='Não apurável';
+    try{situacao=window.v19StatusSLA?.(c)?.estado||'Não apurável';}catch(_){}
     const campos=[
-      ['Cidade',c.cidade],['Bairro',c.bairro],['Endereço',c.endereco],
-      ['Número',v19NumeroEndereco(c.endereco)||'—'],
-      ['Problema',c.tipo],['Quantidade',String(c.qtd??1)+' lâmpada(s)'],
-      ['Empresa responsável',c.empresa]
+      ['Cidade',c.cidade],['Bairro',c.bairro],
+      ['Rua / endereço',typeof v19RuaEndereco==='function'?v19RuaEndereco(c.endereco):c.endereco],
+      ['Número',v19NumeroEndereco(c.endereco)],
+      ['Referência',c.referencia],['Problema',c.tipo],
+      ['Quantidade',String(c.qtd??1)+' lâmpada(s)'],['Prioridade',c.prioridade],
+      ['Área',c.area],['Origem do chamado',c.origem],
+      ['Empresa responsável',c.empresa],['Aberto por',c.aberto_por_nome],
+      ['Nome do reclamante',c.solicitante],['Telefone do reclamante',c.tel],
+      ['Data e hora da abertura',dataHora(c.created_at)],
+      ['Data e hora da conclusão',c.completed_at?dataHora(c.completed_at):'Pendente'],
+      ['Última atualização',dataHora(c.updated_at)],
+      ['Prazo registrado (SLA)',prazo],['Situação do SLA',situacao],
+      ['Latitude',coord(c.lat)],['Longitude',coord(c.lng)],
+      ['Origem do GPS',c.loc_src]
     ];
-    return '<article class="imp-card">'+
+    if(c.garantia_tipo||c.garantia_obs||c.garantia_dt){
+      campos.push(['Garantia LED - tipo',c.garantia_tipo],
+        ['Garantia LED - observação',c.garantia_obs],
+        ['Garantia LED - data',c.garantia_dt?dataHora(c.garantia_dt):null]);
+    }
+    return '<article class="imp-card imp-densidade-'+estado.porFolha+'">'+
       '<div class="imp-card-head"><div><strong>'+esc(c.protocolo)+'</strong>'+
-      '<div class="imp-date">'+esc(dtBR(c.created_at||c.data))+'</div></div>'+
+      '<div class="imp-date">'+esc(dataHora(c.created_at))+'</div></div>'+
       '<span class="imp-status" style="color:'+cor+';background:'+fundo+'">'+esc(c.status||'—')+'</span></div>'+
       '<div class="imp-fields">'+campos.map(([nome,valor])=>
-        '<div><small>'+esc(nome)+'</small><div>'+esc(valor||'—')+'</div></div>').join('')+'</div>'+
-      '<div class="imp-obs"><small>Observações do chamado</small><div>'+esc(c.obs||'—')+'</div></div>'+
+        '<div><small>'+esc(nome)+'</small><div>'+esc(preenchido(valor))+'</div></div>').join('')+'</div>'+
+      '<div class="imp-obs"><small>Observações do chamado</small><div>'+esc(preenchido(c.obs))+'</div></div>'+
       '<div class="imp-sign"><div>Executor: ____________________</div>'+
       '<div>Data: ____/____/______</div></div></article>';
   }
@@ -4089,7 +4119,7 @@ function vImpressao(b,t,a){
     const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">'+
       '<title>Chamados — Aponte Iluminação</title><style>'+
       '@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;margin:0;background:#eef2f7}'+
-      '.sheet{background:#fff;width:186mm;height:267mm;margin:12px auto;padding:0;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid}'+
+      '.sheet{background:#fff;width:186mm;min-height:267mm;height:auto;margin:12px auto;padding:0;display:flex;flex-direction:column;overflow:visible}'+
       '.sheet:not(:last-of-type){break-after:page;page-break-after:always}'+
       '.print-header{display:flex;justify-content:space-between;border-bottom:2px solid #1251A3;padding-bottom:8px;margin-bottom:8px}'+
       '.print-header h1{font-size:18px;margin:0;color:#1251A3}'+
@@ -4102,7 +4132,12 @@ function vImpressao(b,t,a){
       '.imp-card-head strong{font-family:monospace;color:#1251A3}'+
       '.imp-date{font-size:9px;color:#64748b;margin-top:2px}'+
       '.imp-status{padding:3px 8px;border-radius:12px;font-weight:bold;font-size:9px}'+
-      '.imp-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;font-size:11px}'+
+      '.imp-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 10px;font-size:9px;line-height:1.2}'+
+      '.imp-fields>div{min-width:0;overflow-wrap:anywhere}'+
+      '.imp-card.imp-densidade-1 .imp-fields{grid-template-columns:repeat(2,minmax(0,1fr));font-size:11px;gap:9px 14px}'+
+      '.imp-card.imp-densidade-3{padding:7px}'+
+      '.imp-card.imp-densidade-3 .imp-fields{font-size:8px;gap:4px 9px}'+
+      '.imp-card.imp-densidade-3 .imp-obs{font-size:8px;padding:5px 0;margin-top:5px}'+
       '.imp-fields small{display:block;font-weight:bold;text-transform:uppercase;font-size:8px;color:#64748b;margin-bottom:2px}'+
       '.imp-obs{margin-top:8px;padding:7px 0;border-top:1px solid #e2e8f0;'+
       'font-size:10px;white-space:pre-wrap;overflow-wrap:anywhere}'+
@@ -4111,7 +4146,7 @@ function vImpressao(b,t,a){
       'footer{margin-top:9px;padding-top:5px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8px;color:#64748b}'+
       '.toolbar{text-align:center;padding:14px;position:sticky;top:0;background:#e2e8f0}'+
       '.toolbar button{cursor:pointer;background:#1251A3;border:0;color:#fff;padding:10px 18px;border-radius:6px}'+
-      '@media print{body{background:#fff}.toolbar{display:none}.sheet{width:auto;height:267mm;margin:0;box-shadow:none}'+
+      '@media print{body{background:#fff}.toolbar{display:none}.sheet{width:auto;height:auto;min-height:267mm;margin:0;box-shadow:none;overflow:visible}'+
       '.sheet:not(:last-of-type){break-after:page;page-break-after:always}}'+
       '</style></head><body>'+
       '<div class="toolbar"><button type="button" onclick="window.print()">🖨 Imprimir / Salvar como PDF</button></div>'+
@@ -4139,7 +4174,10 @@ function vImpressao(b,t,a){
     '.imp-card-head{display:flex;justify-content:space-between;margin-bottom:10px;border-bottom:1px solid #e2e8f0;padding-bottom:7px}'+
     '.imp-card-head strong{font-size:11px;color:#1251A3;font-family:monospace}'+
     '.imp-date{font-size:9px;color:#64748b}.imp-status{font-size:10px;border-radius:12px;padding:3px 8px;font-weight:bold}'+
-    '.imp-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px}'+
+    '.imp-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px 10px;font-size:10px}'+
+    '.imp-fields>div{min-width:0;overflow-wrap:anywhere}'+
+    '.imp-card.imp-densidade-1 .imp-fields{grid-template-columns:repeat(2,minmax(0,1fr));font-size:11px}'+
+    '.imp-card.imp-densidade-3 .imp-fields{font-size:9px;gap:5px 9px}'+
     '.imp-fields small{display:block;color:#64748b;font-size:9px;font-weight:bold;text-transform:uppercase}'+
     '.imp-obs{margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;'+
     'font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}'+
