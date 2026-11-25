@@ -3940,10 +3940,11 @@ function vImpressao(b,t,a){
       ['Latitude',coord(c.lat)],['Longitude',coord(c.lng)],
       ['Origem do GPS',c.loc_src]
     ];
-    if(c.garantia_tipo||c.garantia_obs||c.garantia_dt){
+    if(c.garantia_tipo||c.garantia_obs||c.garantia_dt||c.garantia_user){
       campos.push(['Garantia LED - tipo',c.garantia_tipo],
         ['Garantia LED - observação',c.garantia_obs],
-        ['Garantia LED - data',c.garantia_dt?dataHora(c.garantia_dt):null]);
+        ['Garantia LED - data',c.garantia_dt?dataHora(c.garantia_dt):null],
+        ['Garantia LED - responsável',c.garantia_user]);
     }
     return '<article class="imp-card imp-densidade-'+estado.porFolha+'">'+
       '<div class="imp-card-head"><div><strong>'+esc(c.protocolo)+'</strong>'+
@@ -4111,7 +4112,7 @@ function vImpressao(b,t,a){
       '<div>Total de chamados: '+lista.length+'</div></div></div>'+
       '<div class="print-filters">Cidade: '+cidade+' · Status: '+status+
       ' · Início: '+ini+' · Fim: '+fim+'</div>'+
-      '<div class="print-cards" style="grid-template-rows:repeat('+estado.porFolha+',minmax(0,1fr))">'+
+      '<div class="print-cards" style="grid-template-rows:repeat('+estado.porFolha+',auto)">'+
       grupo.map(cardHTML).join('')+'</div>'+
       '<footer>Aponte Iluminação — '+esc(data)+'<span>Folha '+(indice+1)+' de '+paginas.length+'</span></footer>'+
       '</section>').join('');
