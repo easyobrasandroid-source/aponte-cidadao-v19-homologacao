@@ -800,7 +800,12 @@ const V19_WRITABLE_RPCS = new Set([
  'v19_assumir_chamado','v19_atualizar_status_chamado',
  'v19_concluir_garantia','v19_encaminhar_garantia_led','v19_gerenciar_garantia_master','v19_listar_disponiveis', 
 'v19_designar_empresa_chamado',
-  'v19_salvar_sla_padrao','v19_criar_chamado_interno',
+  'v19_salvar_sla_padrao',
+  // Etapa 809/810: controles de SLA exclusivos de Master e gestor do proprio consorcio.
+  // Operacoes executadas somente por RPC com validacao de perfil e auditoria no Supabase.
+  'v19_salvar_sla_especiais','v19_classificar_sla_chamado',
+  'v19_recalcular_sla_abertos',
+  'v19_criar_chamado_interno',
  'v19_criar_chamado_interno_com_solicitante',
  // Os 5 caminhos legados de estoque permanecem BLOQUEADOS (etapa 570).
  'v19_registrar_foto','v19_salvar_config_portal',
