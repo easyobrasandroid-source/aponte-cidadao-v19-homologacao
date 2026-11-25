@@ -201,6 +201,8 @@
       ...(paraExcel?{'ID da empresa':c.empresa_id||'','ID do consórcio':c.consorcio_id||''}:{}),
       'Data abertura':paraExcel?dataExcel(c.created_at):fmtData(c.created_at),
       'Data conclusão':paraExcel?dataExcel(c.completed_at):fmtData(c.completed_at),
+      'Nome do reclamante':String(c.solicitante??'').trim()||'Não informado',
+      'Telefone do reclamante':String(c.tel??'').trim()||'Não informado',
       'Área':c.area,'Origem':c.origem,'Prazo registrado (dias corridos)':dias(c._slaHoras),
       'Situação SLA (dias corridos)':statusSLA(c).estado,
       'Observações do chamado':c.obs||''
@@ -227,6 +229,7 @@
         'Status':19,'Empresa':35,'Atendimento da empresa':28,
         'ID da empresa':40,'ID do consórcio':40,
         'Data abertura':23,'Data conclusão':23,
+        'Nome do reclamante':34,'Telefone do reclamante':23,
         'Aberto em':23,'Concluído em':23,'Área':12,'Origem':18,
         'Prazo registrado (dias corridos)':36,
         'Situação SLA (dias corridos)':37,
@@ -340,6 +343,8 @@
             campo('Endereço',c.endereco)+campo('Número',window.v19NumeroEndereco?.(c.endereco)||'—')+
              campo('Tipo de chamado',c.tipo)+
             campo('Empresa responsável',c.empresa)+
+            campo('Nome do reclamante',String(c.solicitante??'').trim()||'Não informado')+
+            campo('Telefone do reclamante',String(c.tel??'').trim()||'Não informado')+
             campo('Atendimento da empresa',situacaoAtendimento(c))+campo('Área',c.area)+
             campo('Origem',c.origem)+campo('Prazo (dias corridos)',dias(c._slaHoras))+
             campo('Data de abertura',fmtData(c.created_at))+

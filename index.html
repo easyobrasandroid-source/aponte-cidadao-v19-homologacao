@@ -3814,7 +3814,7 @@ function vRelatorios(b,t,a){
     <div class="card" style="border-top:3px solid var(--brand)">
       <div style="font-size:24px;margin-bottom:8px">📊</div>
       <div style="font-size:14px;font-weight:800;margin-bottom:3px">Relatório de chamados</div>
-      <div style="font-size:11px;color:var(--gray-500);margin-bottom:12px">Protocolo, cidade, tipo, status, empresa, datas, SLA, origem e observações</div>
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:12px">Protocolo, cidade, tipo, status, empresa, reclamante (quando informado), datas, SLA, origem e observações</div>
       <div style="display:flex;gap:7px">
         <button id="btn-pdf-chamados" class="btn btn-ghost" style="font-size:12px;flex:1;justify-content:center" onclick="
           if(!_exportChamados||!_exportChamados.length){showToast('⚠ Clique em Buscar primeiro ou nenhum chamado encontrado.','aviso');return;}
@@ -5989,7 +5989,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer onload="v19InitTurnstile()" onerror="console.warn('[Portal] Turnstile não carregou')"></script>
 <script src="./v19.js" defer></script>
 <script src="./v19-fotos.js?v=663-historico-unico" defer></script>
-<script src="./v19-relatorios.js?v=814-observacoes" defer></script>
+<script src="./v19-relatorios.js?v=815-reclamante" defer></script>
 <script src="./v19-config.js?v=813-sla-ate2-acesas" defer></script>
 <script src="./v19-tipos.js" defer></script>
 <script src="./v19-assumir.js" defer></script>
