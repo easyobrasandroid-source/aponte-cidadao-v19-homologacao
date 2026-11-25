@@ -1415,6 +1415,19 @@ function atualizarBadgeChamados(){
   badge.title='Chamados recebidos aguardando início do atendimento (não indica leitura)';
   badge.setAttribute('aria-label',qtd+' chamados recebidos aguardando atendimento');
 }
+// ETAPA 812: Estoque de Garantia - Master, Garantia ou gestores consorcio autorizados.
+// Identificacao pelo UUID do cadastro, nao por nome/email editavel pelo usuario.
+function v19PodeAcessarEstoqueGarantia(u=CU){
+  if(!u)return false;
+  if(u.perfil==='master'||u.perfil==='garantia')return true;
+  return u.perfil==='consorcio' && (
+    (u.id==='3425ea1a-e9cc-4709-a225-561b4de4bdd8' &&
+     u.consorcio_id==='8fb9ffc2-9b36-43d2-8809-c6f26a943db3') ||
+    (u.id==='01b267a0-f0c2-471f-a171-3c50fcb59111' &&
+     u.consorcio_id==='73cc692f-d184-488c-b289-b73f774a303d')
+  );
+}
+window.v19PodeAcessarEstoqueGarantia=v19PodeAcessarEstoqueGarantia;
 function setupUI(u){
   document.getElementById('sb-av').textContent=u.av;document.getElementById('sb-av').style.background=u.cor;
   document.getElementById('sb-name').textContent=u.nome;
@@ -1432,11 +1445,14 @@ function setupUI(u){
     ['master','consorcio'].includes(u.perfil)?'flex':'none';
   document.getElementById('sb-tipos').style.display=u.perfil==='master'?'flex':'none';
   document.getElementById('sb-estoque-garantia').style.display=
-    ['master','consorcio','garantia'].includes(u.perfil)?'flex':'none';
+    v19PodeAcessarEstoqueGarantia(u)?'flex':'none';
 }
 
 // ═══ VIEWS ═══
 function showView(view,el){
+  if(view==='estoqueGarantia'&&!v19PodeAcessarEstoqueGarantia()){
+    showToast('Este usuário não tem acesso ao Estoque de Garantia.','erro');return;
+  }
   document.querySelectorAll('.sbi').forEach(s=>s.classList.remove('on'));
   if(el)el.classList.add('on');
   // Limpar filtros de navegação ao usar o menu lateral manualmente
@@ -2559,7 +2575,7 @@ function abrirModalConcluir(){
   if(alvo)alvo.textContent='Protocolo: '+CC.protocolo+' | Status atual: '+CC.status;
   document.getElementById('modalConcluir').classList.add('open');
   if(window.v19GarantiaPrepararConclusao && v19GarantiaLED(CC) &&
-      ['master','consorcio','garantia'].includes(CU?.perfil))
+      v19PodeAcessarEstoqueGarantia())
     window.v19GarantiaPrepararConclusao(CC);
 }
 function closeModalConcluir(){
@@ -2581,6 +2597,7 @@ function abrirModalGarantia(){
   document.getElementById('garantia-obs').value='';
   document.getElementById('modalGarantia').classList.add('open');
   if(window.v19GarantiaPrepararEncaminhamento &&
+     v19PodeAcessarEstoqueGarantia() &&
      ['master','consorcio'].includes(CU?.perfil))
     window.v19GarantiaPrepararEncaminhamento(CC);
 }
@@ -2617,7 +2634,8 @@ async function confirmarGarantia(){
     showToast('Versão do chamado ausente. Reabra o chamado antes de encaminhar.','erro');
     return;
   }
-  const usarPlanejamento=['master','consorcio'].includes(CU?.perfil);
+  const usarPlanejamento=v19PodeAcessarEstoqueGarantia()&&
+    ['master','consorcio'].includes(CU?.perfil);
   let itensPrevistos=[];
   if(usarPlanejamento){
     try{itensPrevistos=window.v19GarantiaItensEncaminhamento();}
@@ -2703,7 +2721,7 @@ async function confirmarConclusao(){
   }
   if(v19StatusBusy)return;
   const garantia=v19GarantiaLED(c);
-  const podeConsumo=garantia&&['master','consorcio','garantia'].includes(CU?.perfil);
+  const podeConsumo=garantia&&v19PodeAcessarEstoqueGarantia();
   let itensConsumo=[];
   if(podeConsumo){
     try{itensConsumo=window.v19GarantiaItensConclusao();}
@@ -5966,9 +5984,9 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <!-- Etapa 550: painel de consulta empresarial. Escritas ainda bloqueadas. -->
 <script src="./v19-estoque-empresas.js?v=66122-idempotencia" defer></script>
 <!-- Estoque de garantia independente: tabelas proprias e RPC exclusiva. -->
-<script src="./v19-estoque-garantia.js?v=790g" defer></script>
+<script src="./v19-estoque-garantia.js?v=812-acesso" defer></script>
 <!-- Garantia: previsão e baixa em chamado; relatório exclusivo por protocolo. -->
-<script src="./v19-garantia-chamados.js?v=790g5" defer></script>
+<script src="./v19-garantia-chamados.js?v=812-acesso" defer></script>
 <script src="./v19-portal-identidade.js?v=793" defer></script>
 <!-- Etapa 561: cadastro de material EXCLUSIVO pela propria empresa. -->
 <script src="./v19-estoque-cadastro.js" defer></script>
